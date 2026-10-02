@@ -1,0 +1,19 @@
+# Generated data — NOT committed. Everything the pipeline produces lives under
+# work/ (or $SMART_ABLE_WORK): the database copy, CSV/Parquet dumps, browser
+# data, and decrypted attachments. It contains real conservation data (ranger
+# names, patrol GPS, photos). Regenerate with ./smart-able all <backup>.
+/work/
+
+# Local credentials (SMART's fixed embedded-DB credentials) — see .env.example
+.env
+
+# Python virtualenv (machine-specific; recreate with ./smart-able setup)
+.venv/
+__pycache__/
+*.pyc
+
+# Derby engine log
+derby.log
+
+# OS
+.DS_Store

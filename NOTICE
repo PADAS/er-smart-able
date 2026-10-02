@@ -1,0 +1,15 @@
+smart-able
+Copyright 2026 EarthRanger
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product bundles Apache Derby 10.17.1.0 (lib/derby/), unmodified, which is
+licensed under the Apache License, Version 2.0:
+
+  Apache Derby
+  Copyright 2004-2023 The Apache Software Foundation
+
+  This product includes software developed by
+  The Apache Software Foundation (http://www.apache.org/).
+
+The full Apache Derby NOTICE is included in each jar at META-INF/NOTICE.
