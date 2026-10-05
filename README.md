@@ -22,7 +22,9 @@ The name reads as "SMART EBEL": the four stages.
 Works with backups from SMART Desktop 7.5.x and 8.0–8.1.x
 ([details](RUNBOOK.md#supported-smart-versions)). You need Java 19+ (21
 recommended), the DuckDB CLI, Python 3.9+, and OpenSSL (details in the
-[runbook](RUNBOOK.md#1-prerequisites)). Then:
+[runbook](RUNBOOK.md#1-prerequisites)). New to Java? Install it with
+[SDKMAN](https://sdkman.io/) ([steps](RUNBOOK.md#installing-java-with-sdkman)).
+Then:
 
 ```sh
 ./smart-able setup                                  # check tools, create .venv and .env

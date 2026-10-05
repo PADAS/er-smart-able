@@ -13,7 +13,7 @@ For the SMART tables themselves, see
 
 | Tool | Version | Used for | Install (macOS / Debian-Ubuntu) |
 | --- | --- | --- | --- |
-| Java JDK | 19 or newer (21 recommended) | reading the Derby database | `brew install openjdk@21` / `apt install openjdk-21-jdk` |
+| Java JDK | 19 or newer (21 recommended) | reading the Derby database | [SDKMAN](#installing-java-with-sdkman) (recommended), or `brew install openjdk@21` / `apt install openjdk-21-jdk` |
 | DuckDB CLI | 1.x | CSV → Parquet, building browser data | `brew install duckdb` / [duckdb.org/docs/installation](https://duckdb.org/docs/installation/) |
 | Python | 3.9 or newer | timezone inference, local web server | `brew install python` / `apt install python3 python3-venv` |
 | OpenSSL | any | decrypting attachments | preinstalled on macOS / `apt install openssl` |
@@ -21,6 +21,26 @@ For the SMART tables themselves, see
 
 smart-able is a bash script, so it runs on macOS and Linux. On Windows, run it
 inside WSL.
+
+### Installing Java with SDKMAN
+
+If you haven't set up Java before, [SDKMAN](https://sdkman.io/) is the easiest
+way. It installs JDKs into your home folder (no admin rights needed), lets you
+keep several versions side by side, and works the same on macOS, Linux, and
+WSL.
+
+```sh
+curl -s "https://get.sdkman.io" | bash        # install SDKMAN
+source "$HOME/.sdkman/bin/sdkman-init.sh"     # or open a new terminal
+sdk list java                                 # find the newest 21.x "Temurin" line
+sdk install java 21.0.12+1.1-tem              # use the identifier from the list
+java -version                                 # should report version 21
+```
+
+Pick Java 21 explicitly: a bare `sdk install java` installs SDKMAN's current
+default, which may be a newer Java that smart-able hasn't been tested with.
+If you already have other Java versions, `sdk default java <identifier>` makes
+21 the one your terminals use.
 
 The SMART-specific dependency, Apache Derby, is bundled in `lib/derby/`
 (version 10.17.1.0). That is the version SMART 8 uses, and it also reads the
@@ -176,7 +196,7 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
 | `SMART_DB_USER / SMART_DB_PASSWORD not set` | `.env` missing or empty | Fill in `.env` (see `.env.example`). |
 | `Connection authentication failure occurred. Reason: Invalid authentication` | Wrong credentials | Check the values in `.env`. |
 | Derby error mentioning `XSLAN` or "incompatible format" | The database was written by a Derby newer than the bundled 10.17 (a SMART release after 8.1) | Replace the three jars in `lib/derby/` with that Derby version (`derby`, `derbyshared`, `derbytools` from Maven Central, group `org.apache.derby`) and use a JDK it supports. |
-| `Java N found; Java 19 or newer is required` | Old JDK | Install JDK 21 (see [Prerequisites](#1-prerequisites)). |
+| `Java N found; Java 19 or newer is required` | Old JDK | Install JDK 21, e.g. with [SDKMAN](#installing-java-with-sdkman). |
 | `no SMART Derby database ... under: <path>` | The path doesn't contain a database | Point at the install folder, `data/`, `smartdb/`, or the `.zip`. |
 | Any other Java/Derby exception during the dump | Varies | Read `work/derby.log`. If SMART was open while you copied the backup, close it and run `extract` again. |
 | `FAILED: <file>` lines while decrypting | A truncated or corrupt attachment | Isolated failures are safe to ignore; many failures mean the wrong filestore. |
