@@ -77,6 +77,13 @@ h2 { font-family: var(--head); font-size: 15px; font-weight: 700; margin: 22px 0
 h2:first-child { margin-top: 0; }
 .muted { color: var(--ink-2); }
 .notice { background: var(--accent); color: var(--accent-ink); padding: 8px 16px; font-size: 13px; }
+.help p, .help li { font-size: 13.5px; line-height: 1.55; }
+.help h2 { margin-top: 18px; }
+.help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13.5px; margin: 10px 0; }
+.help dt { color: var(--ink-3); } .help dd { margin: 0; }
+.help a { color: var(--brand); }
+.panel .hdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel .hdr h2 { margin: 0; flex: 1; }
 .notice code { background: rgba(255,255,255,0.25); color: inherit; }
 .tiny { font-size: 12px; color: var(--ink-3); }
 .mono { font-family: var(--mono); font-size: 12px; }
@@ -233,6 +240,52 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
     <select id="caSel" aria-label="Conservation area filter"></select>
   </header>
   <div id="notice" class="notice" hidden></div>
+  <template id="help-flow">
+    <div class="help">
+      <h3>Reading the flow diagram</h3>
+      <p>Every entity in the selected conservation area is one thin strand running left to right. The columns
+        are the stages of the site's workflow, read from the data: the entity's <b>type</b>, then each list
+        attribute that all types share (for Lawin sites: Status, Main response, Priority, …), then the source of
+        the entity's most recent <b>record</b>. The strands never split or merge, so every column adds up to the
+        same total.</p>
+      <p>A grey bar in a column is one value; its height is the number of entities with that value, printed
+        beside it. A ribbon between two columns is the set of entities going from one value to the next, so its
+        height is a count too. Ribbons keep the colour of their entity type all the way across, which is what lets
+        a type be followed through the workflow.</p>
+      <h2>How to interact</h2>
+      <ul>
+        <li><b>Hover</b> a bar or a ribbon for its full value and count. A ribbon's tooltip also names the type it carries.</li>
+        <li><b>Click a bar</b> to follow just those entities across the diagram and to filter the type tree and the entity
+          table below to them. Click the same bar again, or <b>Clear</b>, to release it.</li>
+        <li><b>Search</b> and the diagram redraws for the matching entities only.</li>
+        <li><b>Change the conservation area</b> in the header and the stages recompute, since each area configures its own attributes.</li>
+      </ul>
+      <h2>Reading tips</h2>
+      <ul>
+        <li>"(not set)" is a real value: entities for which the site never filled in that attribute. A large "(not set)" bar is itself a finding.</li>
+        <li>"No record" in the last column means no response action has been documented against the entity, whatever its status says.</li>
+        <li>The column order follows the order the site defined the attributes in SMART, which is why Priority can come after the response columns.</li>
+        <li>An entity with several records is counted once, under the source of its latest record.</li>
+      </ul>
+      <h2>What this kind of diagram is called</h2>
+      <p>It is a <b>Sankey diagram</b>, and more precisely an <b>alluvial diagram</b>, the Sankey variant used for
+        categorical data. A Sankey diagram shows flows between nodes with the width of each link proportional to
+        the quantity flowing through it. The name comes from Matthew Henry Phineas Riall Sankey, an Irish engineer
+        who used one in 1898 to show where the energy of a steam engine went. The most famous example predates him:
+        Charles Joseph Minard's 1869 map of Napoleon's 1812 campaign in Russia, where the band's width is the size
+        of the army, shrinking across the map and back.</p>
+      <p>The alluvial form is what this page draws. The columns are categorical dimensions rather than physical
+        stages, every strand is the same kind of thing throughout (here, an entity), and the interest is in how the
+        groupings in one column redistribute into the next. Energy or money Sankeys split and merge quantities; an
+        alluvial diagram keeps the total constant in every column. The closely related <b>parallel sets</b>
+        diagram draws the same idea with straight-edged bands.</p>
+      <dl>
+        <dt>Sankey diagram</dt><dd><a href="https://en.wikipedia.org/wiki/Sankey_diagram" target="_blank" rel="noopener">Wikipedia</a></dd>
+        <dt>Minard's map</dt><dd><a href="https://en.wikipedia.org/wiki/Charles_Joseph_Minard" target="_blank" rel="noopener">Wikipedia</a></dd>
+        <dt>Alluvial diagram</dt><dd><a href="https://en.wikipedia.org/wiki/Alluvial_diagram" target="_blank" rel="noopener">Wikipedia</a></dd>
+      </dl>
+    </div>
+  </template>
   <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
 </div>
 <div id="tip" hidden></div>
@@ -1302,7 +1355,12 @@ function rProfiles(v) {
   // the Profile(s) these entities belong to, named as SMART's menu shows them
   const profs = [...new Map(ents0.map(e => D.profBy.get(e.pr)).filter(Boolean).map(p => [p.menu, p])).values()];
   const flowP = el('div', 'panel'); v.appendChild(flowP);
-  flowP.appendChild(el('h2', null, profs.length ? profs.map(p => esc(p.menu)).join(' · ') : 'Profile'));
+  const hdr = el('div', 'hdr'); flowP.appendChild(hdr);
+  hdr.appendChild(el('h2', null, profs.length ? profs.map(p => esc(p.menu)).join(' · ') : 'Profile'));
+  const helpB = el('button', 'ghost'); helpB.style.marginTop = '0';
+  helpB.innerHTML = '<span class="mi" aria-hidden="true">help</span>How to read this';
+  helpB.onclick = () => helpDrawer('flow');
+  hdr.appendChild(helpB);
   const nTypes = new Set(ents0.map(e => keyOf(e))).size;
   flowP.insertAdjacentHTML('beforeend', '<p class="tiny">' + (profs.length === 1 ? 'SMART Profile "' + esc(profs[0].l) + '"' : fmt(profs.length) + ' SMART Profiles') +
     ' · ' + fmt(nTypes) + ' entity types · ' + fmt(ents0.length) + ' entities. Each ribbon is a set of entities of one type (its colour) flowing from one value to the next; ' +
@@ -1615,6 +1673,12 @@ function openDrawer() {
   return d;
 }
 function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; }
+// help text from a <template id="help-…"> shown in the drawer
+function helpDrawer(id) {
+  const t = $('#help-' + id); if (!t) return;
+  const d = openDrawer();
+  d.appendChild(t.content.cloneNode(true));
+}
 // "Back to …" button at the top of a drawer opened from another drawer;
 // reopen() rebuilds the previous one, which is then restored to its scroll position
 function backButton(d, label, reopen, scroll) {
