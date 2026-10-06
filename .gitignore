@@ -7,6 +7,9 @@
 # Local credentials (SMART's fixed embedded-DB credentials) — see .env.example
 .env
 
+# The web service's local backend (BACKEND=local): uploads and extracted sites
+/web-data/
+
 # Python virtualenv (machine-specific; recreate with ./smart-able setup / uv sync)
 .venv/
 __pycache__/

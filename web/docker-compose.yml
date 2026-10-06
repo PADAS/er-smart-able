@@ -1,0 +1,18 @@
+# Local run of the service with the local backend (files under ./web-data,
+# extraction as a subprocess). No Firebase, no GCS: AUTH_DISABLED trusts the
+# X-Dev-User header / dev_user cookie. Build context is the repository root.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile.job   # has the toolchain, so local extraction works too
+    command: sh -c "cd web && uvicorn app:app --host 0.0.0.0 --port 8080"
+    ports: ["8080:8080"]
+    environment:
+      - BACKEND=local
+      - LOCAL_DIR=/data
+      - AUTH_DISABLED=true
+      - SMART_DB_USER=${SMART_DB_USER}
+      - SMART_DB_PASSWORD=${SMART_DB_PASSWORD}
+    volumes:
+      - ../web-data:/data

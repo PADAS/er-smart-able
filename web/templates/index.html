@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>smart-able</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <header>
+    <div class="brand"><h1>smart-able</h1><span class="tiny" id="version">{{ version }}</span></div>
+    <div id="who" class="who" hidden><span id="whoEmail"></span><button class="ghost" id="signOut">Sign out</button></div>
+  </header>
+
+  <main class="wrap">
+    <section id="signIn" class="panel center" hidden>
+      <h2>Sign in</h2>
+      <p class="muted">smart-able opens SMART conservation-area backups. Sign in with your <span id="allowedHint">@earthranger.com</span> Google account.</p>
+      <button id="signInBtn" class="primary"><span class="mi" aria-hidden="true">login</span>Sign in with Google</button>
+      <p class="tiny" id="signInError"></p>
+    </section>
+
+    <section id="appUI" hidden>
+      <div class="panel">
+        <h2>Upload a backup or export</h2>
+        <p class="muted">A SMART system backup zip, a zipped SMART Desktop install folder, or a Conservation Area export (File → Export Conservation Area). The dataset is yours; share it afterwards with colleagues.</p>
+        <form id="uploadForm" class="row">
+          <input type="text" id="dsName" placeholder="Dataset name (e.g. Region 5 – Camarines Norte, Oct 2026)" required>
+          <input type="file" id="dsFile" accept=".zip,.bak" required>
+          <button type="submit" class="primary" id="uploadBtn"><span class="mi" aria-hidden="true">upload</span>Upload and extract</button>
+        </form>
+        <div id="progress" hidden><div class="bar"><div id="progressFill"></div></div><span class="tiny" id="progressText"></span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Datasets</h2>
+        <p class="muted tiny">What you own and what has been shared with you. Extraction takes a few minutes; the list refreshes itself while a job runs.</p>
+        <div id="list"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="dialog">
+      <h3 id="modalTitle">Share</h3>
+      <div id="modalBody"></div>
+      <div class="row right"><button class="ghost" id="modalClose">Close</button></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

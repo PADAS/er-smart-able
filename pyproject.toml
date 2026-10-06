@@ -10,6 +10,19 @@ dependencies = [
     "timezonefinder>=6",
 ]
 
+[project.optional-dependencies]
+# the web service and extraction job (web/): uv sync --extra web
+web = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "jinja2>=3.1",
+    "firebase-admin>=6.6",
+    "google-cloud-firestore>=2.20",
+    "google-cloud-storage>=2.19",
+    "google-cloud-run>=0.10",
+]
+
 [tool.uv]
 # Not a Python package: the Python here is a helper script run by ./smart-able.
 # uv manages only the virtual environment and its dependencies.
