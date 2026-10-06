@@ -135,14 +135,35 @@ left join 'parquet/i18n_label.parquet' l
 
 ## Profiles (optional plugin)
 
-SMART Profiles (internally `i2`, tables `i_*`) exists only if the plugin was
-installed. It tracks persistent entities: people, vehicles, places, or case
-files for recurring threats, depending on how a site uses it.
+SMART Profiles (internally `i2`, the successor of the SMART Intelligence
+plugin; tables `i_*`, attachments under `intelligence2/`) exists only if the
+plugin was installed. Its vocabulary is easy to misread, so from the top:
+
+| Level | Table | What it is |
+| --- | --- | --- |
+| Plugin | — | SMART Profiles itself. |
+| **Profile** | `i_profile_config` | A configured tracker inside the plugin, not a dossier on one thing. It has a name (`i18n_label`), a colour, the main-menu label a SMART user sees (`i_config_option` with `keyid = 'mainmenu'`, per CA), its own entity types (`i_profile_entity_type`), its own record sources (`i_profile_record_source`), and per-employee permissions (`i_permission`). A CA can define several Profiles side by side. |
+| Entity type | `i_entity_type` | A category within a Profile, with its attributes (`i_entity_type_attribute` → `i_attribute`, grouped by `i_entity_type_attribute_group`) and the attribute that serves as display name (`id_attribute_uuid`). |
+| Entity | `i_entity` | One instance of a type; `profile_uuid` says which Profile it belongs to. |
+| Record | `i_record` | A dated event about one or more entities, typed by a record source. |
+| Relationship | `i_entity_relationship` | A typed link between two entities (`i_relationship_type`, which may span two Profiles). |
+
+What a Profile tracks is up to the site. The designed use is persistent
+subjects, people, vehicles, or places, linked by relationships. The
+Philippine Lawin sites instead define one Profile with the menu label
+"Threat/Response Tracking", whose entity types are the kinds of threat a
+patrol can find, whose entities are individual threat sightings, and whose
+record sources are kinds of response; they use no relationships. See
+[docs/decisions.md](decisions.md) for how that shaped the browser.
 
 - `i_entity` rows are typed by `i_entity_type`. An entity's display name is
   the value of its type's `id_attribute_uuid` attribute.
 - `i_entity_attribute_value (entity_uuid, attribute_uuid, string_value,
-  double_value, list_item_uuid, employee_uuid)` holds its attributes.
+  double_value, double_value2, list_item_uuid, employee_uuid)` holds its
+  attributes. `i_attribute.type` is `TEXT`, `NUMERIC`, `DATE`, `LIST`,
+  `POSITION` (x in `double_value`, y in `double_value2`), or an employee
+  reference. An entity can also carry points through `i_entity_location` →
+  `i_location (geometry WKB, datetime)`.
 - `i_record` rows are dated records (`title`, `primary_date`, `status`,
   `description`, `comment`, `source_uuid` → `i_recordsource`), linked to
   entities many-to-many through `i_entity_record`. `created_by` is an
