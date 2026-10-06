@@ -738,11 +738,7 @@ function wpDrawer(w, from) {
   const d = openDrawer();
   if (from && from.patrol) {
     const p = D.patrolBy.get(from.patrol);
-    const back = el('button', 'ghost');
-    back.style.marginTop = '0';
-    back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>Back to patrol ' + esc(p ? p.id : '');
-    back.onclick = async () => { await patrolDrawer(from.patrol); $('#drawer').scrollTop = from.scroll || 0; };
-    d.appendChild(back);
+    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), () => patrolDrawer(from.patrol), from.scroll);
   }
   d.insertAdjacentHTML('beforeend', '<h3>Waypoint</h3><div class="kv">' +
     '<div>Time</div><div class="mono">' + w.t + '</div>' +
@@ -1303,9 +1299,13 @@ function entText(e) {
   return e._s;
 }
 
-function entityDrawer(i) {
+function entityDrawer(i, from) {   // from: {record, scroll} when opened from a record drawer
   const e = D.profiles.entities[i];
   const d = openDrawer();
+  if (from && from.record) {
+    const r = D.recBy.get(from.record);
+    backButton(d, 'Back to record ' + esc(r ? r.title || '(untitled)' : ''), () => recordDrawer(from.record), from.scroll);
+  }
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(e.n) + '</h3><p class="tiny">' +
     esc((D.ptypeBy.get(e.ty) || {}).l || '') + ' · ' + esc((D.caById.get(e.ca) || {}).n || e.ca || '') +
     ' · created ' + (profileCreated(e) || '?') + '</p>');
@@ -1324,7 +1324,7 @@ function entityDrawer(i) {
       (r.status ? ' <span class="pill">' + esc(r.status) + '</span>' : '') + ' <span class="tiny num">' + (r.d || '') + '</span>' +
       (r.descr ? '<div class="tiny">' + esc(r.descr.length > 200 ? r.descr.slice(0, 200) + '…' : r.descr) + '</div>' : '');
     row.title = 'Open this record';
-    row.onclick = () => recordDrawer(r.u);
+    row.onclick = () => recordDrawer(r.u, { entity: i, scroll: d.scrollTop });
     d.appendChild(row);
   }
   if (!recs.length) d.insertAdjacentHTML('beforeend', '<p class="muted">No linked records.</p>');
@@ -1332,10 +1332,14 @@ function entityDrawer(i) {
 
 // A Profiles record: a dated event with its record-source attributes, text,
 // photos, and the entities it is linked to (many-to-many).
-function recordDrawer(u) {
+function recordDrawer(u, from) {   // from: {entity, scroll} when opened from an entity drawer
   const r = D.recBy.get(u);
   if (!r) return;
   const d = openDrawer();
+  if (from && from.entity != null) {
+    const e = D.profiles.entities[from.entity];
+    backButton(d, 'Back to ' + esc(e ? e.n : 'entity'), () => entityDrawer(from.entity), from.scroll);
+  }
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(r.title || '(untitled)') + '</h3><p class="tiny">' +
     [r.src, r.status, r.d, (D.caById.get(r.ca) || {}).n || r.ca].filter(Boolean).map(esc).join(' · ') + '</p>');
   const vals = (r.vals || []).filter(x => x[1] !== '');
@@ -1352,7 +1356,7 @@ function recordDrawer(u) {
     row.style.cssText = 'border-top:1px solid var(--line);padding:8px 0';
     row.innerHTML = '<b>' + esc(e.n) + '</b> <span class="pill">' + esc((D.ptypeBy.get(e.ty) || {}).l || '') + '</span>';
     row.title = 'Open this entity';
-    row.onclick = () => entityDrawer(i);
+    row.onclick = () => entityDrawer(i, { record: r.u, scroll: d.scrollTop });
     d.appendChild(row);
   }
   if (!ents.length) d.insertAdjacentHTML('beforeend', '<p class="muted">Not linked to any entity.</p>');
@@ -1409,6 +1413,15 @@ function openDrawer() {
   return d;
 }
 function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; }
+// "Back to …" button at the top of a drawer opened from another drawer;
+// reopen() rebuilds the previous one, which is then restored to its scroll position
+function backButton(d, label, reopen, scroll) {
+  const back = el('button', 'ghost');
+  back.style.marginTop = '0';
+  back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>' + label;
+  back.onclick = async () => { await reopen(); $('#drawer').scrollTop = scroll || 0; };
+  d.appendChild(back);
+}
 document.addEventListener('keydown', e => {
   if (modalState) {
     if (e.key === 'Escape') closeModal();
