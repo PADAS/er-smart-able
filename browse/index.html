@@ -118,7 +118,7 @@ input[type="search"] {
 .searchwrap input[type="search"] { max-width: none; padding-left: 33px; }
 .filterbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 14px; }
 .tfwrap { display: contents; } /* children join the filterbar's flex flow */
-.tfstrip { flex-basis: 100%; margin: 2px 0 0; }
+.tfstrip { flex-basis: 100%; order: 99; margin: 2px 0 0; } /* last row of the filter bar, whatever follows it in the DOM */
 .tfstrip svg { display: block; width: 100%; touch-action: none; user-select: none; }
 .filterbar input, .filterbar select {
   background: var(--surface); color: var(--ink); border: 1px solid var(--line);
@@ -645,11 +645,34 @@ function hideTip() { $('#tip').hidden = true; }
 
 /* ---------------- Patrols ---------------- */
 let patrolQuery = '', patrolShown = 60;
+// A patrol passes the time filter when its span of days overlaps the window
+// (range mode) or the around-time interval; a multi-day patrol counts on every day.
+function patrolTimeOk(p) {
+  if (tfMode === 'range') {
+    if (tfFrom && p.ed < tfFrom) return false;
+    if (tfTo && p.sd > tfTo) return false;
+    return true;
+  }
+  if (tfMode === 'around') {
+    if (!tfCenter) return true;
+    const c = centerEpoch(); if (isNaN(c)) return false;
+    const tz = tzFor(p.ca), d = tfDelta * ({ m: 60e3, h: 3600e3, d: 86400e3 }[tfUnit]);
+    const s = wallToEpoch(p.sd + ' 00:00:00', tz), e = wallToEpoch(p.ed + ' 23:59:59', tz);
+    return !(isNaN(s) || isNaN(e)) && s <= c + d && e >= c - d;
+  }
+  return true;
+}
 function rPatrols(v) {
   const box = el('div');
+  const bar = el('div', 'panel filterbar'); box.appendChild(bar);
   const { wrap: searchWrap, inp } = searchField('patrolSearch', 'Search id, team, member, mandate…', patrolQuery);
   inp.oninput = () => { patrolQuery = inp.value.toLowerCase(); patrolShown = 60; drawRows(); };
-  box.appendChild(searchWrap);
+  bar.appendChild(searchWrap);
+  bar.appendChild(tfControls(() => { patrolShown = 60; drawRows(); }));
+  const clearB = el('button', 'ghost');
+  clearB.innerHTML = '<span class="mi" aria-hidden="true">close</span>Clear';
+  clearB.style.marginTop = '0'; bar.appendChild(clearB);
+  clearB.onclick = () => { patrolQuery = ''; tfMode = 'off'; tfFrom = tfTo = tfCenter = ''; patrolShown = 60; render(); };
   const wrap = el('div', 'tableWrap'); box.appendChild(wrap);
   const moreB = el('button', 'more', 'Show more'); box.appendChild(moreB);
   moreB.onclick = () => { patrolShown += 120; drawRows(); };
@@ -661,7 +684,7 @@ function rPatrols(v) {
     return hay.includes(patrolQuery);
   }
   function drawRows() {
-    const list = D.patrols.filter(p => caOk(p.ca) && matches(p));
+    const list = D.patrols.filter(p => caOk(p.ca) && matches(p) && patrolTimeOk(p));
     let h = '<table><thead><tr><th>Patrol</th><th>Dates</th><th>CA</th><th>Mandate</th><th>Team / members</th><th class="num">Waypoints</th></tr></thead><tbody>';
     for (const p of list.slice(0, patrolShown)) {
       const l0 = (p.legs || [])[0] || {};
@@ -674,7 +697,8 @@ function rPatrols(v) {
         '<td class="num">' + p.nwp + '</td></tr>';
     }
     h += '</tbody></table>';
-    wrap.innerHTML = '<p class="tiny">' + fmt(list.length) + ' patrols</p>' + h;
+    const all = D.patrols.filter(p => caOk(p.ca)).length;
+    wrap.innerHTML = '<p class="tiny">' + fmt(list.length) + (list.length !== all ? ' of ' + fmt(all) : '') + ' patrols</p>' + h;
     moreB.hidden = list.length <= patrolShown;
     wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => patrolDrawer(tr.dataset.p));
   }
