@@ -125,6 +125,9 @@ way it will look in the system it is moving to.
   observation values, time, geometry, and attachment encryption.
 - [docs/decisions.md](docs/decisions.md): design decisions and what would
   reopen them.
+- [docs/profiles-to-er-entities.md](docs/profiles-to-er-entities.md): can
+  Profiles data migrate into EarthRanger Entities? Findings from the Lawin
+  backups and open questions.
 
 ## License
 
