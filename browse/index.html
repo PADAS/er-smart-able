@@ -76,6 +76,15 @@ main { flex: 1; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-ins
 h2 { font-family: var(--head); font-size: 15px; font-weight: 700; margin: 22px 0 10px; }
 h2:first-child { margin-top: 0; }
 .muted { color: var(--ink-2); }
+.notice { background: var(--accent); color: var(--accent-ink); padding: 8px 16px; font-size: 13px; }
+.help p, .help li { font-size: 13.5px; line-height: 1.55; }
+.help h2 { margin-top: 18px; }
+.help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13.5px; margin: 10px 0; }
+.help dt { color: var(--ink-3); } .help dd { margin: 0; }
+.help a { color: var(--brand); }
+.panel .hdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.panel .hdr h2 { margin: 0; flex: 1; }
+.notice code { background: rgba(255,255,255,0.25); color: inherit; }
 .tiny { font-size: 12px; color: var(--ink-3); }
 .mono { font-family: var(--mono); font-size: 12px; }
 .num { font-variant-numeric: tabular-nums; }
@@ -109,6 +118,8 @@ input[type="search"] {
 .searchwrap input[type="search"] { max-width: none; padding-left: 33px; }
 .filterbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 14px; }
 .tfwrap { display: contents; } /* children join the filterbar's flex flow */
+.tfstrip { flex-basis: 100%; margin: 2px 0 0; }
+.tfstrip svg { display: block; width: 100%; touch-action: none; user-select: none; }
 .filterbar input, .filterbar select {
   background: var(--surface); color: var(--ink); border: 1px solid var(--line);
   border-radius: 8px; padding: 7px 9px; font: 13px var(--sans);
@@ -230,6 +241,53 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
     <nav id="tabs"></nav>
     <select id="caSel" aria-label="Conservation area filter"></select>
   </header>
+  <div id="notice" class="notice" hidden></div>
+  <template id="help-flow">
+    <div class="help">
+      <h3>Reading the flow diagram</h3>
+      <p>Every entity in the selected conservation area is one thin strand running left to right. The columns
+        are the stages of the site's workflow, read from the data: the entity's <b>type</b>, then each list
+        attribute that all types share (for Lawin sites: Status, Main response, Priority, …), then the source of
+        the entity's most recent <b>record</b>. The strands never split or merge, so every column adds up to the
+        same total.</p>
+      <p>A grey bar in a column is one value; its height is the number of entities with that value, printed
+        beside it. A ribbon between two columns is the set of entities going from one value to the next, so its
+        height is a count too. Ribbons keep the colour of their entity type all the way across, which is what lets
+        a type be followed through the workflow.</p>
+      <h2>How to interact</h2>
+      <ul>
+        <li><b>Hover</b> a bar or a ribbon for its full value and count. A ribbon's tooltip also names the type it carries.</li>
+        <li><b>Click a bar</b> to follow just those entities across the diagram and to filter the type tree and the entity
+          table below to them. Click the same bar again, or <b>Clear</b>, to release it.</li>
+        <li><b>Search</b> and the diagram redraws for the matching entities only.</li>
+        <li><b>Change the conservation area</b> in the header and the stages recompute, since each area configures its own attributes.</li>
+      </ul>
+      <h2>Reading tips</h2>
+      <ul>
+        <li>"(not set)" is a real value: entities for which the site never filled in that attribute. A large "(not set)" bar is itself a finding.</li>
+        <li>"No record" in the last column means no response action has been documented against the entity, whatever its status says.</li>
+        <li>The column order follows the order the site defined the attributes in SMART, which is why Priority can come after the response columns.</li>
+        <li>An entity with several records is counted once, under the source of its latest record.</li>
+      </ul>
+      <h2>What this kind of diagram is called</h2>
+      <p>It is a <b>Sankey diagram</b>, and more precisely an <b>alluvial diagram</b>, the Sankey variant used for
+        categorical data. A Sankey diagram shows flows between nodes with the width of each link proportional to
+        the quantity flowing through it. The name comes from Matthew Henry Phineas Riall Sankey, an Irish engineer
+        who used one in 1898 to show where the energy of a steam engine went. The most famous example predates him:
+        Charles Joseph Minard's 1869 map of Napoleon's 1812 campaign in Russia, where the band's width is the size
+        of the army, shrinking across the map and back.</p>
+      <p>The alluvial form is what this page draws. The columns are categorical dimensions rather than physical
+        stages, every strand is the same kind of thing throughout (here, an entity), and the interest is in how the
+        groupings in one column redistribute into the next. Energy or money Sankeys split and merge quantities; an
+        alluvial diagram keeps the total constant in every column. The closely related <b>parallel sets</b>
+        diagram draws the same idea with straight-edged bands.</p>
+      <dl>
+        <dt>Sankey diagram</dt><dd><a href="https://en.wikipedia.org/wiki/Sankey_diagram" target="_blank" rel="noopener">Wikipedia</a></dd>
+        <dt>Minard's map</dt><dd><a href="https://en.wikipedia.org/wiki/Charles_Joseph_Minard" target="_blank" rel="noopener">Wikipedia</a></dd>
+        <dt>Alluvial diagram</dt><dd><a href="https://en.wikipedia.org/wiki/Alluvial_diagram" target="_blank" rel="noopener">Wikipedia</a></dd>
+      </dl>
+    </div>
+  </template>
   <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
 </div>
 <div id="tip" hidden></div>
@@ -273,6 +331,7 @@ async function boot() {
     const [meta, cats, patrols, bounds, emps, atts] = await Promise.all(
       ['meta','categories','patrols','boundaries','employees','attachments'].map(getJSON));
     D.meta = meta[0]; D.cats = cats; D.patrols = patrols; D.bounds = bounds;
+    checkDataFormat();
     D.emps = emps; D.atts = atts;
     // optional: Profiles exists only when the backup has the i2 plugin's tables
     try { D.profiles = (await getJSON('profiles'))[0]; D.atts = D.atts.concat(await getJSON('profile_attachments')); }
@@ -295,6 +354,20 @@ async function boot() {
   }
 }
 
+// The JSON under site/data/ and this page must agree on shape. The SQL stamps
+// meta.json with data_format; data written before the stamp counts as 1.
+const DATA_FORMAT = 2;
+function checkDataFormat() {
+  const have = D.meta.data_format || 1;
+  if (have === DATA_FORMAT) return;
+  const n = $('#notice'); n.hidden = false;
+  n.innerHTML = have < DATA_FORMAT
+    ? 'The browser data on disk was built by an older smart-able than this page (data format ' + have + ', the page expects ' + DATA_FORMAT +
+      '), so some views may be missing or incomplete. Run <code>./smart-able browse</code> to rebuild it, then reload.'
+    : 'The browser data on disk was built by a newer smart-able than this page (data format ' + have + ', the page expects ' + DATA_FORMAT +
+      '). Update the repository, or rebuild the data with this version.';
+}
+
 function index() {
   D.catBy = new Map(D.cats.map(c => [c.u, c]));
   D.caBy = new Map(D.meta.cas.map(c => [c.u, c]));
@@ -309,6 +382,14 @@ function index() {
   }
   D.recBy = new Map(D.profiles.records.map(r => [r.u, r]));
   D.ptypeBy = new Map(D.profiles.types.map(t => [t.u, t]));
+  D.profBy = new Map((D.profiles.profiles || []).map(p => [p.u, p]));
+  // entities double as map points: t/ep feed the time filter (creation time;
+  // local wall-clock through SMART 7.x, UTC from 8.0), _i/_ent identify them on hit
+  D.profiles.entities.forEach((e, i) => {
+    e._i = i; e._ent = true; e.t = e.created || '';
+    e.ep = !e.created ? NaN : smartMajor() < 8 ? wallToEpoch(e.created, tzFor(e.ca))
+                                               : Date.parse(e.created.replace(' ', 'T') + 'Z');
+  });
   // record uuid -> indexes of the entities linked to it (the link table is many-to-many)
   D.recEnts = new Map();
   D.profiles.entities.forEach((e, i) => (e.recs || []).forEach(u => {
@@ -674,7 +755,8 @@ const geomRings = g => {
   return [];
 };
 
-let mapHidden = {}; // root -> bool
+let mapHidden = {}; // root -> bool ('_ents' = Profiles entities layer)
+let mapEntBy = '_type'; // what colors the entity markers: '_type' or a list-attribute key
 function rMap(v) {
   const bar = el('div', 'panel filterbar');
   bar.appendChild(tfControls(() => draw()));
@@ -694,6 +776,30 @@ function rMap(v) {
   bmSel.value = BASEMAP;
   leg.appendChild(bmSel);
   v.appendChild(leg);
+  // Profiles entities with a position: squares, colored by type or by a list attribute
+  const ents = D.profiles.entities.filter(e => caOk(e.ca) && e.x != null && e.y != null && hasGps(e));
+  let entColors = new Map(), entStages = [];
+  const leg2 = el('div', 'legend'); leg2.hidden = !ents.length; v.appendChild(leg2);
+  const entB = el('button'); entB.className = mapHidden._ents ? 'off' : '';
+  entB.innerHTML = '<span class="dot" style="border-radius:2px;background:var(--ink-3)"></span><b>Profiles entities</b> (' + fmt(ents.length) + ')';
+  leg2.appendChild(entB);
+  const entSel = el('select'); entSel.id = 'entColorSel'; entSel.title = 'Color entities by';
+  leg2.appendChild(entSel);
+  const sw = el('span'); sw.style.display = 'contents'; leg2.appendChild(sw);
+  leg2.insertAdjacentHTML('beforeend', '<span class="tiny" style="align-self:center">squares are Profiles entities (time filter uses their creation date)</span>');
+  const recolor = () => {
+    entColors = stageColors(ents, mapEntBy);
+    sw.innerHTML = [...entColors.entries()].slice(0, 12).map(([val, c]) =>
+      '<span class="tiny"><span class="dot" style="border-radius:2px;background:' + c + '"></span>' + esc(val) + '</span>').join('') +
+      (entColors.size > 12 ? '<span class="tiny">+' + (entColors.size - 12) + ' more</span>' : '');
+  };
+  if (ents.length) {
+    entStages = [{ k: '_type', l: 'Entity type' }, ...listAttrs(ents)];
+    for (const s of entStages) entSel.appendChild(new Option('Color by ' + s.l, s.k));
+    if (!entStages.some(s => s.k === mapEntBy)) mapEntBy = '_type';
+    entSel.value = mapEntBy;
+    recolor();
+  }
   const attr = el('p', 'tiny'); attr.id = 'bmAttr';
   attr.textContent = BASEMAPS[BASEMAP].attr;
   const box = el('div', null); box.id = 'mapBox';
@@ -707,9 +813,14 @@ function rMap(v) {
     mm.drawPolys();
     const pts = wps.filter(w => !mapHidden[w.root] && timeOk(w));
     mm.drawPoints(pts);
-    mm.pts = pts;
-    countS.textContent = fmt(pts.length) + ' of ' + fmt(wps.length) + ' waypoints shown';
+    const es = mapHidden._ents ? [] : ents.filter(timeOk);
+    if (es.length) mm.drawPoints(es, { color: e => entColors.get(stageValue(e, mapEntBy)) || 'var(--ink-3)', shape: 'square', r: 3.4 });
+    mm.pts = es.length ? pts.concat(es) : pts;
+    countS.textContent = fmt(pts.length) + ' of ' + fmt(wps.length) + ' waypoints shown' +
+      (ents.length ? ' · ' + fmt(es.length) + ' of ' + fmt(ents.length) + ' entities' : '');
   };
+  entB.onclick = () => { mapHidden._ents = !mapHidden._ents; entB.classList.toggle('off', !!mapHidden._ents); draw(); };
+  entSel.onchange = () => { mapEntBy = entSel.value; recolor(); draw(); };
   mm.onredraw = draw;
   mm.fitTo(wps.length ? wps : null);
   draw();
@@ -724,12 +835,18 @@ function rMap(v) {
     draw();
   };
   cv.addEventListener('mousemove', e => {
-    const w = mm.hit(e); if (w) showTip('<b>' + w.t + '</b><br>' + ((D.obsByWp.get(w.u) || []).map(o => esc((D.catBy.get(o.c) || {}).l)).join('<br>') || 'no observations'), e.clientX, e.clientY);
-    else hideTip();
+    const w = mm.hit(e);
+    if (!w) hideTip();
+    else if (w._ent) {
+      const st = entStages.find(s => s.k === mapEntBy);
+      showTip('<b>' + esc(w.n) + '</b><br>' + esc(typeLabel(w)) + (mapEntBy !== '_type' && st ? '<br>' + esc(st.l) + ': ' + esc(stageValue(w, mapEntBy)) : '') +
+        '<br><span class="tiny">created ' + esc(profileCreated(w) || '?') + '</span>', e.clientX, e.clientY);
+    }
+    else showTip('<b>' + w.t + '</b><br>' + ((D.obsByWp.get(w.u) || []).map(o => esc((D.catBy.get(o.c) || {}).l)).join('<br>') || 'no observations'), e.clientX, e.clientY);
   });
   cv.addEventListener('click', e => {
     const w = mm.hit(e); if (!w) return;
-    wpDrawer(w);
+    if (w._ent) entityDrawer(w._i); else wpDrawer(w);
   });
 }
 
@@ -933,15 +1050,24 @@ function makeMap(cv, layers) {
         ctx.stroke();
       }
     },
-    drawPoints(wps) {
-      const r = 2.6 * dpr;
-      const halo = !!BASEMAPS[BASEMAP].url; // white ring keeps dots legible on imagery
+    // opts: { color: w => css color (default: observation group), shape: 'dot'|'square', r: px }
+    drawPoints(wps, opts) {
+      const o = opts || {};
+      const r = (o.r || 2.6) * dpr;
+      const square = o.shape === 'square';
+      const halo = !!BASEMAPS[BASEMAP].url || square; // white ring keeps marks legible on imagery
       const groups = new Map();
-      for (const w of wps) { const k = w.root || '_'; let a = groups.get(k); if (!a) groups.set(k, a = []); a.push(w); }
+      for (const w of wps) {
+        const k = o.color ? o.color(w) : (ROOT_META[w.root] || {}).color || 'var(--ink-3)';
+        let a = groups.get(k); if (!a) groups.set(k, a = []); a.push(w);
+      }
       for (const [k, arr] of groups) {
-        ctx.fillStyle = colOf((ROOT_META[k] || {}).color || 'var(--ink-3)');
+        ctx.fillStyle = colOf(k);
         ctx.beginPath();
-        for (const w of arr) { const [px, py] = proj(w.x, w.y); if (px < -9 || py < -9 || px > cv.width + 9 || py > cv.height + 9) continue; ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, 7); }
+        for (const w of arr) {
+          const [px, py] = proj(w.x, w.y); if (px < -9 || py < -9 || px > cv.width + 9 || py > cv.height + 9) continue;
+          if (square) ctx.rect(px - r, py - r, 2 * r, 2 * r); else { ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, 7); }
+        }
         if (halo) { ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1 * dpr; ctx.stroke(); }
         ctx.fill();
       }
@@ -1065,29 +1191,137 @@ function tfControls(onchange) {
   const wrap = el('span', 'tfwrap');
   wrap.innerHTML =
     '<span class="mi" title="Time filter" aria-hidden="true">date_range</span>' +
-    '<select id="tfMode"><option value="off">All dates</option><option value="range">Date range</option><option value="around">Around a time</option></select>' +
+    '<select id="tfMode"><option value="off">All dates</option><option value="range">Timeline</option><option value="around">Around a time</option></select>' +
     '<span id="tfRange"><input type="date" id="tfFrom" value="' + tfFrom + '"> <span class="tiny">to</span> <input type="date" id="tfTo" value="' + tfTo + '"></span>' +
     '<span id="tfAround"><input type="datetime-local" id="tfCenter" value="' + tfCenter + '"> <span class="tiny">±</span> ' +
       '<input type="number" id="tfDelta" min="1" value="' + tfDelta + '" style="width:72px">' +
       '<select id="tfUnit"><option value="m">minutes</option><option value="h">hours</option><option value="d">days</option></select></span>' +
     '<span class="tiny" id="tzHint"></span>';
   $('#tfMode', wrap).value = tfMode; $('#tfUnit', wrap).value = tfUnit;
+  const strip = tfTimeline(wrap, onchange); // its own row of the filter bar
+  wrap.appendChild(strip);
   const sync = () => {
     $('#tfRange', wrap).hidden = tfMode !== 'range';
     $('#tfAround', wrap).hidden = tfMode !== 'around';
+    strip.hidden = tfMode !== 'range';
+    if (!strip.hidden) strip.draw();
     $('#tzHint', wrap).textContent = tfMode === 'off' ? '' :
       'times in ' + (dataTz() || 'browser-local time (run ./smart-able browse to infer zones from GPS)');
   };
   let deb;
   const later = () => { clearTimeout(deb); deb = setTimeout(onchange, 200); };
   $('#tfMode', wrap).onchange = e => { tfMode = e.target.value; sync(); onchange(); };
-  $('#tfFrom', wrap).onchange = e => { tfFrom = e.target.value; onchange(); };
-  $('#tfTo', wrap).onchange = e => { tfTo = e.target.value; onchange(); };
+  $('#tfFrom', wrap).onchange = e => { tfFrom = e.target.value; strip.draw(); onchange(); };
+  $('#tfTo', wrap).onchange = e => { tfTo = e.target.value; strip.draw(); onchange(); };
   $('#tfCenter', wrap).onchange = e => { tfCenter = e.target.value; onchange(); };
   $('#tfDelta', wrap).oninput = e => { tfDelta = +e.target.value || 0; later(); };
   $('#tfUnit', wrap).onchange = e => { tfUnit = e.target.value; onchange(); };
   sync();
   return wrap;
+}
+
+// Waypoints (and Profiles entities) per month for the selected conservation
+// area(s), every month from the first to the last filled in. Cached per CA.
+function monthHist() {
+  D._hist = D._hist || {};
+  if (D._hist[CA]) return D._hist[CA];
+  const wp = new Map(), en = new Map();
+  for (const w of D.wps) if (w.t && caOk(w.ca)) { const m = w.t.slice(0, 7); wp.set(m, (wp.get(m) || 0) + 1); }
+  for (const e of D.profiles.entities) if (e.created && caOk(e.ca)) { const m = e.created.slice(0, 7); en.set(m, (en.get(m) || 0) + 1); }
+  const keys = [...new Set([...wp.keys(), ...en.keys()])].filter(k => /^\d{4}-\d{2}$/.test(k)).sort();
+  if (!keys.length) return D._hist[CA] = { months: [], wp: [], en: [] };
+  const months = [];
+  let [y, m] = keys[0].split('-').map(Number);
+  const last = keys[keys.length - 1];
+  for (let i = 0; i < 1200; i++) {
+    const k = y + '-' + String(m).padStart(2, '0'); months.push(k);
+    if (k >= last) break;
+    if (++m > 12) { m = 1; y++; }
+  }
+  return D._hist[CA] = { months, wp: months.map(k => wp.get(k) || 0), en: months.map(k => en.get(k) || 0) };
+}
+const monthEnd = k => { const [y, m] = k.split('-').map(Number); return k + '-' + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0'); };
+
+// Timeline brush for the 'range' mode: a per-month histogram with two drag
+// handles (or drag the window itself to pan). Handles snap to months and
+// write tfFrom/tfTo; the date inputs stay as editable readouts. While
+// dragging, onchange fires live but at most every 120 ms.
+function tfTimeline(wrap, onchange) {
+  const strip = el('div', 'tfstrip');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  strip.appendChild(svg);
+  const H = 72, barsH = 38, padL = 6, padR = 6, handleW = 8; // bars, then an entity row (41–49), then year ticks
+  let hist, W, colW, si, ei;
+  const idxOf = (d, dflt) => { if (!d) return dflt; const i = hist.months.indexOf(d.slice(0, 7)); return i >= 0 ? i : (d.slice(0, 7) < hist.months[0] ? 0 : hist.months.length - 1); };
+  const xOf = i => padL + i * colW;
+  const draw = () => {
+    hist = monthHist();
+    const n = hist.months.length;
+    W = Math.max(300, Math.floor(strip.getBoundingClientRect().width || wrap.parentElement && wrap.parentElement.clientWidth || 900));
+    svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    if (!n) { svg.innerHTML = '<text x="6" y="24" font-size="12" fill="var(--ink-3)">no dated data</text>'; return; }
+    colW = (W - padL - padR) / n;
+    si = Math.min(idxOf(tfFrom, 0), n - 1); ei = Math.max(si, Math.min(idxOf(tfTo, n - 1), n - 1));
+    const maxW = Math.max(1, ...hist.wp), maxE = Math.max(1, ...hist.en), hasEn = hist.en.some(x => x);
+    let h = '';
+    const x0 = xOf(si), x1 = xOf(ei + 1);
+    h += '<rect x="' + x0 + '" y="0" width="' + (x1 - x0) + '" height="' + (barsH + 2) + '" fill="var(--accent)" opacity="0.12"/>';
+    for (let i = 0; i < n; i++) { // waypoints per month
+      const bh = hist.wp[i] ? Math.max(1.5, hist.wp[i] / maxW * barsH) : 0;
+      if (bh) h += '<rect x="' + (xOf(i) + 0.5) + '" y="' + (barsH - bh) + '" width="' + Math.max(1, colW - 1) + '" height="' + bh + '" fill="' + (i >= si && i <= ei ? 'var(--accent)' : 'var(--ink-3)') + '" opacity="' + (i >= si && i <= ei ? 0.9 : 0.35) + '"/>';
+      if (hasEn && hist.en[i]) { const eh = Math.max(1.5, hist.en[i] / maxE * 8); h += '<rect x="' + (xOf(i) + 0.5) + '" y="' + (barsH + 11 - eh) + '" width="' + Math.max(1, colW - 1) + '" height="' + eh + '" fill="var(--brand)" opacity="' + (i >= si && i <= ei ? 0.9 : 0.3) + '"/>'; }
+    }
+    hist.months.forEach((k, i) => { // year ticks
+      if (!k.endsWith('-01') && i !== 0) return;
+      if (n > 240 && (+k.slice(0, 4)) % 2) return;
+      h += '<line x1="' + xOf(i) + '" y1="' + (barsH + 14) + '" x2="' + xOf(i) + '" y2="' + (barsH + 20) + '" stroke="var(--line)"/>' +
+        '<text x="' + (xOf(i) + 3) + '" y="' + (H - 2) + '" font-size="10.5" fill="var(--ink-3)">' + k.slice(0, 4) + '</text>';
+    });
+    for (const x of [x0, x1]) h += '<rect x="' + (x - handleW / 2) + '" y="0" width="' + handleW + '" height="' + (barsH + 2) + '" rx="3" fill="var(--brand)"/>';
+    h += '<text x="' + (W - padR) + '" y="10" text-anchor="end" font-size="10.5" fill="var(--ink-3)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">' +
+      (hasEn ? 'waypoints per month · lower row: Profiles entities' : 'waypoints per month') + '</text>';
+    svg.innerHTML = h;
+  };
+  strip.draw = draw;
+  // first drawn before it is in the DOM (width unknown), so redraw once attached and on resize
+  new ResizeObserver(() => { if (!strip.hidden && strip.isConnected) draw(); }).observe(strip);
+  const commit = () => { // window -> filter state + readouts
+    tfFrom = hist.months[si] + '-01'; tfTo = monthEnd(hist.months[ei]);
+    const f = $('#tfFrom', wrap), t = $('#tfTo', wrap); if (f) f.value = tfFrom; if (t) t.value = tfTo;
+  };
+  let last = 0, pend = null;
+  const fire = () => { // live, throttled to 120 ms
+    const now = performance.now(), wait = 120 - (now - last);
+    clearTimeout(pend);
+    if (wait <= 0) { last = now; onchange(); } else pend = setTimeout(() => { last = performance.now(); onchange(); }, wait);
+  };
+  let drag = null;
+  const monthAt = e => { const r = svg.getBoundingClientRect(); return Math.max(0, Math.min(hist.months.length - 1, Math.floor((e.clientX - r.left - padL) / colW))); };
+  svg.addEventListener('pointerdown', e => {
+    if (!hist || !hist.months.length) return;
+    const r = svg.getBoundingClientRect(), x = e.clientX - r.left;
+    const x0 = xOf(si), x1 = xOf(ei + 1);
+    if (Math.abs(x - x0) <= handleW) drag = { kind: 'start' };
+    else if (Math.abs(x - x1) <= handleW) drag = { kind: 'end' };
+    else if (x > x0 && x < x1) drag = { kind: 'move', at: monthAt(e), si, ei };
+    else { const i = monthAt(e); if (Math.abs(i - si) <= Math.abs(i - ei)) { si = Math.min(i, ei); drag = { kind: 'start' }; } else { ei = Math.max(i, si); drag = { kind: 'end' }; } commit(); draw(); fire(); }
+    svg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag) { // cursor hint
+      const r = svg.getBoundingClientRect(), x = e.clientX - r.left;
+      svg.style.cursor = hist && hist.months.length && (Math.abs(x - xOf(si)) <= handleW || Math.abs(x - xOf(ei + 1)) <= handleW) ? 'ew-resize' : (x > xOf(si) && x < xOf(ei + 1) ? 'grab' : 'pointer');
+      return;
+    }
+    const i = monthAt(e), n = hist.months.length;
+    if (drag.kind === 'start') si = Math.min(i, ei);
+    else if (drag.kind === 'end') ei = Math.max(i, si);
+    else { const len = drag.ei - drag.si, s = Math.max(0, Math.min(n - 1 - len, drag.si + (i - drag.at))); si = s; ei = s + len; }
+    commit(); draw(); fire();
+  });
+  const stop = () => { if (!drag) return; drag = null; clearTimeout(pend); last = performance.now(); onchange(); };
+  svg.addEventListener('pointerup', stop); svg.addEventListener('pointercancel', stop);
+  return strip;
 }
 
 function rObs(v) {
@@ -1195,11 +1429,11 @@ function rObs(v) {
 }
 
 /* ---------------- Profiles ---------------- */
-let selType = null, entShown = 50, entQuery = '';
+let selType = null, entShown = 50, entQuery = '', flowSel = null;
 function rProfiles(v) {
-  v.insertAdjacentHTML('beforeend', '<p class="muted">SMART Profiles (the <code>i2</code> plugin, tables <code>i_entity*</code>) tracks persistent entities over time: ' +
-    'each <b>entity</b> has a configurable type and attributes, and links to dated <b>records</b>. What entities represent is up to each site — people, vehicles, ' +
-    'locations, or case files for recurring threats. The entity\'s name is the value of its type\'s ID attribute.</p>');
+  v.insertAdjacentHTML('beforeend', '<p class="muted">A <b>Profile</b> is a tracker configured in SMART\'s Profiles plugin (tables <code>i_*</code>): it owns a set of ' +
+    '<b>entity types</b>, each with its own attributes, and a set of record sources. An <b>entity</b> is one tracked item of a type, named by the type\'s ID attribute; ' +
+    'a <b>record</b> is a dated event linked to one or more entities. What a site tracks is up to it — people, vehicles, places, or, as here, individual threat sightings.</p>');
   if (!D.profiles.entities.length) {
     v.insertAdjacentHTML('beforeend', '<div class="panel"><p class="muted">This backup has no Profiles data.</p></div>');
     return;
@@ -1228,6 +1462,20 @@ function rProfiles(v) {
   clearB.style.marginTop = '0'; bar.appendChild(clearB);
   const countS = el('span', 'tiny'); bar.appendChild(countS);
   v.appendChild(bar);
+  // the Profile(s) these entities belong to, named as SMART's menu shows them
+  const profs = [...new Map(ents0.map(e => D.profBy.get(e.pr)).filter(Boolean).map(p => [p.menu, p])).values()];
+  const flowP = el('div', 'panel'); v.appendChild(flowP);
+  const hdr = el('div', 'hdr'); flowP.appendChild(hdr);
+  hdr.appendChild(el('h2', null, profs.length ? profs.map(p => esc(p.menu)).join(' · ') : 'Profile'));
+  const helpB = el('button', 'ghost'); helpB.style.marginTop = '0';
+  helpB.innerHTML = '<span class="mi" aria-hidden="true">help</span>How to read this';
+  helpB.onclick = () => helpDrawer('flow');
+  hdr.appendChild(helpB);
+  const nTypes = new Set(ents0.map(e => keyOf(e))).size;
+  flowP.insertAdjacentHTML('beforeend', '<p class="tiny">' + (profs.length === 1 ? 'SMART Profile "' + esc(profs[0].l) + '"' : fmt(profs.length) + ' SMART Profiles') +
+    ' · ' + fmt(nTypes) + ' entity types · ' + fmt(ents0.length) + ' entities. Each ribbon is a set of entities of one type (its colour) flowing from one value to the next; ' +
+    'ribbon height is the count. Hover for numbers. Click a node to follow just those entities across and filter the table below; click it again to clear.</p>');
+  const flowHost = el('div'); flowHost.style.overflowX = 'auto'; flowP.appendChild(flowHost);
   const cols = el('div', 'cols'); v.appendChild(cols);
   const left = el('div', 'panel'); cols.appendChild(left);
   const right = el('div', 'panel'); cols.appendChild(right);
@@ -1237,12 +1485,21 @@ function rProfiles(v) {
     entQuery = e.target.value; entShown = 50;
     clearTimeout(deb); deb = setTimeout(update, 200);
   };
-  clearB.onclick = () => { entQuery = ''; selType = null; entShown = 50; render(); };
+  clearB.onclick = () => { entQuery = ''; selType = null; flowSel = null; entShown = 50; render(); };
 
   function update() {
     const q = entQuery.trim().toLowerCase();
-    const matched = q ? ents0.filter(e => entText(e).includes(q)) : ents0;
-    countS.textContent = q ? fmt(matched.length) + ' of ' + fmt(ents0.length) + ' entities match' : '';
+    const searched = q ? ents0.filter(e => entText(e).includes(q)) : ents0;
+    // the flow shows the searched set; a picked node narrows the tree and table further
+    const stages = [{ k: '_type', l: 'Entity type' }, ...listAttrs(searched), { k: '_rec', l: 'Latest record' }];
+    if (flowSel && !stages.some(s => s.k === flowSel.k)) flowSel = null;
+    drawFlow(flowHost, searched, stages, flowSel, (k, val) => {
+      flowSel = flowSel && flowSel.k === k && flowSel.v === val ? null : { k, v: val };
+      entShown = 50; update();
+    });
+    const matched = flowSel ? searched.filter(e => stageValue(e, flowSel.k) === flowSel.v) : searched;
+    countS.textContent = (q || flowSel) ? fmt(matched.length) + ' of ' + fmt(ents0.length) + ' entities' +
+      (flowSel ? ' · ' + (stages.find(s => s.k === flowSel.k) || {}).l + ': ' + flowSel.v : '') : '';
     const byKey = new Map();
     for (const e of matched) {
       const k = keyOf(e);
@@ -1283,6 +1540,119 @@ function rProfiles(v) {
     drawEnts();
   }
   update();
+}
+
+/* ---- Profiles helpers shared by the Profiles tab and the map ---- */
+const typeLabel = e => (D.ptypeBy.get(e.ty) || {}).l || e.ty;
+// value of attribute key k on entity e ('' when unset); vals are [label, value, key]
+function attrVal(e, k) {
+  if (!e._av) { e._av = new Map(); for (const x of (e.vals || [])) if (x[2]) e._av.set(x[2], x[1]); }
+  return e._av.get(k) || '';
+}
+// The LIST attributes that every entity type among `ents` defines and that take
+// few distinct values: the workflow stages a site configured (Lawin: Status,
+// Main response, Priority). Nothing is hard-coded, so another Profile's lists work too.
+function listAttrs(ents) {
+  const types = [...new Set(ents.map(e => e.ty))].map(u => D.ptypeBy.get(u)).filter(Boolean);
+  if (!types.length) return [];
+  const out = [];
+  for (const a of (types[0].atts || [])) {
+    if (a.t !== 'LIST') continue;
+    if (!types.every(t => (t.atts || []).some(b => b.k === a.k))) continue;
+    const vals = new Set(ents.map(e => attrVal(e, a.k)));
+    if (vals.size < 2 || vals.size > 12) continue;
+    out.push({ k: a.k, l: a.l });
+  }
+  return out;
+}
+function lastRecordSource(e) {
+  const recs = (e.recs || []).map(u => D.recBy.get(u)).filter(Boolean).sort((a, b) => (a.d || '') < (b.d || '') ? 1 : -1);
+  return recs.length ? (recs[0].src || '(unlabeled source)') : 'No record';
+}
+// a stage key is '_type', '_rec', or an attribute key
+const stageValue = (e, k) => k === '_type' ? typeLabel(e) : k === '_rec' ? lastRecordSource(e) : (attrVal(e, k) || '(not set)');
+// categorical colors for a stage's values, most frequent first (shared by flow and map)
+function stageColors(ents, k) {
+  const cnt = new Map();
+  for (const e of ents) { const v = stageValue(e, k); cnt.set(v, (cnt.get(v) || 0) + 1); }
+  return new Map([...cnt.entries()].sort((a, b) => b[1] - a[1]).map(([v], i) => [v, SERIES[i % SERIES.length]]));
+}
+
+// Flow diagram (Sankey): one column per stage, a node per value, ribbons sized
+// by how many entities go from one value to the next. Ribbons are coloured by
+// the entities' type all the way across, so a type can be followed; when a
+// node is picked, only the ribbons carrying its entities stay vivid. Plain SVG.
+function drawFlow(host, ents, stages, sel, onPick) {
+  host.innerHTML = '';
+  if (!ents.length || stages.length < 2) return;
+  const W = Math.max(720, Math.floor(host.getBoundingClientRect().width || 900));
+  const nodes = stages.map(s => {
+    const cnt = new Map();
+    for (const e of ents) { const v = stageValue(e, s.k); cnt.set(v, (cnt.get(v) || 0) + 1); }
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).map(([v, n]) => ({ v, n }));
+  });
+  const maxN = Math.max(...nodes.map(c => c.length));
+  const top = 28, bottom = 10, gap = 5, nodeW = 12, padL = 10, padR = 230; // padR: room for the last column's labels
+  const H = Math.max(280, Math.min(680, top + bottom + maxN * 26));
+  const inner = H - top - bottom;
+  const colX = i => padL + i * (W - padL - padR - nodeW) / (stages.length - 1);
+  for (const col of nodes) { // vertical layout
+    const scale = (inner - gap * (col.length - 1)) / ents.length;
+    let y = top;
+    for (const nd of col) { nd.y = y; nd.h = Math.max(1, nd.n * scale); y += nd.h + gap; }
+  }
+  const typeColor = stageColors(ents, '_type');
+  const picked = e => !sel || stageValue(e, sel.k) === sel.v;
+  const nodeDim = (i, v) => sel && !(sel.k === stages[i].k && sel.v === v);
+  let svg = '';
+  for (let i = 0; i + 1 < stages.length; i++) { // ribbons, one per (type, picked?, from, to)
+    const links = new Map();
+    for (const e of ents) {
+      const a = stageValue(e, stages[i].k), b = stageValue(e, stages[i + 1].k), t = typeLabel(e), on = picked(e) ? 1 : 0;
+      const key = [a, b, t, on].join('\u0000');
+      let l = links.get(key); if (!l) links.set(key, l = { a, b, t, on, n: 0 }); l.n++;
+    }
+    const idxA = new Map(nodes[i].map((nd, j) => [nd.v, j])), idxB = new Map(nodes[i + 1].map((nd, j) => [nd.v, j]));
+    const offA = nodes[i].map(nd => nd.y), offB = nodes[i + 1].map(nd => nd.y);
+    const scaleA = nodes[i].reduce((s, nd) => s + nd.h, 0) / ents.length, scaleB = nodes[i + 1].reduce((s, nd) => s + nd.h, 0) / ents.length;
+    const typeOrder = new Map([...typeColor.keys()].map((t, j) => [t, j]));
+    const ordered = [...links.values()].map(l => ({ ...l, ia: idxA.get(l.a), ib: idxB.get(l.b), it: typeOrder.get(l.t) }))
+      .sort((p, q) => p.ia - q.ia || p.ib - q.ib || p.it - q.it || q.on - p.on);
+    const x0 = colX(i) + nodeW, x1 = colX(i + 1), mid = (x0 + x1) / 2;
+    for (const l of ordered) {
+      const hA = l.n * scaleA, hB = l.n * scaleB;
+      const ya = offA[l.ia], yb = offB[l.ib]; offA[l.ia] += hA; offB[l.ib] += hB;
+      svg += '<path d="M' + x0 + ',' + ya + 'C' + mid + ',' + ya + ' ' + mid + ',' + yb + ' ' + x1 + ',' + yb + 'L' + x1 + ',' + (yb + hB) +
+        'C' + mid + ',' + (yb + hB) + ' ' + mid + ',' + (ya + hA) + ' ' + x0 + ',' + (ya + hA) + 'Z" fill="' + typeColor.get(l.t) +
+        '" opacity="' + (l.on ? (sel ? 0.75 : 0.45) : 0.07) + '" data-tip="' + esc(l.t) + '<br>' + esc(l.a) + ' → ' + esc(l.b) + ': ' + fmt(l.n) + '"/>';
+    }
+  }
+  stages.forEach((s, i) => { // nodes + labels (labels to the right of each node; the last column has room reserved)
+    const x = colX(i);
+    // a label may use the gap to the next column (or the reserved right margin); ~6 px per character at 11 px
+    const avail = (i + 1 < stages.length ? colX(i + 1) - x - nodeW - 14 : padR - 14);
+    const maxCh = Math.max(6, Math.floor(avail / 6.1));
+    const clip = (v, n) => { const t = v + ' ' + fmt(n); return t.length <= maxCh ? null : v.slice(0, Math.max(3, maxCh - String(fmt(n)).length - 2)) + '…'; };
+    svg += '<text x="' + x + '" y="16" font-size="12" font-weight="700" fill="var(--ink-2)">' + esc(s.l) + '</text>';
+    nodes[i].forEach(nd => {
+      const isSel = sel && sel.k === s.k && sel.v === nd.v;
+      const fill = i === 0 ? typeColor.get(nd.v) : 'var(--ink-3)';
+      svg += '<rect x="' + x + '" y="' + nd.y + '" width="' + nodeW + '" height="' + nd.h + '" rx="2" fill="' + fill + '" opacity="' + (nodeDim(i, nd.v) ? 0.3 : 1) +
+        '"' + (isSel ? ' stroke="var(--accent)" stroke-width="2"' : '') + ' class="fnode" data-k="' + esc(s.k) + '" data-v="' + esc(nd.v) + '" data-tip="' + esc(nd.v) + ': ' + fmt(nd.n) + '"/>';
+      if (nd.h >= 9 || nd.n >= ents.length / 40) {
+        const short = clip(nd.v, nd.n);
+        svg += '<text x="' + (x + nodeW + 4) + '" y="' + (nd.y + nd.h / 2 + 4) + '" font-size="11" fill="var(--ink)" paint-order="stroke" stroke="var(--surface)" stroke-width="3" opacity="' +
+          (nodeDim(i, nd.v) ? 0.4 : 1) + '" class="fnode" data-k="' + esc(s.k) + '" data-v="' + esc(nd.v) + '" data-tip="' + esc(nd.v) + ': ' + fmt(nd.n) + '">' +
+          esc(short || nd.v) + ' <tspan fill="var(--ink-3)">' + fmt(nd.n) + '</tspan></text>';
+      }
+    });
+  });
+  host.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;font-family:var(--sans)">' + svg + '</svg>';
+  host.querySelectorAll('[data-tip]').forEach(n => {
+    n.addEventListener('mousemove', e => showTip(n.dataset.tip, e.clientX, e.clientY));
+    n.addEventListener('mouseleave', hideTip);
+  });
+  host.querySelectorAll('.fnode').forEach(n => { n.style.cursor = 'pointer'; n.onclick = () => { hideTip(); onPick(n.dataset.k, n.dataset.v); }; });
 }
 
 // searchable text per entity, built lazily and cached: name, type, CA,
@@ -1413,6 +1783,12 @@ function openDrawer() {
   return d;
 }
 function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; }
+// help text from a <template id="help-…"> shown in the drawer
+function helpDrawer(id) {
+  const t = $('#help-' + id); if (!t) return;
+  const d = openDrawer();
+  d.appendChild(t.content.cloneNode(true));
+}
 // "Back to …" button at the top of a drawer opened from another drawer;
 // reopen() rebuilds the previous one, which is then restored to its scroll position
 function backButton(d, label, reopen, scroll) {

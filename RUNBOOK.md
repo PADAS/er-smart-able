@@ -225,7 +225,9 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
   `SMART_ABLE_WORK` at a new folder to keep both.
 - `work/site/index.html` is a symlink to `browse/index.html`, so after editing
   the browser just reload the page. After editing the SQL in `browse/`, run
-  `./smart-able browse` again.
+  `./smart-able browse` again. If the page and the data on disk were built by
+  different versions, the page shows a banner saying which is older; after
+  pulling a new version, re-run `./smart-able browse`.
 
 ## Troubleshooting
 

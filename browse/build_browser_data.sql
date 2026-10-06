@@ -44,8 +44,12 @@ JOIN 'parquet/patrol_leg_day.parquet' pld ON pw.leg_day_uuid = pld.uuid
 JOIN 'parquet/patrol_leg.parquet' pl ON pld.patrol_leg_uuid = pl.uuid;
 
 -- ---------------------------------------------------------------- meta.json
+-- data_format: bump it (here and DATA_FORMAT in index.html) whenever the JSON
+-- the browser reads changes shape, so a page that is newer or older than the
+-- data on disk can say so instead of silently showing less.
 COPY (
   SELECT
+    2 AS data_format,
     strftime(now(), '%Y-%m-%d') AS generated,
     (SELECT max(version) FROM 'parquet/db_version.parquet'
       WHERE plugin_id = 'org.wcs.smart') AS db_version,

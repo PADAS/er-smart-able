@@ -55,12 +55,15 @@ The browser has six tabs:
   map, and waypoints; each waypoint opens to its observations; each
   observation opens to its category path, data-model key, and attributes.
 - **Map**: every waypoint on OpenStreetMap or satellite imagery, with time
-  filters.
+  filters, plus Profiles entities that have a position, coloured by type or
+  by any of their list attributes.
 - **Observations**: the category tree, with text search and time filters.
-- **Profiles**: entities from SMART's optional Profiles plugin, searchable by
-  name, type, attribute, or linked record. An entity opens to its attributes,
-  photos, and linked records; a record opens to its own attributes, text,
-  photos, and the entities it links.
+- **Profiles**: the trackers configured in SMART's optional Profiles plugin.
+  A Profile owns entity types and record sources; the Lawin sites have one
+  named "Threat/Response Tracking". The tab shows the flow of entities
+  through their list attributes and records, and a searchable entity table.
+  An entity opens to its attributes, photos, and linked records; a record
+  opens to its own attributes, text, photos, and the entities it links.
 - **Schema**: how the SMART tables relate.
 
 SMART stores timestamps without a timezone. smart-able infers each
@@ -120,6 +123,8 @@ way it will look in the system it is moving to.
   output, troubleshooting.
 - [docs/smart-data-model.md](docs/smart-data-model.md): SMART's tables,
   observation values, time, geometry, and attachment encryption.
+- [docs/decisions.md](docs/decisions.md): design decisions and what would
+  reopen them.
 
 ## License
 
