@@ -21,13 +21,14 @@ The name reads as "SMART EBEL": the four stages.
 
 Works with backups from SMART Desktop 7.5.x and 8.0–8.1.x
 ([details](RUNBOOK.md#supported-smart-versions)). You need Java 19+ (21
-recommended), the DuckDB CLI, Python 3.9+, and OpenSSL (details in the
+recommended), the DuckDB CLI, [uv](https://docs.astral.sh/uv/) (which
+installs Python 3.9+ itself if needed), and OpenSSL (details in the
 [runbook](RUNBOOK.md#1-prerequisites)). New to Java? Install it with
 [SDKMAN](https://sdkman.io/) ([steps](RUNBOOK.md#installing-java-with-sdkman)).
 Then:
 
 ```sh
-./smart-able setup                                  # check tools, create .venv and .env
+./smart-able setup                                  # check tools, install Python deps, create .env
 $EDITOR .env                                        # fill in the SMART database credentials
 ./smart-able all "/path/to/SMART backup"            # extract + browse
 ./smart-able serve                                  # open http://localhost:8765/
@@ -75,6 +76,8 @@ browse/
   infer_timezones.py      GPS → IANA timezone per conservation area
   index.html              the browser (single file, no build step)
 lib/derby/              Apache Derby 10.17 jars (Apache-2.0)
+pyproject.toml          project metadata and Python dependencies (managed with uv)
+uv.lock                 pinned Python dependency versions
 docs/
   smart-data-model.md     how SMART stores its data
 RUNBOOK.md              step-by-step operation, checks, troubleshooting

@@ -15,7 +15,7 @@ For the SMART tables themselves, see
 | --- | --- | --- | --- |
 | Java JDK | 19 or newer (21 recommended) | reading the Derby database | [SDKMAN](#installing-java-with-sdkman) (recommended), or `brew install openjdk@21` / `apt install openjdk-21-jdk` |
 | DuckDB CLI | 1.x | CSV → Parquet, building browser data | `brew install duckdb` / [duckdb.org/docs/installation](https://duckdb.org/docs/installation/) |
-| Python | 3.9 or newer | timezone inference, local web server | `brew install python` / `apt install python3 python3-venv` |
+| [uv](https://docs.astral.sh/uv/) | any recent | Python dependencies, timezone inference, local web server (uv downloads Python 3.9+ if you don't have one) | `brew install uv` / `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | OpenSSL | any | decrypting attachments | preinstalled on macOS / `apt install openssl` |
 | unzip | any | `.zip` backups | preinstalled on macOS / `apt install unzip` |
 
@@ -63,9 +63,13 @@ schemas lack.
 ./smart-able setup
 ```
 
-This checks the tools above, creates a Python environment in `.venv/`,
-installs DuckDB's spatial extension (this needs internet once), and creates
-`.env` from `.env.example`.
+This checks the tools above, runs `uv sync` to create `.venv/` with the
+Python dependencies pinned in `uv.lock`, installs DuckDB's spatial extension
+(both need internet once), and creates `.env` from `.env.example`.
+
+Python dependencies are declared in `pyproject.toml`. To add or change one,
+edit it there and run `uv lock` (or `uv add <package>`), then commit the
+updated `uv.lock`; `./smart-able setup` installs exactly what the lock says.
 
 Then open `.env` and fill in `SMART_DB_USER` and `SMART_DB_PASSWORD`. These
 are SMART's fixed embedded-database credentials, the same for every SMART
@@ -204,4 +208,5 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
 | `Address already in use` from `serve` | Port taken | `./smart-able serve 8766` |
 | Browser says "Could not load data" | `browse` hasn't run, or failed | Run `./smart-able browse` and check its output. |
 | Timestamps shown without a timezone | No `.venv`, so timezone inference was skipped | Run `./smart-able setup`, then `./smart-able browse`. |
+| `uv: command not found` | uv is not installed | Install it (see [Prerequisites](#1-prerequisites)) and open a new terminal. |
 | Map tiles don't load | Offline, or the tile server is blocked | Choose "No basemap"; points and boundaries still draw. |

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # smart-able — Extract, Browse, Export, Load SMART conservation data.
 #
-#   ./smart-able setup                 check tools, create .venv, create .env
+#   ./smart-able setup                 check tools, install Python deps (uv), create .env
 #   ./smart-able check                 check that the required tools are installed
 #   ./smart-able extract <backup>      SMART backup -> work/parquet + decrypted attachments
 #   ./smart-able browse                work/parquet -> work/site (browser data)
@@ -28,7 +28,7 @@ java_major() {
 
 check() {   # $1 = "setup" when called from setup (skip warnings setup is about to fix)
   local ok=1 t
-  for t in java duckdb python3 openssl unzip od; do
+  for t in java duckdb uv openssl unzip od; do
     if command -v "$t" >/dev/null 2>&1; then
       printf '  %-8s %s\n' "$t" "$(command -v "$t")"
     else
@@ -41,7 +41,7 @@ check() {   # $1 = "setup" when called from setup (skip warnings setup is about 
   fi
   ls "$ROOT"/lib/derby/derby-*.jar >/dev/null 2>&1 || { warn "no Derby jars in lib/derby/"; ok=0; }
   if [ "${1:-}" != setup ]; then
-    [ -x "$ROOT/.venv/bin/python" ] || warn "no .venv yet (run ./smart-able setup); timezone inference will be skipped"
+    [ -d "$ROOT/.venv" ] || warn "no .venv yet (run ./smart-able setup); timezone inference will be skipped"
     [ -f "$ROOT/.env" ] || warn "no .env yet (run ./smart-able setup, then fill in the credentials)"
   fi
   [ "$ok" = 1 ] || die "missing prerequisites (see RUNBOOK.md, 'Prerequisites')"
@@ -51,9 +51,9 @@ check() {   # $1 = "setup" when called from setup (skip warnings setup is about 
 setup() {
   say "Checking tools"
   check setup
-  say "Creating Python environment (.venv)"
-  python3 -m venv "$ROOT/.venv"
-  "$ROOT/.venv/bin/pip" install -q --disable-pip-version-check -r "$ROOT/requirements.txt"
+  say "Installing Python dependencies (uv sync -> .venv)"
+  # uv reads pyproject.toml + uv.lock, and downloads a Python if none is suitable
+  uv sync --project "$ROOT" --quiet
   say "Installing the DuckDB spatial extension"
   duckdb -c "INSTALL spatial;" >/dev/null
   if [ ! -f "$ROOT/.env" ]; then
@@ -141,9 +141,9 @@ browse() {
   fi
   (cd "$WORK" && cat "${sql[@]}" | duckdb)
 
-  if [ -x "$ROOT/.venv/bin/python" ]; then
+  if [ -d "$ROOT/.venv" ]; then
     say "Inferring timezones from GPS"
-    "$ROOT/.venv/bin/python" "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
+    uv run --project "$ROOT" --quiet python "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
   else
     warn "no .venv (run ./smart-able setup); timestamps will be shown without a timezone"
   fi
@@ -157,7 +157,7 @@ serve() {
   [ -f "$WORK/site/index.html" ] || die "no $WORK/site; run ./smart-able browse first"
   say "Serving http://localhost:$port/  (local machine only; Ctrl-C to stop)"
   # bind to loopback only: the site contains sensitive conservation data
-  exec python3 -m http.server "$port" --bind 127.0.0.1 --directory "$WORK/site"
+  exec uv run --project "$ROOT" --quiet python -m http.server "$port" --bind 127.0.0.1 --directory "$WORK/site"
 }
 
 clean() {

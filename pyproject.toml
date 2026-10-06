@@ -1,0 +1,16 @@
+[project]
+name = "smart-able"
+version = "0.1.0"
+description = "Extract, Browse, Export, and Load SMART conservation data, toward EarthRanger."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.9"
+dependencies = [
+    "timezonefinder>=6",
+]
+
+[tool.uv]
+# Not a Python package: the Python here is a helper script run by ./smart-able.
+# uv manages only the virtual environment and its dependencies.
+package = false
