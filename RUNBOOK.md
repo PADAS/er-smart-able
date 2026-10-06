@@ -126,7 +126,7 @@ Quote the path if it has spaces. You can also run the stages one at a time:
 | Dump | `work/csv/` | `done: N rows across M tables`. M is typically around 200; it varies with SMART version and installed plugins. For a Conservation Area export this step reads the export's table dumps instead of Derby, and prints the conservation area's name. |
 | Version | prints `SMART database version` | The schema version, e.g. `7.5.4` or `8.1.0`. SMART 8.1.1–8.1.3 still report `8.1.0`, because their schema didn't change. |
 | Schema check | `schema matches smart_schema.tsv (7.5.4)`, or warnings | Read any warnings; see [Warnings](#warnings). |
-| Parquet | `work/parquet/` | `converted M tables`. M must equal the dump's table count. |
+| Parquet | `work/parquet/` | `converted M tables`. M must equal the dump's table count. `dropping employee.smartpassword` is expected (see [Handling the data](#handling-the-data)); `--keep-credentials` turns it off. |
 | Decrypt | `work/site/attachments/` | `failed: 0`. |
 
 A ~150 MB database with 1.4 GB of attachments takes about 3 minutes; most of
@@ -209,6 +209,13 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
   `SMART_ABLE_WORK=/Volumes/Secure/my-site ./smart-able all <backup>`
 - The decrypted photos are plaintext copies of encrypted files. Delete them
   when you're done: `./smart-able clean` removes the whole work directory.
+- The database stores credentials: `employee.smartpassword` is a bcrypt hash
+  of each user's SMART Desktop password, and `connect_account.connect_pass`
+  holds SMART Connect server logins. `work/parquet/` leaves those columns
+  out, so it is the output to share. Pass `--keep-credentials` to `extract`
+  or `all` to keep them (for example, to migrate logins). `work/csv/` and
+  `work/smartdb/` are raw copies and always contain them; treat them like
+  the backup itself.
 - `.env` holds the database credentials and is gitignored too.
 
 ## Re-running and updating

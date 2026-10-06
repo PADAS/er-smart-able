@@ -99,6 +99,12 @@ when done. `./smart-able serve` listens on localhost only. The
 [runbook](RUNBOOK.md#handling-the-data) covers keeping the output on an
 encrypted volume.
 
+A SMART database also holds credentials: a bcrypt hash of each user's SMART
+Desktop password (`employee.smartpassword`) and SMART Connect server logins
+(`connect_account.connect_pass`). The Parquet output leaves those columns out
+unless you pass `--keep-credentials`. The database copy and CSV in `work/`
+are raw and still contain them.
+
 The SMART database credentials are SMART's fixed built-in ones; they are read
 from `.env` (gitignored), not stored in the code.
 

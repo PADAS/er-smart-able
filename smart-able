@@ -4,6 +4,7 @@
 #   ./smart-able setup                 check tools, install Python deps (uv), create .env
 #   ./smart-able check                 check that the required tools are installed
 #   ./smart-able extract <backup>      SMART backup -> work/parquet + decrypted attachments
+#                                      (--keep-credentials: keep SMART login hashes in the Parquet)
 #   ./smart-able browse                work/parquet -> work/site (browser data)
 #   ./smart-able serve [port]          serve the browser on http://localhost:<port> (default 8765)
 #   ./smart-able all <backup>          extract + browse
@@ -13,6 +14,9 @@
 # database folder, a SMART system backup .zip, or a Conservation Area export
 # (.zip or unzipped; SMART's File > Export Conservation Area). Outputs go to
 # $SMART_ABLE_WORK (default: ./work). See README.md and RUNBOOK.md.
+#
+# The Parquet leaves out SMART's stored credentials (employee.smartpassword,
+# connect_account.connect_pass) unless --keep-credentials is given.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -217,6 +221,16 @@ usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0";
 
 cmd=${1:-}
 shift || true
+# options accepted anywhere after the command
+args=()
+for a in "$@"; do
+  case $a in
+    --keep-credentials) export KEEP_CREDENTIALS=1 ;;
+    --*) die "unknown option: $a" ;;
+    *) args+=("$a") ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
 case $cmd in
   setup)   setup ;;
   check)   check ;;
