@@ -118,6 +118,8 @@ input[type="search"] {
 .searchwrap input[type="search"] { max-width: none; padding-left: 33px; }
 .filterbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 14px; }
 .tfwrap { display: contents; } /* children join the filterbar's flex flow */
+.tfstrip { flex-basis: 100%; margin: 2px 0 0; }
+.tfstrip svg { display: block; width: 100%; touch-action: none; user-select: none; }
 .filterbar input, .filterbar select {
   background: var(--surface); color: var(--ink); border: 1px solid var(--line);
   border-radius: 8px; padding: 7px 9px; font: 13px var(--sans);
@@ -1189,29 +1191,137 @@ function tfControls(onchange) {
   const wrap = el('span', 'tfwrap');
   wrap.innerHTML =
     '<span class="mi" title="Time filter" aria-hidden="true">date_range</span>' +
-    '<select id="tfMode"><option value="off">All dates</option><option value="range">Date range</option><option value="around">Around a time</option></select>' +
+    '<select id="tfMode"><option value="off">All dates</option><option value="range">Timeline</option><option value="around">Around a time</option></select>' +
     '<span id="tfRange"><input type="date" id="tfFrom" value="' + tfFrom + '"> <span class="tiny">to</span> <input type="date" id="tfTo" value="' + tfTo + '"></span>' +
     '<span id="tfAround"><input type="datetime-local" id="tfCenter" value="' + tfCenter + '"> <span class="tiny">±</span> ' +
       '<input type="number" id="tfDelta" min="1" value="' + tfDelta + '" style="width:72px">' +
       '<select id="tfUnit"><option value="m">minutes</option><option value="h">hours</option><option value="d">days</option></select></span>' +
     '<span class="tiny" id="tzHint"></span>';
   $('#tfMode', wrap).value = tfMode; $('#tfUnit', wrap).value = tfUnit;
+  const strip = tfTimeline(wrap, onchange); // its own row of the filter bar
+  wrap.appendChild(strip);
   const sync = () => {
     $('#tfRange', wrap).hidden = tfMode !== 'range';
     $('#tfAround', wrap).hidden = tfMode !== 'around';
+    strip.hidden = tfMode !== 'range';
+    if (!strip.hidden) strip.draw();
     $('#tzHint', wrap).textContent = tfMode === 'off' ? '' :
       'times in ' + (dataTz() || 'browser-local time (run ./smart-able browse to infer zones from GPS)');
   };
   let deb;
   const later = () => { clearTimeout(deb); deb = setTimeout(onchange, 200); };
   $('#tfMode', wrap).onchange = e => { tfMode = e.target.value; sync(); onchange(); };
-  $('#tfFrom', wrap).onchange = e => { tfFrom = e.target.value; onchange(); };
-  $('#tfTo', wrap).onchange = e => { tfTo = e.target.value; onchange(); };
+  $('#tfFrom', wrap).onchange = e => { tfFrom = e.target.value; strip.draw(); onchange(); };
+  $('#tfTo', wrap).onchange = e => { tfTo = e.target.value; strip.draw(); onchange(); };
   $('#tfCenter', wrap).onchange = e => { tfCenter = e.target.value; onchange(); };
   $('#tfDelta', wrap).oninput = e => { tfDelta = +e.target.value || 0; later(); };
   $('#tfUnit', wrap).onchange = e => { tfUnit = e.target.value; onchange(); };
   sync();
   return wrap;
+}
+
+// Waypoints (and Profiles entities) per month for the selected conservation
+// area(s), every month from the first to the last filled in. Cached per CA.
+function monthHist() {
+  D._hist = D._hist || {};
+  if (D._hist[CA]) return D._hist[CA];
+  const wp = new Map(), en = new Map();
+  for (const w of D.wps) if (w.t && caOk(w.ca)) { const m = w.t.slice(0, 7); wp.set(m, (wp.get(m) || 0) + 1); }
+  for (const e of D.profiles.entities) if (e.created && caOk(e.ca)) { const m = e.created.slice(0, 7); en.set(m, (en.get(m) || 0) + 1); }
+  const keys = [...new Set([...wp.keys(), ...en.keys()])].filter(k => /^\d{4}-\d{2}$/.test(k)).sort();
+  if (!keys.length) return D._hist[CA] = { months: [], wp: [], en: [] };
+  const months = [];
+  let [y, m] = keys[0].split('-').map(Number);
+  const last = keys[keys.length - 1];
+  for (let i = 0; i < 1200; i++) {
+    const k = y + '-' + String(m).padStart(2, '0'); months.push(k);
+    if (k >= last) break;
+    if (++m > 12) { m = 1; y++; }
+  }
+  return D._hist[CA] = { months, wp: months.map(k => wp.get(k) || 0), en: months.map(k => en.get(k) || 0) };
+}
+const monthEnd = k => { const [y, m] = k.split('-').map(Number); return k + '-' + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0'); };
+
+// Timeline brush for the 'range' mode: a per-month histogram with two drag
+// handles (or drag the window itself to pan). Handles snap to months and
+// write tfFrom/tfTo; the date inputs stay as editable readouts. While
+// dragging, onchange fires live but at most every 120 ms.
+function tfTimeline(wrap, onchange) {
+  const strip = el('div', 'tfstrip');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  strip.appendChild(svg);
+  const H = 72, barsH = 38, padL = 6, padR = 6, handleW = 8; // bars, then an entity row (41–49), then year ticks
+  let hist, W, colW, si, ei;
+  const idxOf = (d, dflt) => { if (!d) return dflt; const i = hist.months.indexOf(d.slice(0, 7)); return i >= 0 ? i : (d.slice(0, 7) < hist.months[0] ? 0 : hist.months.length - 1); };
+  const xOf = i => padL + i * colW;
+  const draw = () => {
+    hist = monthHist();
+    const n = hist.months.length;
+    W = Math.max(300, Math.floor(strip.getBoundingClientRect().width || wrap.parentElement && wrap.parentElement.clientWidth || 900));
+    svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    if (!n) { svg.innerHTML = '<text x="6" y="24" font-size="12" fill="var(--ink-3)">no dated data</text>'; return; }
+    colW = (W - padL - padR) / n;
+    si = Math.min(idxOf(tfFrom, 0), n - 1); ei = Math.max(si, Math.min(idxOf(tfTo, n - 1), n - 1));
+    const maxW = Math.max(1, ...hist.wp), maxE = Math.max(1, ...hist.en), hasEn = hist.en.some(x => x);
+    let h = '';
+    const x0 = xOf(si), x1 = xOf(ei + 1);
+    h += '<rect x="' + x0 + '" y="0" width="' + (x1 - x0) + '" height="' + (barsH + 2) + '" fill="var(--accent)" opacity="0.12"/>';
+    for (let i = 0; i < n; i++) { // waypoints per month
+      const bh = hist.wp[i] ? Math.max(1.5, hist.wp[i] / maxW * barsH) : 0;
+      if (bh) h += '<rect x="' + (xOf(i) + 0.5) + '" y="' + (barsH - bh) + '" width="' + Math.max(1, colW - 1) + '" height="' + bh + '" fill="' + (i >= si && i <= ei ? 'var(--accent)' : 'var(--ink-3)') + '" opacity="' + (i >= si && i <= ei ? 0.9 : 0.35) + '"/>';
+      if (hasEn && hist.en[i]) { const eh = Math.max(1.5, hist.en[i] / maxE * 8); h += '<rect x="' + (xOf(i) + 0.5) + '" y="' + (barsH + 11 - eh) + '" width="' + Math.max(1, colW - 1) + '" height="' + eh + '" fill="var(--brand)" opacity="' + (i >= si && i <= ei ? 0.9 : 0.3) + '"/>'; }
+    }
+    hist.months.forEach((k, i) => { // year ticks
+      if (!k.endsWith('-01') && i !== 0) return;
+      if (n > 240 && (+k.slice(0, 4)) % 2) return;
+      h += '<line x1="' + xOf(i) + '" y1="' + (barsH + 14) + '" x2="' + xOf(i) + '" y2="' + (barsH + 20) + '" stroke="var(--line)"/>' +
+        '<text x="' + (xOf(i) + 3) + '" y="' + (H - 2) + '" font-size="10.5" fill="var(--ink-3)">' + k.slice(0, 4) + '</text>';
+    });
+    for (const x of [x0, x1]) h += '<rect x="' + (x - handleW / 2) + '" y="0" width="' + handleW + '" height="' + (barsH + 2) + '" rx="3" fill="var(--brand)"/>';
+    h += '<text x="' + (W - padR) + '" y="10" text-anchor="end" font-size="10.5" fill="var(--ink-3)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">' +
+      (hasEn ? 'waypoints per month · lower row: Profiles entities' : 'waypoints per month') + '</text>';
+    svg.innerHTML = h;
+  };
+  strip.draw = draw;
+  // first drawn before it is in the DOM (width unknown), so redraw once attached and on resize
+  new ResizeObserver(() => { if (!strip.hidden && strip.isConnected) draw(); }).observe(strip);
+  const commit = () => { // window -> filter state + readouts
+    tfFrom = hist.months[si] + '-01'; tfTo = monthEnd(hist.months[ei]);
+    const f = $('#tfFrom', wrap), t = $('#tfTo', wrap); if (f) f.value = tfFrom; if (t) t.value = tfTo;
+  };
+  let last = 0, pend = null;
+  const fire = () => { // live, throttled to 120 ms
+    const now = performance.now(), wait = 120 - (now - last);
+    clearTimeout(pend);
+    if (wait <= 0) { last = now; onchange(); } else pend = setTimeout(() => { last = performance.now(); onchange(); }, wait);
+  };
+  let drag = null;
+  const monthAt = e => { const r = svg.getBoundingClientRect(); return Math.max(0, Math.min(hist.months.length - 1, Math.floor((e.clientX - r.left - padL) / colW))); };
+  svg.addEventListener('pointerdown', e => {
+    if (!hist || !hist.months.length) return;
+    const r = svg.getBoundingClientRect(), x = e.clientX - r.left;
+    const x0 = xOf(si), x1 = xOf(ei + 1);
+    if (Math.abs(x - x0) <= handleW) drag = { kind: 'start' };
+    else if (Math.abs(x - x1) <= handleW) drag = { kind: 'end' };
+    else if (x > x0 && x < x1) drag = { kind: 'move', at: monthAt(e), si, ei };
+    else { const i = monthAt(e); if (Math.abs(i - si) <= Math.abs(i - ei)) { si = Math.min(i, ei); drag = { kind: 'start' }; } else { ei = Math.max(i, si); drag = { kind: 'end' }; } commit(); draw(); fire(); }
+    svg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag) { // cursor hint
+      const r = svg.getBoundingClientRect(), x = e.clientX - r.left;
+      svg.style.cursor = hist && hist.months.length && (Math.abs(x - xOf(si)) <= handleW || Math.abs(x - xOf(ei + 1)) <= handleW) ? 'ew-resize' : (x > xOf(si) && x < xOf(ei + 1) ? 'grab' : 'pointer');
+      return;
+    }
+    const i = monthAt(e), n = hist.months.length;
+    if (drag.kind === 'start') si = Math.min(i, ei);
+    else if (drag.kind === 'end') ei = Math.max(i, si);
+    else { const len = drag.ei - drag.si, s = Math.max(0, Math.min(n - 1 - len, drag.si + (i - drag.at))); si = s; ei = s + len; }
+    commit(); draw(); fire();
+  });
+  const stop = () => { if (!drag) return; drag = null; clearTimeout(pend); last = performance.now(); onchange(); };
+  svg.addEventListener('pointerup', stop); svg.addEventListener('pointercancel', stop);
+  return strip;
 }
 
 function rObs(v) {
