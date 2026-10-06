@@ -12,7 +12,7 @@ The name reads as "SMART EBEL": the four stages.
 
 | Stage | What it does | Status |
 | --- | --- | --- |
-| **E**xtract | Dumps every table of a SMART backup to Parquet, and decrypts its photo attachments. | Done |
+| **E**xtract | Dumps every table of a SMART backup or Conservation Area export to Parquet, and decrypts its photo attachments. | Done |
 | **B**rowse | A local web app for patrols, maps, observations, Profiles, and photos. | Done |
 | **E**xport | Write the data in a standard interchange format. | Planned |
 | **L**oad | Create the corresponding events, patrols, and subjects in an EarthRanger site. | Planned |
@@ -21,20 +21,22 @@ The name reads as "SMART EBEL": the four stages.
 
 Works with backups from SMART Desktop 7.5.x and 8.0–8.1.x
 ([details](RUNBOOK.md#supported-smart-versions)). You need Java 19+ (21
-recommended), the DuckDB CLI, Python 3.9+, and OpenSSL (details in the
+recommended), the DuckDB CLI, [uv](https://docs.astral.sh/uv/) (which
+installs Python 3.9+ itself if needed), and OpenSSL (details in the
 [runbook](RUNBOOK.md#1-prerequisites)). New to Java? Install it with
 [SDKMAN](https://sdkman.io/) ([steps](RUNBOOK.md#installing-java-with-sdkman)).
 Then:
 
 ```sh
-./smart-able setup                                  # check tools, create .venv and .env
+./smart-able setup                                  # check tools, install Python deps, create .env
 $EDITOR .env                                        # fill in the SMART database credentials
 ./smart-able all "/path/to/SMART backup"            # extract + browse
 ./smart-able serve                                  # open http://localhost:8765/
 ```
 
-The backup can be a SMART Desktop installation folder, its `data/` folder, or
-a SMART system backup `.zip`.
+The backup can be a SMART Desktop installation folder, its `data/` folder, a
+SMART system backup `.zip`, or a Conservation Area export `.zip` (SMART's
+File → Export Conservation Area).
 
 ## What you get
 
@@ -55,7 +57,10 @@ The browser has six tabs:
 - **Map**: every waypoint on OpenStreetMap or satellite imagery, with time
   filters.
 - **Observations**: the category tree, with text search and time filters.
-- **Profiles**: entities and records from SMART's optional Profiles plugin.
+- **Profiles**: entities from SMART's optional Profiles plugin, searchable by
+  name, type, attribute, or linked record. An entity opens to its attributes,
+  photos, and linked records; a record opens to its own attributes, text,
+  photos, and the entities it links.
 - **Schema**: how the SMART tables relate.
 
 SMART stores timestamps without a timezone. smart-able infers each
@@ -67,6 +72,9 @@ conservation area's timezone from its GPS locations and uses it throughout.
 smart-able              the command: setup, check, extract, browse, serve, all, clean
 extract/
   DumpSmartDb.java        Derby → CSV (+ column types), via JDBC
+  export_to_csv.sh        Conservation Area export → the same CSV layout
+  check_schema.sh         warns about tables/columns that differ from the known schema
+  smart_schema.tsv        the known SMART schema (7.5.4), with column types
   csv_to_parquet.sh       CSV → Parquet (DuckDB)
   decrypt_filestore.sh    decrypts SMART's AES-encrypted attachments
 browse/
@@ -75,6 +83,8 @@ browse/
   infer_timezones.py      GPS → IANA timezone per conservation area
   index.html              the browser (single file, no build step)
 lib/derby/              Apache Derby 10.17 jars (Apache-2.0)
+pyproject.toml          project metadata and Python dependencies (managed with uv)
+uv.lock                 pinned Python dependency versions
 docs/
   smart-data-model.md     how SMART stores its data
 RUNBOOK.md              step-by-step operation, checks, troubleshooting
@@ -88,6 +98,12 @@ version control (it is gitignored) and delete it with `./smart-able clean`
 when done. `./smart-able serve` listens on localhost only. The
 [runbook](RUNBOOK.md#handling-the-data) covers keeping the output on an
 encrypted volume.
+
+A SMART database also holds credentials: a bcrypt hash of each user's SMART
+Desktop password (`employee.smartpassword`) and SMART Connect server logins
+(`connect_account.connect_pass`). The Parquet output leaves those columns out
+unless you pass `--keep-credentials`. The database copy and CSV in `work/`
+are raw and still contain them.
 
 The SMART database credentials are SMART's fixed built-in ones; they are read
 from `.env` (gitignored), not stored in the code.

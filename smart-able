@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # smart-able — Extract, Browse, Export, Load SMART conservation data.
 #
-#   ./smart-able setup                 check tools, create .venv, create .env
+#   ./smart-able setup                 check tools, install Python deps (uv), create .env
 #   ./smart-able check                 check that the required tools are installed
 #   ./smart-able extract <backup>      SMART backup -> work/parquet + decrypted attachments
+#                                      (--keep-credentials: keep SMART login hashes in the Parquet)
 #   ./smart-able browse                work/parquet -> work/site (browser data)
 #   ./smart-able serve [port]          serve the browser on http://localhost:<port> (default 8765)
 #   ./smart-able all <backup>          extract + browse
 #   ./smart-able clean                 delete the work directory
 #
 # <backup> can be a SMART Desktop install folder, its data/ folder, a smartdb/
-# database folder, or a SMART system backup .zip. Outputs go to $SMART_ABLE_WORK
-# (default: ./work). See README.md and RUNBOOK.md.
+# database folder, a SMART system backup .zip, or a Conservation Area export
+# (.zip or unzipped; SMART's File > Export Conservation Area). Outputs go to
+# $SMART_ABLE_WORK (default: ./work). See README.md and RUNBOOK.md.
+#
+# The Parquet leaves out SMART's stored credentials (employee.smartpassword,
+# connect_account.connect_pass) unless --keep-credentials is given.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -28,7 +33,7 @@ java_major() {
 
 check() {   # $1 = "setup" when called from setup (skip warnings setup is about to fix)
   local ok=1 t
-  for t in java duckdb python3 openssl unzip od; do
+  for t in java duckdb uv openssl unzip od; do
     if command -v "$t" >/dev/null 2>&1; then
       printf '  %-8s %s\n' "$t" "$(command -v "$t")"
     else
@@ -41,7 +46,7 @@ check() {   # $1 = "setup" when called from setup (skip warnings setup is about 
   fi
   ls "$ROOT"/lib/derby/derby-*.jar >/dev/null 2>&1 || { warn "no Derby jars in lib/derby/"; ok=0; }
   if [ "${1:-}" != setup ]; then
-    [ -x "$ROOT/.venv/bin/python" ] || warn "no .venv yet (run ./smart-able setup); timezone inference will be skipped"
+    [ -d "$ROOT/.venv" ] || warn "no .venv yet (run ./smart-able setup); timezone inference will be skipped"
     [ -f "$ROOT/.env" ] || warn "no .env yet (run ./smart-able setup, then fill in the credentials)"
   fi
   [ "$ok" = 1 ] || die "missing prerequisites (see RUNBOOK.md, 'Prerequisites')"
@@ -51,9 +56,9 @@ check() {   # $1 = "setup" when called from setup (skip warnings setup is about 
 setup() {
   say "Checking tools"
   check setup
-  say "Creating Python environment (.venv)"
-  python3 -m venv "$ROOT/.venv"
-  "$ROOT/.venv/bin/pip" install -q --disable-pip-version-check -r "$ROOT/requirements.txt"
+  say "Installing Python dependencies (uv sync -> .venv)"
+  # uv reads pyproject.toml + uv.lock, and downloads a Python if none is suitable
+  uv sync --project "$ROOT" --quiet
   say "Installing the DuckDB spatial extension"
   duckdb -c "INSTALL spatial;" >/dev/null
   if [ ! -f "$ROOT/.env" ]; then
@@ -78,11 +83,17 @@ find_db() {   # first folder under $1 that is a Derby database (service.properti
   return 1
 }
 
+find_export() {   # folder under $1 that is a Conservation Area export (conservationarea.dat + database/)
+  local f
+  f=$(find "$1" -name conservationarea.dat -print -quit 2>/dev/null)
+  [ -n "$f" ] && [ -d "$(dirname "$f")/database" ] || return 1
+  dirname "$f"
+}
+
 extract() {
   local backup=${1:-}
   [ -n "$backup" ] || die "usage: ./smart-able extract <backup>"
   [ -e "$backup" ] || die "not found: $backup"
-  load_env
   mkdir -p "$WORK"
 
   local src=$backup
@@ -95,21 +106,41 @@ extract() {
     esac
   fi
 
-  local db fs
-  db=$(find_db "$src") || die "no SMART Derby database (a folder with service.properties and seg0/) under: $backup"
-  fs=$(find "$src" -type d -name filestore -print -quit 2>/dev/null || true)
-  echo "  database:  $db"
-  echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+  local db exp fs input ca_uuid=
+  if db=$(find_db "$src"); then
+    input=database
+    fs=$(find "$src" -type d -name filestore -print -quit 2>/dev/null || true)
+    echo "  database:  $db"
+    echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+    load_env
 
-  say "Copying the database (the original is never opened)"
-  rm -rf "$WORK/smartdb"
-  cp -R "$db" "$WORK/smartdb"
-  rm -f "$WORK/smartdb"/*.lck
+    say "Copying the database (the original is never opened)"
+    rm -rf "$WORK/smartdb"
+    cp -R "$db" "$WORK/smartdb"
+    rm -f "$WORK/smartdb"/*.lck
 
-  say "Dumping all SMART tables to CSV"
-  rm -rf "$WORK/csv"
-  java -Dderby.stream.error.file="$WORK/derby.log" -cp "$ROOT/lib/derby/*" \
-    "$ROOT/extract/DumpSmartDb.java" "$WORK/smartdb" "$WORK/csv" | tail -1
+    say "Dumping all SMART tables to CSV"
+    rm -rf "$WORK/csv"
+    java -Dderby.stream.error.file="$WORK/derby.log" -cp "$ROOT/lib/derby/*" \
+      "$ROOT/extract/DumpSmartDb.java" "$WORK/smartdb" "$WORK/csv" | tail -1
+  elif exp=$(find_export "$src"); then
+    input=export
+    # Conservation Area export: the tables are already CSV, so no Java/Derby.
+    # conservationarea.dat: line 1 the CA uuid, line 3 its name (CRLF).
+    ca_uuid=$(awk 'NR==1 { sub(/\r$/, ""); print }' "$exp/conservationarea.dat")
+    [[ $ca_uuid =~ ^[0-9a-f]{32}$ ]] ||
+      warn "line 1 of conservationarea.dat is not a conservation area uuid ('$ca_uuid'); attachments will not decrypt"
+    [ -d "$exp/filestore" ] && fs=$exp/filestore
+    echo "  export:    $exp"
+    echo "  conservation area: $(awk 'NR==3 { sub(/\r$/, ""); print }' "$exp/conservationarea.dat") ($ca_uuid)"
+    echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+
+    say "Converting the export's tables to CSV"
+    rm -rf "$WORK/smartdb" "$WORK/csv"
+    bash "$ROOT/extract/export_to_csv.sh" "$exp" "$WORK/csv" | tail -1
+  else
+    die "no SMART Derby database (service.properties + seg0/) or Conservation Area export (conservationarea.dat + database/) under: $backup"
+  fi
 
   say "Converting CSV to Parquet"
   rm -rf "$WORK/parquet"
@@ -118,10 +149,13 @@ extract() {
   ver=$(duckdb -noheader -list -c "select max(version) from '$WORK/parquet/db_version.parquet' where plugin_id = 'org.wcs.smart'" 2>/dev/null || true)
   echo "  SMART database version: ${ver:-unknown}"
 
+  say "Checking the schema against the known one"
+  bash "$ROOT/extract/check_schema.sh" "$WORK/csv" "$input" "${ver:-}"
+
   if [ -n "$fs" ]; then
     say "Decrypting attachments"
     rm -rf "$WORK/site/attachments"
-    bash "$ROOT/extract/decrypt_filestore.sh" "$fs" "$WORK/site/attachments"
+    bash "$ROOT/extract/decrypt_filestore.sh" "$fs" "$WORK/site/attachments" ${ca_uuid:+"$ca_uuid"}
   fi
   say "Extract complete: $WORK/parquet"
 }
@@ -141,9 +175,26 @@ browse() {
   fi
   (cd "$WORK" && cat "${sql[@]}" | duckdb)
 
-  if [ -x "$ROOT/.venv/bin/python" ]; then
+  # Every attachment the database refers to should have come out of the
+  # filestore; a backup or export can lack some.
+  local att
+  att=$(cd "$WORK" && duckdb -noheader -csv -separator ' ' -c "
+    WITH ref AS (SELECT p FROM read_json('site/data/*attachments.json', format='array', columns={k: 'VARCHAR', id: 'VARCHAR', p: 'VARCHAR'})),
+         have AS (SELECT file FROM glob('site/attachments/**'))
+    SELECT count(*), count(*) FILTER (WHERE have.file IS NULL) FROM ref LEFT JOIN have ON have.file = 'site/' || ref.p" 2>/dev/null) || att=
+  if [ -z "$att" ]; then
+    warn "could not check whether all attachments are present"
+  elif [ ! -d "$WORK/site/attachments" ] && [ "${att% *}" -gt 0 ]; then
+    warn "the database refers to ${att% *} attachments, but no filestore was extracted (see the extract output); the browser will show them as missing"
+  elif [ "${att#* }" -gt 0 ]; then
+    warn "${att#* } of ${att% *} attachments the database refers to are not in the backup; the browser will show them as missing"
+  else
+    echo "  all ${att% *} attachments the database refers to are present"
+  fi
+
+  if [ -d "$ROOT/.venv" ]; then
     say "Inferring timezones from GPS"
-    "$ROOT/.venv/bin/python" "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
+    uv run --project "$ROOT" --quiet python "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
   else
     warn "no .venv (run ./smart-able setup); timestamps will be shown without a timezone"
   fi
@@ -157,7 +208,7 @@ serve() {
   [ -f "$WORK/site/index.html" ] || die "no $WORK/site; run ./smart-able browse first"
   say "Serving http://localhost:$port/  (local machine only; Ctrl-C to stop)"
   # bind to loopback only: the site contains sensitive conservation data
-  exec python3 -m http.server "$port" --bind 127.0.0.1 --directory "$WORK/site"
+  exec uv run --project "$ROOT" --quiet python -m http.server "$port" --bind 127.0.0.1 --directory "$WORK/site"
 }
 
 clean() {
@@ -166,10 +217,20 @@ clean() {
   rm -rf "$WORK"
 }
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; }   # the header comment above
 
 cmd=${1:-}
 shift || true
+# options accepted anywhere after the command
+args=()
+for a in "$@"; do
+  case $a in
+    --keep-credentials) export KEEP_CREDENTIALS=1 ;;
+    --*) die "unknown option: $a" ;;
+    *) args+=("$a") ;;
+  esac
+done
+set -- ${args[@]+"${args[@]}"}
 case $cmd in
   setup)   setup ;;
   check)   check ;;

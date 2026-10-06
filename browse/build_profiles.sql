@@ -39,13 +39,37 @@ COPY (
                 FROM 'parquet/i_entity_attribute_value.parquet' v
                 LEFT JOIN lbl li ON li.element_uuid = v.list_item_uuid) nm
             ON nm.entity_uuid = en.uuid AND nm.attribute_uuid = ty2.id_attribute_uuid) AS entities,
+    -- A record's attributes are defined per record source
+    -- (i_recordsource_attribute -> i_attribute); values are text, number,
+    -- or list items (i_record_attribute_value_list, several for is_multi).
     (SELECT list(struct_pack(
-        u := r.uuid, title := coalesce(r.title, ''),
+        u := r.uuid, ca := rca.id, title := coalesce(r.title, ''),
         d := strftime(r.primary_date, '%Y-%m-%d'),
         src := coalesce(ls.label, ''), status := coalesce(r.status, ''),
-        descr := left(coalesce(r.description, ''), 400)))
+        descr := coalesce(r.description, ''),
+        cmt := coalesce(r.comment, ''),
+        created := strftime(r.date_created, '%Y-%m-%d %H:%M:%S'),
+        by := coalesce(ec.name, ''),
+        vals := (SELECT list([coalesce(la.label, a.keyid, ''),
+                   coalesce(li.items, v.string_value,
+                            CASE WHEN v.double_value IS NOT NULL THEN
+                              CAST(v.double_value AS VARCHAR) ||
+                              CASE WHEN v.double_value2 IS NOT NULL
+                                   THEN ' – ' || CAST(v.double_value2 AS VARCHAR) ELSE '' END
+                            END, '')] ORDER BY ra.seq_order)
+                 FROM 'parquet/i_record_attribute_value.parquet' v
+                 JOIN 'parquet/i_recordsource_attribute.parquet' ra ON ra.uuid = v.attribute_uuid
+                 LEFT JOIN 'parquet/i_attribute.parquet' a ON a.uuid = ra.attribute_uuid
+                 LEFT JOIN lbl la ON la.element_uuid = a.uuid
+                 LEFT JOIN (SELECT vl.value_uuid, string_agg(coalesce(ll.label, ''), ', ') AS items
+                            FROM 'parquet/i_record_attribute_value_list.parquet' vl
+                            LEFT JOIN lbl ll ON ll.element_uuid = vl.element_uuid
+                            GROUP BY vl.value_uuid) li ON li.value_uuid = v.uuid
+                 WHERE v.record_uuid = r.uuid)))
      FROM 'parquet/i_record.parquet' r
-     LEFT JOIN lbl ls ON ls.element_uuid = r.source_uuid) AS records
+     LEFT JOIN 'parquet/conservation_area.parquet' rca ON rca.uuid = r.ca_uuid
+     LEFT JOIN lbl ls ON ls.element_uuid = r.source_uuid
+     LEFT JOIN emp ec ON ec.uuid = r.created_by) AS records
 ) TO 'site/data/profiles.json' (FORMAT json, ARRAY true);
 
 -- ------------------------------------------------ profile_attachments.json

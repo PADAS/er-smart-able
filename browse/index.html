@@ -96,8 +96,8 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 11.5px;
      text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
 td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-tr.click { cursor: pointer; }
-tr.click:hover td { background: var(--chip); }
+tr.click, div.click { cursor: pointer; }
+tr.click:hover td, div.click:hover { background: var(--chip); }
 .tableWrap { overflow-x: auto; }
 input[type="search"] {
   width: 100%; max-width: 360px; box-sizing: border-box; background: var(--surface); color: var(--ink);
@@ -309,6 +309,12 @@ function index() {
   }
   D.recBy = new Map(D.profiles.records.map(r => [r.u, r]));
   D.ptypeBy = new Map(D.profiles.types.map(t => [t.u, t]));
+  // record uuid -> indexes of the entities linked to it (the link table is many-to-many)
+  D.recEnts = new Map();
+  D.profiles.entities.forEach((e, i) => (e.recs || []).forEach(u => {
+    let l = D.recEnts.get(u); if (!l) D.recEnts.set(u, l = []);
+    l.push(i);
+  }));
   // attachment manifest: kind ('wp'|'ent'|'rec') + owner uuid -> decrypted file paths
   D.attBy = { wp: new Map(), ent: new Map(), rec: new Map() };
   for (const a of D.atts) {
@@ -732,11 +738,7 @@ function wpDrawer(w, from) {
   const d = openDrawer();
   if (from && from.patrol) {
     const p = D.patrolBy.get(from.patrol);
-    const back = el('button', 'ghost');
-    back.style.marginTop = '0';
-    back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>Back to patrol ' + esc(p ? p.id : '');
-    back.onclick = async () => { await patrolDrawer(from.patrol); $('#drawer').scrollTop = from.scroll || 0; };
-    d.appendChild(back);
+    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), () => patrolDrawer(from.patrol), from.scroll);
   }
   d.insertAdjacentHTML('beforeend', '<h3>Waypoint</h3><div class="kv">' +
     '<div>Time</div><div class="mono">' + w.t + '</div>' +
@@ -1193,7 +1195,7 @@ function rObs(v) {
 }
 
 /* ---------------- Profiles ---------------- */
-let selType = null, entShown = 50;
+let selType = null, entShown = 50, entQuery = '';
 function rProfiles(v) {
   v.insertAdjacentHTML('beforeend', '<p class="muted">SMART Profiles (the <code>i2</code> plugin, tables <code>i_entity*</code>) tracks persistent entities over time: ' +
     'each <b>entity</b> has a configurable type and attributes, and links to dated <b>records</b>. What entities represent is up to each site — people, vehicles, ' +
@@ -1211,52 +1213,99 @@ function rProfiles(v) {
   // Each conservation area defines its own copy of every entity type. Group by
   // the type key so the copies merge into one line in the "All" view.
   const keyOf = e => (D.ptypeBy.get(e.ty) || {}).k || e.ty;
-  const byKey = new Map();
-  for (const e of ents0) {
-    const k = keyOf(e);
-    let a = byKey.get(k); if (!a) byKey.set(k, a = []); a.push(e);
-  }
   const labelOf = k => {
     const ts = D.profiles.types.filter(t => t.k === k);
     return (ts.find(t => caOk(t.ca)) || ts[0] || {}).l || k;
   };
-  if (selType && !byKey.has(selType)) selType = null;
   const allCas = CA === 'all';
+
+  const bar = el('div', 'filterbar');
+  const { wrap: searchWrap, inp: search } = searchField('entSearch',
+    'Search name, type, attribute, value, record…', entQuery);
+  bar.appendChild(searchWrap);
+  const clearB = el('button', 'ghost');
+  clearB.innerHTML = '<span class="mi" aria-hidden="true">close</span>Clear';
+  clearB.style.marginTop = '0'; bar.appendChild(clearB);
+  const countS = el('span', 'tiny'); bar.appendChild(countS);
+  v.appendChild(bar);
   const cols = el('div', 'cols'); v.appendChild(cols);
   const left = el('div', 'panel'); cols.appendChild(left);
   const right = el('div', 'panel'); cols.appendChild(right);
-  left.appendChild(el('h2', null, 'Entity types'));
-  const tree = el('div', 'tree'); left.appendChild(tree);
-  const keys = [...byKey.keys()].sort((a, b) => byKey.get(b).length - byKey.get(a).length);
-  for (const k of keys) {
-    const d = el('div', 'nd' + (selType === k ? ' sel' : ''),
-      esc(labelOf(k)) + ' <span class="cnt">' + fmt(byKey.get(k).length) + '</span>');
-    d.onclick = () => { selType = selType === k ? null : k; entShown = 50; render(); };
-    tree.appendChild(d);
-  }
-  const ents = selType ? byKey.get(selType) : ents0;
-  right.appendChild(el('h2', null, (selType ? esc(labelOf(selType)) : 'All entities') + ' — ' + fmt(ents.length)));
-  const host = el('div'); right.appendChild(host);
-  const drawEnts = () => {
-    host.innerHTML = '<div class="tableWrap"><table><thead><tr><th>Entity</th><th>Type</th>' +
-      (allCas ? '<th>Conservation area</th>' : '') + '<th>Created</th><th class="num">Records</th></tr></thead><tbody>' +
-      ents.slice(0, entShown).map(e => '<tr class="click" data-i="' + D.profiles.entities.indexOf(e) + '">' +
-        '<td>' + esc(e.n) + '</td><td>' + esc(labelOf(keyOf(e))) + '</td>' +
-        (allCas ? '<td>' + esc((D.caById.get(e.ca) || {}).n || e.ca || '') + '</td>' : '') +
-        '<td class="num">' + profileCreated(e) + '</td><td class="num">' + (e.recs || []).length + '</td></tr>').join('') +
-      '</tbody></table></div>';
-    if (ents.length > entShown) {
-      const b = el('button', 'more', 'Show more'); b.onclick = () => { entShown += 100; drawEnts(); };
-      host.appendChild(b);
-    }
-    host.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => entityDrawer(+tr.dataset.i));
+
+  let deb;
+  search.oninput = e => {
+    entQuery = e.target.value; entShown = 50;
+    clearTimeout(deb); deb = setTimeout(update, 200);
   };
-  drawEnts();
+  clearB.onclick = () => { entQuery = ''; selType = null; entShown = 50; render(); };
+
+  function update() {
+    const q = entQuery.trim().toLowerCase();
+    const matched = q ? ents0.filter(e => entText(e).includes(q)) : ents0;
+    countS.textContent = q ? fmt(matched.length) + ' of ' + fmt(ents0.length) + ' entities match' : '';
+    const byKey = new Map();
+    for (const e of matched) {
+      const k = keyOf(e);
+      let a = byKey.get(k); if (!a) byKey.set(k, a = []); a.push(e);
+    }
+    if (selType && !byKey.has(selType)) selType = null;
+
+    left.innerHTML = '';
+    left.appendChild(el('h2', null, 'Entity types'));
+    const tree = el('div', 'tree'); left.appendChild(tree);
+    const keys = [...byKey.keys()].sort((a, b) => byKey.get(b).length - byKey.get(a).length);
+    for (const k of keys) {
+      const d = el('div', 'nd' + (selType === k ? ' sel' : ''),
+        esc(labelOf(k)) + ' <span class="cnt">' + fmt(byKey.get(k).length) + '</span>');
+      d.onclick = () => { selType = selType === k ? null : k; entShown = 50; update(); };
+      tree.appendChild(d);
+    }
+    if (!keys.length) left.appendChild(el('p', 'muted', 'No entities match.'));
+
+    const ents = selType ? byKey.get(selType) : matched;
+    right.innerHTML = '';
+    right.appendChild(el('h2', null, (selType ? esc(labelOf(selType)) : 'All entities') + ' — ' + fmt(ents.length)));
+    const host = el('div'); right.appendChild(host);
+    const drawEnts = () => {
+      host.innerHTML = '<div class="tableWrap"><table><thead><tr><th>Entity</th><th>Type</th>' +
+        (allCas ? '<th>Conservation area</th>' : '') + '<th>Created</th><th class="num">Records</th></tr></thead><tbody>' +
+        ents.slice(0, entShown).map(e => '<tr class="click" data-i="' + D.profiles.entities.indexOf(e) + '">' +
+          '<td>' + esc(e.n) + '</td><td>' + esc(labelOf(keyOf(e))) + '</td>' +
+          (allCas ? '<td>' + esc((D.caById.get(e.ca) || {}).n || e.ca || '') + '</td>' : '') +
+          '<td class="num">' + profileCreated(e) + '</td><td class="num">' + (e.recs || []).length + '</td></tr>').join('') +
+        '</tbody></table></div>';
+      if (ents.length > entShown) {
+        const b = el('button', 'more', 'Show more'); b.onclick = () => { entShown += 100; drawEnts(); };
+        host.appendChild(b);
+      }
+      host.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => entityDrawer(+tr.dataset.i));
+    };
+    drawEnts();
+  }
+  update();
 }
 
-function entityDrawer(i) {
+// searchable text per entity, built lazily and cached: name, type, CA,
+// attributes, comment, and its linked records' titles, sources, and statuses
+function entText(e) {
+  if (e._s === undefined) {
+    const ty = D.ptypeBy.get(e.ty) || {};
+    const ca = D.caById.get(e.ca) || {};
+    const recs = (e.recs || []).map(u => D.recBy.get(u)).filter(Boolean);
+    e._s = [e.n, ty.l, ty.k, ca.n, e.ca, profileCreated(e), e.cmt,
+      ...(e.vals || []).map(x => x[0] + ' ' + x[1]),
+      ...recs.map(r => r.title + ' ' + r.src + ' ' + r.status)].filter(Boolean).join(' ').toLowerCase();
+  }
+  return e._s;
+}
+
+function entityDrawer(i, from) {   // from: {record, scroll} when opened from a record drawer
   const e = D.profiles.entities[i];
   const d = openDrawer();
+  if (from && from.record) {
+    const r = D.recBy.get(from.record);
+    backButton(d, 'Back to record ' + esc(r ? r.title || '(untitled)' : ''), () => recordDrawer(from.record), from.scroll);
+  }
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(e.n) + '</h3><p class="tiny">' +
     esc((D.ptypeBy.get(e.ty) || {}).l || '') + ' · ' + esc((D.caById.get(e.ca) || {}).n || e.ca || '') +
     ' · created ' + (profileCreated(e) || '?') + '</p>');
@@ -1269,13 +1318,51 @@ function entityDrawer(i) {
   const recs = (e.recs || []).map(u => D.recBy.get(u)).filter(Boolean);
   d.insertAdjacentHTML('beforeend', '<h2>Linked records (' + recs.length + ')</h2>');
   for (const r of recs.sort((a, b) => (a.d || '') < (b.d || '') ? 1 : -1)) {
-    d.insertAdjacentHTML('beforeend', '<div style="border-top:1px solid var(--line);padding:8px 0">' +
-      '<b>' + esc(r.title || '(untitled)') + '</b> <span class="pill">' + esc(r.src) + '</span> <span class="tiny num">' + (r.d || '') + '</span>' +
-      (r.descr ? '<div class="tiny">' + esc(r.descr) + '</div>' : '') + '</div>');
-    const rph = photoStrip(D.attBy.rec.get(r.u));
-    if (rph) d.lastElementChild.appendChild(rph);
+    const row = el('div', 'click');
+    row.style.cssText = 'border-top:1px solid var(--line);padding:8px 0';
+    row.innerHTML = '<b>' + esc(r.title || '(untitled)') + '</b> <span class="pill">' + esc(r.src) + '</span>' +
+      (r.status ? ' <span class="pill">' + esc(r.status) + '</span>' : '') + ' <span class="tiny num">' + (r.d || '') + '</span>' +
+      (r.descr ? '<div class="tiny">' + esc(r.descr.length > 200 ? r.descr.slice(0, 200) + '…' : r.descr) + '</div>' : '');
+    row.title = 'Open this record';
+    row.onclick = () => recordDrawer(r.u, { entity: i, scroll: d.scrollTop });
+    d.appendChild(row);
   }
   if (!recs.length) d.insertAdjacentHTML('beforeend', '<p class="muted">No linked records.</p>');
+}
+
+// A Profiles record: a dated event with its record-source attributes, text,
+// photos, and the entities it is linked to (many-to-many).
+function recordDrawer(u, from) {   // from: {entity, scroll} when opened from an entity drawer
+  const r = D.recBy.get(u);
+  if (!r) return;
+  const d = openDrawer();
+  if (from && from.entity != null) {
+    const e = D.profiles.entities[from.entity];
+    backButton(d, 'Back to ' + esc(e ? e.n : 'entity'), () => entityDrawer(from.entity), from.scroll);
+  }
+  d.insertAdjacentHTML('beforeend', '<h3>' + esc(r.title || '(untitled)') + '</h3><p class="tiny">' +
+    [r.src, r.status, r.d, (D.caById.get(r.ca) || {}).n || r.ca].filter(Boolean).map(esc).join(' · ') + '</p>');
+  const vals = (r.vals || []).filter(x => x[1] !== '');
+  if (vals.length) d.insertAdjacentHTML('beforeend', '<div class="kv">' +
+    vals.map(x => '<div>' + esc(x[0]) + '</div><div>' + esc(x[1]) + '</div>').join('') + '</div>');
+  if (r.descr) d.insertAdjacentHTML('beforeend', '<p>' + esc(r.descr) + '</p>');
+  if (r.cmt) d.insertAdjacentHTML('beforeend', '<p class="muted">' + esc(r.cmt) + '</p>');
+  const ph = photoStrip(D.attBy.rec.get(r.u));
+  if (ph) { d.insertAdjacentHTML('beforeend', '<h2>Attachments</h2>'); d.appendChild(ph); }
+  const ents = (D.recEnts.get(r.u) || []).map(i => [i, D.profiles.entities[i]]);
+  d.insertAdjacentHTML('beforeend', '<h2>Linked entities (' + ents.length + ')</h2>');
+  for (const [i, e] of ents) {
+    const row = el('div', 'click');
+    row.style.cssText = 'border-top:1px solid var(--line);padding:8px 0';
+    row.innerHTML = '<b>' + esc(e.n) + '</b> <span class="pill">' + esc((D.ptypeBy.get(e.ty) || {}).l || '') + '</span>';
+    row.title = 'Open this entity';
+    row.onclick = () => entityDrawer(i, { record: r.u, scroll: d.scrollTop });
+    d.appendChild(row);
+  }
+  if (!ents.length) d.insertAdjacentHTML('beforeend', '<p class="muted">Not linked to any entity.</p>');
+  const created = profileCreated(r);
+  if (created || r.by) d.insertAdjacentHTML('beforeend', '<p class="tiny">Created ' + esc(created || '?') +
+    (r.by ? ' by ' + esc(r.by) : '') + '</p>');
 }
 
 /* ---------------- Schema ---------------- */
@@ -1300,7 +1387,9 @@ waypoint ─┬─ wp_attachments (filenames; files on disk, encrypted)
 PROFILES (i2 plugin)
 i_entity ─┬─ i_entity_type (name = value of the type's id_attribute)
           ├─ i_entity_attribute_value ── i_attribute / i_attribute_list_item
-          ├─ i_entity_record ── i_record ── i_recordsource
+          ├─ i_entity_record ── i_record ─┬─ i_recordsource ── i_recordsource_attribute ── i_attribute
+          │                               ├─ i_record_attribute_value ── i_record_attribute_value_list ── i_attribute_list_item
+          │                               └─ i_record_attachment
           └─ i_entity_attachment / i_entity_location
 </pre></div></div>
 <div class="panel" style="margin-top:14px"><h2>Reading notes</h2><ul class="schema-notes">
@@ -1324,6 +1413,15 @@ function openDrawer() {
   return d;
 }
 function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; }
+// "Back to …" button at the top of a drawer opened from another drawer;
+// reopen() rebuilds the previous one, which is then restored to its scroll position
+function backButton(d, label, reopen, scroll) {
+  const back = el('button', 'ghost');
+  back.style.marginTop = '0';
+  back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>' + label;
+  back.onclick = async () => { await reopen(); $('#drawer').scrollTop = scroll || 0; };
+  d.appendChild(back);
+}
 document.addEventListener('keydown', e => {
   if (modalState) {
     if (e.key === 'Escape') closeModal();

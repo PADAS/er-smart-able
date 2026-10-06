@@ -15,7 +15,7 @@ For the SMART tables themselves, see
 | --- | --- | --- | --- |
 | Java JDK | 19 or newer (21 recommended) | reading the Derby database | [SDKMAN](#installing-java-with-sdkman) (recommended), or `brew install openjdk@21` / `apt install openjdk-21-jdk` |
 | DuckDB CLI | 1.x | CSV → Parquet, building browser data | `brew install duckdb` / [duckdb.org/docs/installation](https://duckdb.org/docs/installation/) |
-| Python | 3.9 or newer | timezone inference, local web server | `brew install python` / `apt install python3 python3-venv` |
+| [uv](https://docs.astral.sh/uv/) | any recent | Python dependencies, timezone inference, local web server (uv downloads Python 3.9+ if you don't have one) | `brew install uv` / `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | OpenSSL | any | decrypting attachments | preinstalled on macOS / `apt install openssl` |
 | unzip | any | `.zip` backups | preinstalled on macOS / `apt install unzip` |
 
@@ -63,9 +63,13 @@ schemas lack.
 ./smart-able setup
 ```
 
-This checks the tools above, creates a Python environment in `.venv/`,
-installs DuckDB's spatial extension (this needs internet once), and creates
-`.env` from `.env.example`.
+This checks the tools above, runs `uv sync` to create `.venv/` with the
+Python dependencies pinned in `uv.lock`, installs DuckDB's spatial extension
+(both need internet once), and creates `.env` from `.env.example`.
+
+Python dependencies are declared in `pyproject.toml`. To add or change one,
+edit it there and run `uv lock` (or `uv add <package>`), then commit the
+updated `uv.lock`; `./smart-able setup` installs exactly what the lock says.
 
 Then open `.env` and fill in `SMART_DB_USER` and `SMART_DB_PASSWORD`. These
 are SMART's fixed embedded-database credentials, the same for every SMART
@@ -82,9 +86,19 @@ attachment folder inside it:
 | Just its `data/` folder | `data/` |
 | Just the database folder | the `smartdb/` folder (attachments will be skipped) |
 | A SMART system backup zip (`SMART_<date>.bak.zip`) | the `.zip` file |
+| A Conservation Area export (SMART Desktop: File → Export Conservation Area) | the `.zip` file, or the folder it unzips to |
 
 The database is the folder that contains `service.properties` and `seg0/`;
 attachments are in a folder named `filestore`.
+
+A Conservation Area export is different: it holds one conservation area as
+plain-text table dumps (`database/*.dat` and `.def`) plus its `filestore`,
+and no Derby database. smart-able reads those dumps directly, so the Java and
+Derby steps, and the `.env` credentials, are not needed for it. Column types
+come from `extract/smart_schema.tsv` (taken from a SMART 7.5.4 database), so
+a column added in a later SMART version arrives as text, with a warning (see
+[Warnings](#warnings)), until that file is refreshed; the file's header says
+how.
 
 **Close SMART Desktop first** if you are reading a live installation. smart-able
 copies the database before opening it and never modifies the original, but
@@ -109,9 +123,10 @@ Quote the path if it has spaces. You can also run the stages one at a time:
 | --- | --- | --- |
 | Locate | prints the database and filestore paths | Both found. "filestore: (none found)" means no photos. |
 | Copy | `work/smartdb/` | — |
-| Dump | `work/csv/` | `done: N rows across M tables`. M is typically around 200; it varies with SMART version and installed plugins. |
+| Dump | `work/csv/` | `done: N rows across M tables`. M is typically around 200; it varies with SMART version and installed plugins. For a Conservation Area export this step reads the export's table dumps instead of Derby, and prints the conservation area's name. |
 | Version | prints `SMART database version` | The schema version, e.g. `7.5.4` or `8.1.0`. SMART 8.1.1–8.1.3 still report `8.1.0`, because their schema didn't change. |
-| Parquet | `work/parquet/` | `converted M tables`. M must equal the dump's table count. |
+| Schema check | `schema matches smart_schema.tsv (7.5.4)`, or warnings | Read any warnings; see [Warnings](#warnings). |
+| Parquet | `work/parquet/` | `converted M tables`. M must equal the dump's table count. `dropping employee.smartpassword` is expected (see [Handling the data](#handling-the-data)); `--keep-credentials` turns it off. |
 | Decrypt | `work/site/attachments/` | `failed: 0`. |
 
 A ~150 MB database with 1.4 GB of attachments takes about 3 minutes; most of
@@ -127,6 +142,22 @@ that is decryption.
 | --- | --- | --- |
 | Build | `work/site/data/*.json` | "Profiles data found" or "no Profiles tables; skipping Profiles". |
 | Timezones | `work/site/data/timezones.json` | One line per CA with a plausible zone. The demo CA "SMART" is in Gabon (`Africa/Libreville`). |
+| Attachments | `all N attachments the database refers to are present`, or a warning | See [Warnings](#warnings). |
+
+### Warnings
+
+smart-able makes a few assumptions about the data; where it can check them,
+it prints a `warning:` line rather than stopping. They mean:
+
+| Warning | Meaning | What to do |
+| --- | --- | --- |
+| `this data is SMART schema X; smart_schema.tsv ... were written against 7.5.4` | The backup comes from a different SMART version than the one smart-able was built against. The schema differences follow as further warnings. | Check the output against [Version differences](docs/smart-data-model.md#version-differences). Differences not listed there are new: add them to the doc and, once handled, refresh `extract/smart_schema.tsv` (its header says how). |
+| `the SMART schema version of this data is unknown` | No `db_version` table (very old SMART, or a damaged export). | Treat the data as unverified. |
+| `new table` / `new column` | The data has tables or columns that `smart_schema.tsv` doesn't know. The browser ignores them. For a Conservation Area export, a new column was loaded as text, since its type is unknown. | As above: document, then refresh the snapshot. |
+| `missing table` / `missing column` | The data lacks something the snapshot has. If the browser needs it, `browse` will fail on that table. | As above. For an export, missing *tables* are only noted, since exports omit the install-wide ones (`connect_*`, `login_log`, ...). |
+| `type change` | A column's type differs from the snapshot (databases only; exports have no types). | Check whether the browser SQL still works on it. |
+| `N of M attachments the database refers to are not in the backup` | The database has attachment rows whose files are missing from the filestore (or the export). The browser shows those as missing photos. | Nothing to fix in smart-able; the source install has the same gaps. |
+| `line 1 of conservationarea.dat is not a conservation area uuid` | The export is not in the layout smart-able expects. | The attachments won't decrypt; check the export with SMART's own import first. |
 
 ### Serve
 
@@ -178,6 +209,13 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
   `SMART_ABLE_WORK=/Volumes/Secure/my-site ./smart-able all <backup>`
 - The decrypted photos are plaintext copies of encrypted files. Delete them
   when you're done: `./smart-able clean` removes the whole work directory.
+- The database stores credentials: `employee.smartpassword` is a bcrypt hash
+  of each user's SMART Desktop password, and `connect_account.connect_pass`
+  holds SMART Connect server logins. `work/parquet/` leaves those columns
+  out, so it is the output to share. Pass `--keep-credentials` to `extract`
+  or `all` to keep them (for example, to migrate logins). `work/csv/` and
+  `work/smartdb/` are raw copies and always contain them; treat them like
+  the backup itself.
 - `.env` holds the database credentials and is gitignored too.
 
 ## Re-running and updating
@@ -197,11 +235,13 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
 | `Connection authentication failure occurred. Reason: Invalid authentication` | Wrong credentials | Check the values in `.env`. |
 | Derby error mentioning `XSLAN` or "incompatible format" | The database was written by a Derby newer than the bundled 10.17 (a SMART release after 8.1) | Replace the three jars in `lib/derby/` with that Derby version (`derby`, `derbyshared`, `derbytools` from Maven Central, group `org.apache.derby`) and use a JDK it supports. |
 | `Java N found; Java 19 or newer is required` | Old JDK | Install JDK 21, e.g. with [SDKMAN](#installing-java-with-sdkman). |
-| `no SMART Derby database ... under: <path>` | The path doesn't contain a database | Point at the install folder, `data/`, `smartdb/`, or the `.zip`. |
+| `no SMART Derby database ... or Conservation Area export ... under: <path>` | The path doesn't contain a database or an export | Point at the install folder, `data/`, `smartdb/`, a backup `.zip`, or a Conservation Area export `.zip`. |
 | Any other Java/Derby exception during the dump | Varies | Read `work/derby.log`. If SMART was open while you copied the backup, close it and run `extract` again. |
 | `FAILED: <file>` lines while decrypting | A truncated or corrupt attachment | Isolated failures are safe to ignore; many failures mean the wrong filestore. |
 | `browse` fails at `INSTALL spatial` | No internet the first time | Run `./smart-able setup` once while online. |
 | `Address already in use` from `serve` | Port taken | `./smart-able serve 8766` |
 | Browser says "Could not load data" | `browse` hasn't run, or failed | Run `./smart-able browse` and check its output. |
 | Timestamps shown without a timezone | No `.venv`, so timezone inference was skipped | Run `./smart-able setup`, then `./smart-able browse`. |
+| `uv: command not found` | uv is not installed | Install it (see [Prerequisites](#1-prerequisites)) and open a new terminal. |
 | Map tiles don't load | Offline, or the tile server is blocked | Choose "No basemap"; points and boundaries still draw. |
+| Some photos don't open | The backup or export lacks the files; `browse` warned how many. | Nothing to fix in smart-able. The source install has the same gaps. |
