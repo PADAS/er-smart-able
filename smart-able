@@ -213,7 +213,7 @@ clean() {
   rm -rf "$WORK"
 }
 
-usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; }   # the header comment above
 
 cmd=${1:-}
 shift || true
