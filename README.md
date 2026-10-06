@@ -12,7 +12,7 @@ The name reads as "SMART EBEL": the four stages.
 
 | Stage | What it does | Status |
 | --- | --- | --- |
-| **E**xtract | Dumps every table of a SMART backup to Parquet, and decrypts its photo attachments. | Done |
+| **E**xtract | Dumps every table of a SMART backup or Conservation Area export to Parquet, and decrypts its photo attachments. | Done |
 | **B**rowse | A local web app for patrols, maps, observations, Profiles, and photos. | Done |
 | **E**xport | Write the data in a standard interchange format. | Planned |
 | **L**oad | Create the corresponding events, patrols, and subjects in an EarthRanger site. | Planned |
@@ -34,8 +34,9 @@ $EDITOR .env                                        # fill in the SMART database
 ./smart-able serve                                  # open http://localhost:8765/
 ```
 
-The backup can be a SMART Desktop installation folder, its `data/` folder, or
-a SMART system backup `.zip`.
+The backup can be a SMART Desktop installation folder, its `data/` folder, a
+SMART system backup `.zip`, or a Conservation Area export `.zip` (SMART's
+File → Export Conservation Area).
 
 ## What you get
 
@@ -56,7 +57,10 @@ The browser has six tabs:
 - **Map**: every waypoint on OpenStreetMap or satellite imagery, with time
   filters.
 - **Observations**: the category tree, with text search and time filters.
-- **Profiles**: entities and records from SMART's optional Profiles plugin.
+- **Profiles**: entities from SMART's optional Profiles plugin, searchable by
+  name, type, attribute, or linked record. An entity opens to its attributes,
+  photos, and linked records; a record opens to its own attributes, text,
+  photos, and the entities it links.
 - **Schema**: how the SMART tables relate.
 
 SMART stores timestamps without a timezone. smart-able infers each
@@ -68,6 +72,9 @@ conservation area's timezone from its GPS locations and uses it throughout.
 smart-able              the command: setup, check, extract, browse, serve, all, clean
 extract/
   DumpSmartDb.java        Derby → CSV (+ column types), via JDBC
+  export_to_csv.sh        Conservation Area export → the same CSV layout
+  check_schema.sh         warns about tables/columns that differ from the known schema
+  smart_schema.tsv        the known SMART schema (7.5.4), with column types
   csv_to_parquet.sh       CSV → Parquet (DuckDB)
   decrypt_filestore.sh    decrypts SMART's AES-encrypted attachments
 browse/

@@ -10,8 +10,9 @@
 #   ./smart-able clean                 delete the work directory
 #
 # <backup> can be a SMART Desktop install folder, its data/ folder, a smartdb/
-# database folder, or a SMART system backup .zip. Outputs go to $SMART_ABLE_WORK
-# (default: ./work). See README.md and RUNBOOK.md.
+# database folder, a SMART system backup .zip, or a Conservation Area export
+# (.zip or unzipped; SMART's File > Export Conservation Area). Outputs go to
+# $SMART_ABLE_WORK (default: ./work). See README.md and RUNBOOK.md.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -78,11 +79,17 @@ find_db() {   # first folder under $1 that is a Derby database (service.properti
   return 1
 }
 
+find_export() {   # folder under $1 that is a Conservation Area export (conservationarea.dat + database/)
+  local f
+  f=$(find "$1" -name conservationarea.dat -print -quit 2>/dev/null)
+  [ -n "$f" ] && [ -d "$(dirname "$f")/database" ] || return 1
+  dirname "$f"
+}
+
 extract() {
   local backup=${1:-}
   [ -n "$backup" ] || die "usage: ./smart-able extract <backup>"
   [ -e "$backup" ] || die "not found: $backup"
-  load_env
   mkdir -p "$WORK"
 
   local src=$backup
@@ -95,21 +102,41 @@ extract() {
     esac
   fi
 
-  local db fs
-  db=$(find_db "$src") || die "no SMART Derby database (a folder with service.properties and seg0/) under: $backup"
-  fs=$(find "$src" -type d -name filestore -print -quit 2>/dev/null || true)
-  echo "  database:  $db"
-  echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+  local db exp fs input ca_uuid=
+  if db=$(find_db "$src"); then
+    input=database
+    fs=$(find "$src" -type d -name filestore -print -quit 2>/dev/null || true)
+    echo "  database:  $db"
+    echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+    load_env
 
-  say "Copying the database (the original is never opened)"
-  rm -rf "$WORK/smartdb"
-  cp -R "$db" "$WORK/smartdb"
-  rm -f "$WORK/smartdb"/*.lck
+    say "Copying the database (the original is never opened)"
+    rm -rf "$WORK/smartdb"
+    cp -R "$db" "$WORK/smartdb"
+    rm -f "$WORK/smartdb"/*.lck
 
-  say "Dumping all SMART tables to CSV"
-  rm -rf "$WORK/csv"
-  java -Dderby.stream.error.file="$WORK/derby.log" -cp "$ROOT/lib/derby/*" \
-    "$ROOT/extract/DumpSmartDb.java" "$WORK/smartdb" "$WORK/csv" | tail -1
+    say "Dumping all SMART tables to CSV"
+    rm -rf "$WORK/csv"
+    java -Dderby.stream.error.file="$WORK/derby.log" -cp "$ROOT/lib/derby/*" \
+      "$ROOT/extract/DumpSmartDb.java" "$WORK/smartdb" "$WORK/csv" | tail -1
+  elif exp=$(find_export "$src"); then
+    input=export
+    # Conservation Area export: the tables are already CSV, so no Java/Derby.
+    # conservationarea.dat: line 1 the CA uuid, line 3 its name (CRLF).
+    ca_uuid=$(awk 'NR==1 { sub(/\r$/, ""); print }' "$exp/conservationarea.dat")
+    [[ $ca_uuid =~ ^[0-9a-f]{32}$ ]] ||
+      warn "line 1 of conservationarea.dat is not a conservation area uuid ('$ca_uuid'); attachments will not decrypt"
+    [ -d "$exp/filestore" ] && fs=$exp/filestore
+    echo "  export:    $exp"
+    echo "  conservation area: $(awk 'NR==3 { sub(/\r$/, ""); print }' "$exp/conservationarea.dat") ($ca_uuid)"
+    echo "  filestore: ${fs:-(none found; attachments will be skipped)}"
+
+    say "Converting the export's tables to CSV"
+    rm -rf "$WORK/smartdb" "$WORK/csv"
+    bash "$ROOT/extract/export_to_csv.sh" "$exp" "$WORK/csv" | tail -1
+  else
+    die "no SMART Derby database (service.properties + seg0/) or Conservation Area export (conservationarea.dat + database/) under: $backup"
+  fi
 
   say "Converting CSV to Parquet"
   rm -rf "$WORK/parquet"
@@ -118,10 +145,13 @@ extract() {
   ver=$(duckdb -noheader -list -c "select max(version) from '$WORK/parquet/db_version.parquet' where plugin_id = 'org.wcs.smart'" 2>/dev/null || true)
   echo "  SMART database version: ${ver:-unknown}"
 
+  say "Checking the schema against the known one"
+  bash "$ROOT/extract/check_schema.sh" "$WORK/csv" "$input" "${ver:-}"
+
   if [ -n "$fs" ]; then
     say "Decrypting attachments"
     rm -rf "$WORK/site/attachments"
-    bash "$ROOT/extract/decrypt_filestore.sh" "$fs" "$WORK/site/attachments"
+    bash "$ROOT/extract/decrypt_filestore.sh" "$fs" "$WORK/site/attachments" ${ca_uuid:+"$ca_uuid"}
   fi
   say "Extract complete: $WORK/parquet"
 }
@@ -140,6 +170,23 @@ browse() {
     echo "  no Profiles tables; skipping Profiles"
   fi
   (cd "$WORK" && cat "${sql[@]}" | duckdb)
+
+  # Every attachment the database refers to should have come out of the
+  # filestore; a backup or export can lack some.
+  local att
+  att=$(cd "$WORK" && duckdb -noheader -csv -separator ' ' -c "
+    WITH ref AS (SELECT p FROM read_json('site/data/*attachments.json', format='array', columns={k: 'VARCHAR', id: 'VARCHAR', p: 'VARCHAR'})),
+         have AS (SELECT file FROM glob('site/attachments/**'))
+    SELECT count(*), count(*) FILTER (WHERE have.file IS NULL) FROM ref LEFT JOIN have ON have.file = 'site/' || ref.p" 2>/dev/null) || att=
+  if [ -z "$att" ]; then
+    warn "could not check whether all attachments are present"
+  elif [ ! -d "$WORK/site/attachments" ] && [ "${att% *}" -gt 0 ]; then
+    warn "the database refers to ${att% *} attachments, but no filestore was extracted (see the extract output); the browser will show them as missing"
+  elif [ "${att#* }" -gt 0 ]; then
+    warn "${att#* } of ${att% *} attachments the database refers to are not in the backup; the browser will show them as missing"
+  else
+    echo "  all ${att% *} attachments the database refers to are present"
+  fi
 
   if [ -d "$ROOT/.venv" ]; then
     say "Inferring timezones from GPS"

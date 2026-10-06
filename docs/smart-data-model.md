@@ -144,8 +144,19 @@ files for recurring threats, depending on how a site uses it.
 - `i_entity_attribute_value (entity_uuid, attribute_uuid, string_value,
   double_value, list_item_uuid, employee_uuid)` holds its attributes.
 - `i_record` rows are dated records (`title`, `primary_date`, `status`,
-  `source_uuid` → `i_recordsource`), linked to entities many-to-many through
-  `i_entity_record`.
+  `description`, `comment`, `source_uuid` → `i_recordsource`), linked to
+  entities many-to-many through `i_entity_record`. `created_by` is an
+  `employee` uuid.
+- A record's attributes are defined by its record source:
+  `i_recordsource_attribute (source_uuid, attribute_uuid, seq_order,
+  is_multi)` → `i_attribute (keyid, type)`, with `type` one of `TEXT`,
+  `NUMERIC`, `DATE`, `LIST`. Values are in `i_record_attribute_value
+  (record_uuid, attribute_uuid, string_value, double_value, double_value2)`,
+  where `attribute_uuid` is the **`i_recordsource_attribute`** uuid, not the
+  `i_attribute` one. List values are rows of `i_record_attribute_value_list
+  (value_uuid, element_uuid)` pointing at `i_attribute_list_item`; a
+  multi-select attribute has several. Labels for attributes and list items
+  come from `i18n_label` as usual.
 - Files: `i_attachment`, linked through `i_entity_attachment` and
   `i_record_attachment`.
 
@@ -201,9 +212,32 @@ from the filestore.
   hex-encoded WKB.
 - `NULL` stays `NULL`; an empty string stays `''`.
 
+## Conservation Area exports
+
+SMART Desktop's File → Export Conservation Area writes a `.zip` that holds one
+conservation area without a Derby database:
+
+| Path | Contents |
+| --- | --- |
+| `conservationarea.dat` | Five lines, CRLF: the CA uuid, the CA id (e.g. `051600`), the CA name, a blank line, the schema version (e.g. `7.5.4`). |
+| `database/smart.<table>.<Entity>.def` | Line 1 `SMART.<TABLE>`, line 2 the column names, comma-separated. CRLF, no newline after the last line. No types. |
+| `database/smart.<table>.<Entity>.dat` | The rows, as Derby's table export writes them: RFC-4180 CSV, no header, strings quoted, NULL as an unquoted empty field, booleans `true`/`false`, dates and timestamps ISO, binary (uuids, WKB geometry) as lowercase hex. UTF-8, LF line endings. |
+| `database/db_versions.dat` | `plugin_id,version` rows (the `db_version` table, columns swapped; it has no `.def`). |
+| `filestore/` | The CA's attachments, encrypted as in [Attachments](#attachments), but without the `<ca_uuid>/` level: `patrol/` and `intelligence2/` sit at the top. The key is the uuid from `conservationarea.dat`. |
+
+The export carries the tables SMART considers part of a conservation area: in
+a 7.5.4 export, 216 tables, which is every table the browser uses. Left out
+are the install-wide ones (`connect_*`, `login_log`, `dm_aggregation_i18n`).
+`extract/export_to_csv.sh` turns the dumps into the same CSV-plus-types layout
+`DumpSmartDb` produces, taking the types from
+`extract/smart_schema.tsv`.
+
 ## Version differences
 
-From comparing the SMART source at releases 7.5.6 / 7.5.9 and 8.1.3. The
+From comparing the SMART source at releases 7.5.6 / 7.5.9 and 8.1.3; not yet
+checked against a real 8.x backup. `./smart-able extract` compares every
+backup's tables and columns with `extract/smart_schema.tsv`, the 7.5.4 schema,
+and warns about the differences, so an 8.x backup lists its own deltas. The
 things that did **not** change matter as much: the database credentials, the
 `smart` schema, the backup zip layout (`smartdb/` and `filestore/` at the
 root), the attachment encryption and filestore paths, WKB geometry, and
