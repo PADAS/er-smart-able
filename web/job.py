@@ -46,7 +46,10 @@ def main(dataset_id: str) -> int:
             store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail)
             return rc
         site = work / "out" / "site"
-        meta = json.loads((site / "data" / "meta.json").read_text())[0]
+        meta = json.loads((site / "data" / "meta.json").read_text())
+        meta = meta[0] if isinstance(meta, list) and meta else meta  # the SQL writes a one-element array
+        if not isinstance(meta, dict):
+            raise RuntimeError("site/data/meta.json has an unexpected shape")
         print("publishing site", flush=True)
         store.put_site(dataset_id, site)
         store.update(dataset_id, status="ready", log_tail=tail,

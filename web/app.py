@@ -146,9 +146,15 @@ async def extract(id: str, user=Depends(current_user)):
     if doc.get("status") == "running":
         raise HTTPException(status_code=409, detail="Extraction already running")
     store = get_store()
-    store.update(id, status="queued", error=None)
-    execution = store.start_extract(id)
-    store.update(id, execution=execution)
+    if not store.upload_exists(id, doc["source_name"]):
+        raise HTTPException(status_code=400, detail="The upload is missing or incomplete; delete this dataset and upload again")
+    try:
+        execution = store.start_extract(id)
+    except Exception as e:  # noqa: BLE001  the job did not start: say so, and leave the dataset retryable
+        logging.exception("could not start extraction for %s", id)
+        store.update(id, status="failed", error=f"Could not start the extraction: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail="Could not start the extraction job") from e
+    store.update(id, status="queued", error=None, execution=execution)
     return {"ok": True, "execution": execution}
 
 

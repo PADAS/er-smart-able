@@ -103,6 +103,10 @@ class LocalStore:
     def upload_path(self, id: str, filename: str) -> Path:
         return self._p(id) / "upload" / Path(filename).name
 
+    def upload_exists(self, id: str, filename: str) -> bool:
+        p = self.upload_path(id, filename)
+        return p.is_file() and p.stat().st_size > 0
+
     def fetch_upload(self, id: str, filename: str, dest_dir: Path) -> Path:
         return self._p(id) / "upload" / Path(filename).name  # already local
 
@@ -189,6 +193,9 @@ class GcpStore:
         url = blob.generate_signed_url(version="v4", expiration=timedelta(hours=6), method="PUT",
                                        content_type=ct, **self._signer())
         return {"method": "PUT", "url": url, "headers": {"Content-Type": ct}}
+
+    def upload_exists(self, id: str, filename: str) -> bool:
+        return self.bucket.blob(f"datasets/{id}/upload/{Path(filename).name}").exists()
 
     def fetch_upload(self, id: str, filename: str, dest_dir: Path) -> Path:
         dest = Path(dest_dir) / Path(filename).name

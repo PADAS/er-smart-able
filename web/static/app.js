@@ -63,13 +63,14 @@ async function loadList() {
       '<td class="actions">' +
         (d.status === 'ready' ? '<a href="/d/' + d.id + '/" target="_blank" rel="noopener"><button><span class="mi" aria-hidden="true">open_in_new</span>Open</button></a> ' : '') +
         (d.mine ? '<button data-act="share"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (d.mine && (d.status === 'failed' || d.status === 'uploaded' || d.status === 'ready') ? '<button data-act="extract" title="Run the extraction again"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
+        (d.mine && ['failed', 'uploaded', 'ready', 'uploading'].includes(d.status) ? '<button data-act="extract" title="' + (d.status === 'uploading' ? 'Start the extraction (if the upload completed)' : 'Run the extraction again') + '"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
         (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
         (d.mine ? '<button data-act="delete" class="danger" title="Delete this dataset and its files"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
       '</td></tr>').join('') + '</tbody></table>';
   host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => action(b.dataset.act, b.closest('tr').dataset.id, list.find(d => d.id === b.closest('tr').dataset.id)));
   clearTimeout(pollTimer);
-  if (list.some(d => ['queued', 'running', 'uploading'].includes(d.status))) pollTimer = setTimeout(loadList, 5000);
+  // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
+  if (list.some(d => ['queued', 'running'].includes(d.status))) pollTimer = setTimeout(loadList, 5000);
 }
 
 async function action(act, id, d) {

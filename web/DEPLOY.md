@@ -112,7 +112,9 @@ cd web && BACKEND=local AUTH_DISABLED=true uv run uvicorn app:app --reload --por
 
 Open http://localhost:8080. You are `dev@earthranger.com`; send an
 `X-Dev-User: someone@earthranger.com` header (or set the `dev_user` cookie)
-to be someone else, which is how sharing can be tried. The extract
+to be someone else, which is how sharing can be tried. That also means
+anyone who can reach the port can be anyone: with `AUTH_DISABLED` the
+service must only ever listen on localhost. The extract
 toolchain (`./smart-able check`) must be installed, as for the command line.
 `web/docker-compose.yml` runs the same thing inside the job image, which
 has the toolchain.
