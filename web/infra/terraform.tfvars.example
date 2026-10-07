@@ -1,0 +1,4 @@
+project_id  = "cdip-dev-78ca"
+region      = "us-central1"
+github_repo = "PADAS/er-smart-able"
+bucket_name = "cdip-dev-smart-able"

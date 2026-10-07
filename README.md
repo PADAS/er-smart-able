@@ -73,6 +73,7 @@ conservation area's timezone from its GPS locations and uses it throughout.
 
 ```
 smart-able              the command: setup, check, extract, browse, serve, all, clean
+web/                    the web service (FastAPI) and extraction job for Cloud Run; see web/DEPLOY.md
 extract/
   DumpSmartDb.java        Derby → CSV (+ column types), via JDBC
   export_to_csv.sh        Conservation Area export → the same CSV layout
@@ -92,6 +93,14 @@ docs/
   smart-data-model.md     how SMART stores its data
 RUNBOOK.md              step-by-step operation, checks, troubleshooting
 ```
+
+## Web service
+
+The same browser can run as a shared web app: people with an allowed email
+sign in with Google, upload a backup or export, have it extracted in the
+cloud, open the result, and share it with colleagues. The code is under
+`web/`; [web/DEPLOY.md](web/DEPLOY.md) covers Cloud Run deployment and running
+it locally with `BACKEND=local AUTH_DISABLED=true`.
 
 ## Data handling
 

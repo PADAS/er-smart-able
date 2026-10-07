@@ -1,0 +1,69 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "browse/**", "extract/**", "smart-able", "pyproject.toml", "uv.lock", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  AR_REPOSITORY: ${{ vars.AR_REPOSITORY }}
+  SERVICE: smart-able
+  JOB: smart-able-extract
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push the service and job images
+        run: |
+          BASE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}"
+          docker build -f web/Dockerfile --build-arg APP_VERSION="${GITHUB_SHA::7}" -t "$BASE/${{ env.SERVICE }}:${{ github.sha }}" .
+          docker build -f web/Dockerfile.job -t "$BASE/${{ env.JOB }}:${{ github.sha }}" .
+          docker push "$BASE/${{ env.SERVICE }}:${{ github.sha }}"
+          docker push "$BASE/${{ env.JOB }}:${{ github.sha }}"
+
+      - name: Deploy the extraction job
+        run: |
+          gcloud run jobs deploy ${{ env.JOB }} \
+            --image "${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.JOB }}:${{ github.sha }}" \
+            --region ${{ env.GCP_REGION }} \
+            --service-account ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }} \
+            --memory 16Gi --cpu 4 --task-timeout 2h --max-retries 0 \
+            --set-env-vars "BACKEND=gcp,GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},GCP_REGION=${{ env.GCP_REGION }},GCS_BUCKET=${{ vars.GCS_BUCKET }},SMART_DB_USER=${{ secrets.SMART_DB_USER }},SMART_DB_PASSWORD=${{ secrets.SMART_DB_PASSWORD }}"
+
+      - name: Deploy the service
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}
+          flags: --allow-unauthenticated --service-account=${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }} --memory=1Gi --timeout=300
+          env_vars: |
+            BACKEND=gcp
+            GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}
+            GOOGLE_CLOUD_PROJECT=${{ env.GCP_PROJECT_ID }}
+            GCP_REGION=${{ env.GCP_REGION }}
+            GCS_BUCKET=${{ vars.GCS_BUCKET }}
+            EXTRACT_JOB=${{ env.JOB }}
+            ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS }}
+            FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+            FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}

@@ -2,7 +2,13 @@
 
 Notes from 2026-10-06 on running the browser as a Cloud Run service, in
 the pattern of [PADAS/gundi-webhook-editor](https://github.com/PADAS/gundi-webhook-editor).
-Assessed, not started. See [Open questions](#open-questions).
+Decided and built on 2026-10-06: see [web/DEPLOY.md](../web/DEPLOY.md). The
+answers to the open questions below: datasets are owned by their uploader
+and shared by email, as in the webhook editor; the allowlist is
+`@earthranger.com`; upload-and-extract (phase two) is in from the start;
+photos are streamed through the service; the Parquet is not produced in the
+cloud. Retention is a 30-day lifecycle rule on uploads. The rest of this
+note is the assessment as it stood.
 
 ## What exists today
 
