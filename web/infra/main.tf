@@ -64,8 +64,8 @@ locals {
     "roles/iam.serviceAccountUser",
   ]
   runtime_roles = [
-    "roles/datastore.user",   # Firestore: the dataset index
-    "roles/run.developer",    # start executions of the extraction job
+    "roles/datastore.user", # Firestore: the dataset index
+    "roles/run.developer",  # start executions of the extraction job
   ]
 }
 
@@ -146,8 +146,14 @@ resource "google_storage_bucket" "data" {
 
   lifecycle_rule {
     # an uploaded backup is only needed until it has been extracted
-    condition { age = 30; matches_prefix = ["datasets/"]; matches_suffix = [".zip", ".bak"] }
-    action { type = "Delete" }
+    condition {
+      age            = 30
+      matches_prefix = ["datasets/"]
+      matches_suffix = [".zip", ".bak"]
+    }
+    action {
+      type = "Delete"
+    }
   }
 }
 

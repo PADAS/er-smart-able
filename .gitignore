@@ -20,3 +20,8 @@ derby.log
 
 # OS
 .DS_Store
+
+# OpenTofu local state and settings for web/infra
+web/infra/terraform.tfvars
+web/infra/.terraform/
+web/infra/*.tfstate*
