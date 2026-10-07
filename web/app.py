@@ -74,7 +74,7 @@ def _load(id: str, user: dict, owner: bool = False) -> dict:
 # ---------------------------------------------------------------- pages
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "version": APP_VERSION})
+    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION})
 
 
 @app.get("/api/config")
