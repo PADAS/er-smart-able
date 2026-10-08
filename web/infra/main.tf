@@ -64,8 +64,9 @@ locals {
     "roles/iam.serviceAccountUser",
   ]
   runtime_roles = [
-    "roles/datastore.user", # Firestore: the dataset index
-    "roles/run.developer",  # start executions of the extraction job
+    "roles/datastore.user",     # Firestore: the dataset index
+    "roles/run.developer",      # start executions of the extraction job
+    "roles/firebaseauth.admin", # mint session cookies from Firebase ID tokens (Identity Toolkit)
   ]
 }
 
