@@ -176,6 +176,10 @@ canvas.map { width: 100%; border: 1px solid var(--line); border-radius: 10px;
 .legend button { background: none; border: 0; color: var(--ink-2); font: 12.5px var(--sans);
                  cursor: pointer; padding: 2px 4px; border-radius: 6px; }
 .legend button.off { opacity: 0.35; }
+.legend .legitems { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1 1 320px; min-width: 0; } /* the buttons wrap in their own box; below 320 px the chooser drops to its own row */
+.legend .bmwrap { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; align-self: flex-start; margin-top: -3px; } /* centred against the 21 px button row */
+.legend #bmSel { font: 13px var(--sans); background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; }
 /* detail drawer */
 #drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 94vw);
   background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,0.22);
@@ -187,10 +191,6 @@ canvas.map { width: 100%; border: 1px solid var(--line); border-radius: 10px;
   background: var(--chip); border: 1px solid var(--line);
   color: var(--ink); border-radius: 8px; padding: 4px 11px; cursor: pointer; font: 700 13px var(--sans); }
 #drawer .x .mi { font-size: 17px; color: inherit; }
-.legend .legitems { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; } /* the buttons wrap in their own box */
-.legend .bmwrap { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; align-self: flex-start; }
-.legend #bmSel { font: 13px var(--sans); background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13px; margin: 10px 0; }
 .kv div:nth-child(odd) { color: var(--ink-3); }
 .kv div { min-width: 0; overflow-wrap: break-word; }
@@ -794,9 +794,7 @@ function rMap(v) {
   leg.innerHTML = '<span class="legitems">' + roots.map(r => '<button data-r="' + r + '" class="' + (mapHidden[r] ? 'off' : '') + '">' +
     '<span class="dot" style="background:' + ROOT_META[r].color + '"></span>' + esc(ROOT_META[r].label) + '</button>').join('') + '</span>';
   // basemap chooser: icon and select travel together, pinned top-right however the buttons wrap
-  const bm = el('span', 'bmwrap');
-  const bmIcon = el('span', 'mi'); bmIcon.textContent = 'layers'; bmIcon.setAttribute('aria-hidden', 'true');
-  bm.appendChild(bmIcon);
+  const bm = el('span', 'bmwrap', '<span class="mi" aria-hidden="true">layers</span>');
   const bmSel = el('select'); bmSel.id = 'bmSel'; bmSel.title = 'Basemap';
   for (const [k, b] of Object.entries(BASEMAPS)) bmSel.appendChild(new Option(b.label, k));
   bmSel.value = BASEMAP;
@@ -816,7 +814,7 @@ function rMap(v) {
   // one hint line under the legends, for both layers
   const hint = el('p', 'tiny');
   hint.style.margin = '0 0 8px';
-  hint.textContent = 'Click a legend entry to toggle it · drag to pan · scroll to zoom · click a point for details' +
+  hint.textContent = 'Click a waypoint category to show or hide it · drag to pan · scroll to zoom · click a point for details' +
     (ents.length ? ' · squares are Profiles entities (the time filter uses their creation date)' : '');
   v.appendChild(hint);
   const recolor = () => {
