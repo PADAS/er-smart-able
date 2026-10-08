@@ -79,9 +79,23 @@ Secrets:
 
 ## 3. Deploy
 
-Push to `main` (or run the workflow by hand). `.github/workflows/deploy.yml`
-builds both images, pushes them to Artifact Registry, deploys the job with
-16 GiB of memory and a 2-hour timeout, then deploys the service.
+Deployment is release-driven: pushing a tag of the form `vX.Y.Z` runs
+`.github/workflows/deploy.yml`, which builds both images, pushes them to
+Artifact Registry, deploys the job with 16 GiB of memory and a 2-hour
+timeout, then deploys the service. The tag becomes the version shown in
+the app's header.
+
+```sh
+git tag -a v0.1.0 -m "First deployment"
+git push origin v0.1.0
+```
+
+The repository's "release tags" ruleset allows only members of
+`gundi-admins` to create, move, or delete such tags, so only they can
+deploy. The workflow can also be run by hand from the Actions tab (Deploy
+to Cloud Run → Run workflow), which deploys the chosen branch with its
+short commit id as the version. Merging to `main` on its own does not
+deploy.
 
 The job's memory is for its in-memory `/tmp`: a 3 GB SMART install zip
 needs the zip, its unzipped copy, the database copy, CSV, Parquet, and the

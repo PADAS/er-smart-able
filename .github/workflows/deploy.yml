@@ -1,9 +1,10 @@
 name: Deploy to Cloud Run
 
+# Deploys on a release tag (vX.Y.Z), which the repository's "release tags"
+# ruleset lets only gundi-admins create, or by hand from the Actions tab.
 on:
   push:
-    branches: [main]
-    paths: ["web/**", "browse/**", "extract/**", "smart-able", "pyproject.toml", "uv.lock", ".github/workflows/deploy.yml"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 env:
@@ -35,7 +36,9 @@ jobs:
       - name: Build and push the service and job images
         run: |
           BASE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}"
-          docker build -f web/Dockerfile --build-arg APP_VERSION="${GITHUB_SHA::7}" -t "$BASE/${{ env.SERVICE }}:${{ github.sha }}" .
+          # the version shown in the app: the tag, or the short SHA for a manual run
+          APP_VERSION="${{ github.ref_type == 'tag' && github.ref_name || '' }}"; APP_VERSION="${APP_VERSION:-${GITHUB_SHA::7}}"
+          docker build -f web/Dockerfile --build-arg APP_VERSION="$APP_VERSION" -t "$BASE/${{ env.SERVICE }}:${{ github.sha }}" .
           docker build -f web/Dockerfile.job -t "$BASE/${{ env.JOB }}:${{ github.sha }}" .
           docker push "$BASE/${{ env.SERVICE }}:${{ github.sha }}"
           docker push "$BASE/${{ env.JOB }}:${{ github.sha }}"
