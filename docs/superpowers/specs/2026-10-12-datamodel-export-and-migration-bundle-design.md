@@ -325,7 +325,7 @@ from `employment_end` being null or in the future.
     "attributes": [{ "attribute_uuid", "key", "value": … }],
     "legs": [
       { "uuid", "id", "transport_uuid", "mandate_uuid",
-        "start_date", "end_date",
+        "start_date", "end_date", "placeholder_dates": false,
         "members": [{ "employee_uuid", "leader": true, "pilot": false }],
         "days": [{ "uuid", "date": "2019-03-04", "start_time": "06:10:00", "end_time": "14:35:00",
                    "rest_minutes": 0, "start": "2019-03-04T06:10:00+08:00", "end": "2019-03-04T14:35:00+08:00",
@@ -449,6 +449,8 @@ smart-able has no test suite yet. This adds `tests/` with pytest, run with
 | Exact icon file naming in the export | Read from the reference export; until then icons section is emitted with stored filenames and a warning. |
 | `useEarthRanger`, `extraData` keys, element and attribute ordering in CM XML | Confirm against the reference export; Botswana sample is the interim guide. |
 | Namespace version for SMART 8.x backups | Table in the emitter; 8.1 backup expected later will show whether the DataModel format changed. |
+| Icon file names in the export | They are the exporting install's `iconfile` row UUIDs: our output matches an export made on the source install, and `verify_xml --ignore-icon-files` sets them aside when the reference came from another install. Verified on Camarines Norte, 2026-10-12. |
+| Legs starting 1970-01-01 | SMART's placeholder for an unset start date; it generates a leg-day row per day up to the end date. The bundle keeps the rows, marks the leg `placeholder_dates: true`, and warns; the importer clamps to days with evidence. |
 | Track Z timestamps on older SMART versions | Lawin (7.5.x) stores epoch milliseconds in Z. If a backup has Z values outside 1990–2100 when read as milliseconds, the exporter omits `times` for that track and warns, and the importer falls back to spreading points across the leg day. |
 
 ## Follow-ups (not in this spec)

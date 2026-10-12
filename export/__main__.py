@@ -24,7 +24,7 @@ SKIP_CA_UUID = "0" * 32   # "Cross Conservation Area Analysis" placeholder row
 QUIRK = {"timezone": "timezones", "no timezone": "timezones", "track": "tracks", "attachment": "attachments",
          "icon": "data-model-export", "useEarthRanger": "configurable-models", "extraData": "configurable-models",
          "waypoint": "waypoints-and-legs", "SMART version": "backups-versus-exports"}
-QUIRK_CONTAINS = {"leg days have no times": "patrol-times"}
+QUIRK_CONTAINS = {"leg days have no times": "patrol-times", "placeholder for an unset date": "patrol-times"}
 
 
 def quirk_anchor(msg: str) -> Optional[str]:

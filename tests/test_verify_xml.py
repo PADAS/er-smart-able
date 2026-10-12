@@ -26,3 +26,12 @@ def test_value_text_and_child_count():
 def test_limit():
     b = A.replace('v="x"', 'v="y"').replace("<b>t</b>", "<b>u</b>")
     assert len(compare(A, b, limit=1)) == 1
+
+
+def test_ignore_icon_files():
+    a = '<DataModel><icons key="k" issystem="true"><icons iconset="line" file="aaa.svg"/><names language_code="en" value="K"/></icons></DataModel>'
+    b = a.replace("aaa.svg", "bbb.svg")
+    assert compare(a, b) == ["/DataModel/icons[1]/icons[1]: attribute file 'aaa.svg' != 'bbb.svg'"]
+    assert compare(a, b, ignore_icon_files=True) == []
+    c = b.replace('value="K"', 'value="J"')
+    assert compare(a, c, ignore_icon_files=True) == ["/DataModel/icons[1]/names[1]: attribute value 'K' != 'J'"]

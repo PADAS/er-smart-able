@@ -79,10 +79,10 @@
     },
     "leg": {
       "type": "object",
-      "properties": {"uuid": {"$ref": "#/$defs/uuid"}, "id": {"type": ["string", "null"]}, "transport_uuid": {"$ref": "#/$defs/uuid_or_null"}, "mandate_uuid": {"$ref": "#/$defs/uuid_or_null"}, "start_date": {"$ref": "#/$defs/date_or_null"}, "end_date": {"$ref": "#/$defs/date_or_null"},
+      "properties": {"uuid": {"$ref": "#/$defs/uuid"}, "id": {"type": ["string", "null"]}, "transport_uuid": {"$ref": "#/$defs/uuid_or_null"}, "mandate_uuid": {"$ref": "#/$defs/uuid_or_null"}, "start_date": {"$ref": "#/$defs/date_or_null"}, "end_date": {"$ref": "#/$defs/date_or_null"}, "placeholder_dates": {"type": "boolean"},
                      "members": {"type": "array", "items": {"type": "object", "properties": {"employee_uuid": {"$ref": "#/$defs/uuid"}, "leader": {"type": "boolean"}, "pilot": {"type": "boolean"}}, "required": ["employee_uuid", "leader", "pilot"]}},
                      "days": {"type": "array", "items": {"$ref": "#/$defs/leg_day"}}, "waypoints": {"type": "array", "items": {"$ref": "#/$defs/waypoint"}}},
-      "required": ["uuid", "id", "transport_uuid", "mandate_uuid", "start_date", "end_date", "members", "days", "waypoints"]
+      "required": ["uuid", "id", "transport_uuid", "mandate_uuid", "start_date", "end_date", "placeholder_dates", "members", "days", "waypoints"]
     },
     "patrol": {
       "type": "object",

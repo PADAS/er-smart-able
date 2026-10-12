@@ -159,3 +159,24 @@ def test_write_bundle(smart_parquet, tmp_path):
     assert any("not in the extracted filestore" in w for w in m["warnings"])
     assert json.loads((out / "manifest.json").read_text()) == m
     assert m["generated_at"].endswith("Z")
+
+
+def test_placeholder_leg_start_warns(smart_parquet, tmp_path):
+    """SMART stores an unset leg start date as 1970-01-01 and then generates a
+    leg-day row for every day up to the end date (13 such legs in the
+    Camarines Norte export, 93,697 bogus leg days). Flag them."""
+    import duckdb
+    p = smart_parquet / "patrol_leg.parquet"
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{p}'")
+    con.execute("UPDATE x SET start_date = DATE '1970-01-01' WHERE id = 'P-0002-1'")
+    con.execute(f"COPY x TO '{p}' (FORMAT PARQUET)")
+    con.close()
+    warnings: list = []
+    d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, None, None, warnings)
+    assert [w for w in warnings if not w.startswith("attachment")] == [
+        "1 leg(s) start on 1970-01-01, SMART's placeholder for an unset date, or span more than a year; "
+        "their leg days are kept as stored (see quirks.html#patrol-times)"]
+    leg = d["patrols"][1]["legs"][0]
+    assert leg["start_date"] == "1970-01-01" and leg["placeholder_dates"] is True
+    assert d["patrols"][0]["legs"][0]["placeholder_dates"] is False

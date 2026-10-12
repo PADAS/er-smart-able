@@ -183,8 +183,23 @@ start and end, from waypoints, or from the date alone; see
 Fidelity check against SMART's own export of the same conservation area:
 
 ```sh
-uv run python -m export.verify_xml ~/path/to/reference/datamodel.xml work/export/<ca_id>/datamodel.xml
+uv run python -m export.verify_xml ~/path/to/reference/datamodel.xml work/export/<ca_id>/datamodel.xml --ignore-icon-files
 ```
+
+Verified 2026-10-12 on the Camarines Norte CA (SMART 7.5.4 export zip,
+reference exported by SMART Desktop 7.5.6): the DataModel XML is
+byte-identical except the icon file names, which are the exporting
+install's `iconfile` row UUIDs and so differ between installs
+(`--ignore-icon-files` sets them aside; the icons themselves are the same).
+smartconnect-client reads both files to the same categories, attributes and
+options. The ConfigurableModel XML follows the one sample we hold
+(Botswana Guardians) and has not been checked against an export of the same
+CA yet; `useEarthRanger`, `extraData` and option order are the open points.
+`tests/test_reference_export.py` repeats the check when
+`SMART_ABLE_REFERENCE_DIR` points at a directory holding
+`reference/datamodel.xml` and `work/` for the same CA. Note that
+`er-smart-sync --dry-run datamodel` still reads existing event types and
+choices from the ER site, so it needs a reachable site even in dry-run mode.
 
 ### Warnings
 
@@ -209,6 +224,7 @@ it prints a `warning:` line rather than stopping. They mean:
 | `N track(s) have Z values that are not epoch-millisecond timestamps` | Those tracks store something else in Z (elevation from a GPX tool, for example). | Their points are exported without times; the importer spreads them over the leg day. See quirks.html#tracks. |
 | `track ... has unreadable geometry` | The WKB could not be parsed. | The track is left out; report it with the SMART version. |
 | `N of M leg days have no times at all` | Neither a track, nor start/end times, nor a timed waypoint exists for those days. | ER gets whole-day ranges for them. See quirks.html#patrol-times. |
+| `N leg(s) start on 1970-01-01, SMART's placeholder for an unset date, or span more than a year` | SMART stores an unset leg start as 1970-01-01 and generates a leg-day row for every day up to the end date (13 legs with 93,697 leg days in one export). | The leg days are kept as stored and the leg is marked `placeholder_dates`; the importer clamps such legs to the days with evidence. See quirks.html#patrol-times. |
 | `waypoint ... links to a leg day that does not exist` | A `patrol_waypoint` row points at a missing leg day. | The waypoint is left out of the bundle (it is still in the browser). See quirks.html#waypoints-and-legs. |
 | `attachment ... is not in the extracted filestore` | The database refers to a photo the backup lacks (same gap as the browse warning above). | Nothing to fix in smart-able. See quirks.html#attachments. |
 | `waypoint ... has coordinates outside WGS 84 range` | `waypoint.x/y` are not longitude/latitude. | The CA may use a projected CRS; report it, since the bundle assumes WGS 84. |

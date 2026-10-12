@@ -221,6 +221,7 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
                 "attachments": files, "observation_groups": ogs}
 
     out = []
+    placeholder_legs = 0
     for p in patrols:
         pl = []
         for l in legs.get(p["uuid"], []):
@@ -231,12 +232,20 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
                            "start_time": None if d["start_time"] is None else d["start_time"].isoformat(),
                            "end_time": None if d["end_time"] is None else d["end_time"].isoformat(),
                            "rest_minutes": d["rest_minutes"], "start": s, "end": e, "has_track": d["uuid"] in tracked})
+            # SMART stores an unset start date as 1970-01-01 and then generates a leg day for every day up to the end
+            sd = l["start_date"]
+            sd = sd if isinstance(sd, date) or sd is None else date.fromisoformat(str(sd)[:10])
+            placeholder = (sd is not None and sd <= date(1971, 1, 1)) or len(dl) > 366
+            placeholder_legs += placeholder
             pl.append({"uuid": H(l["uuid"]), "id": l["id"], "transport_uuid": H(l["transport_uuid"]), "mandate_uuid": H(l["mandate_uuid"]),
-                       "start_date": iso_date(l["start_date"]), "end_date": iso_date(l["end_date"]),
+                       "start_date": iso_date(l["start_date"]), "end_date": iso_date(l["end_date"]), "placeholder_dates": placeholder,
                        "members": members.get(l["uuid"], []), "days": dl, "waypoints": [waypoint(w) for w in wps_by_leg.get(l["uuid"], [])]})
         out.append({"uuid": H(p["uuid"]), "id": p["id"], "patrol_type": p["patrol_type"], "station_uuid": H(p["station_uuid"]), "team_uuid": H(p["team_uuid"]),
                     "objective": p["objective"], "comment": p["comment"], "armed": None if p["is_armed"] is None else bool(p["is_armed"]),
                     "start_date": iso_date(p["start_date"]), "end_date": iso_date(p["end_date"]), "attributes": pattrs.get(p["uuid"], []), "legs": pl})
+    if placeholder_legs:
+        warnings.append(f"{placeholder_legs} leg(s) start on 1970-01-01, SMART's placeholder for an unset date, or span more than a year; "
+                        f"their leg days are kept as stored (see quirks.html#patrol-times)")
     return {"patrols": out}
 
 
