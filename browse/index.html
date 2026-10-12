@@ -750,11 +750,11 @@ async function patrolDrawer(pu) {
   const d = openDrawer();
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
   const kv = [['Conservation area', (D.caById.get(p.ca) || {}).n || p.ca],
-    ['Times', 'legs carry dates; times come from tracks, leg-day start/end and waypoints — <a href="quirks.html#patrol-times" target="_blank" rel="noopener">how</a>'],
     ['Dates', p.sd + ' → ' + p.ed], ['Type', p.ty], ['Armed', p.armed ? 'yes' : 'no'],
     ['Team', p.tm || '—'], ['Station', p.st || '—'], ['Waypoints', fmt(p.nwp)]];
   if (p.obj) kv.push(['Objective', p.obj]);
   d.insertAdjacentHTML('beforeend', '<div class="kv">' + kv.map(x => '<div>' + esc(x[0]) + '</div><div>' + esc(x[1]) + '</div>').join('') + '</div>');
+  d.insertAdjacentHTML('beforeend', '<p class="tiny">SMART patrols and legs carry dates only; times come from the track, the leg-day start and end, and the waypoints. <a href="quirks.html#patrol-times" target="_blank" rel="noopener">How patrol times are derived</a></p>');
   for (const leg of (p.legs || [])) {
     const days = (leg.days || []);
     const dist = days.reduce((s, x) => s + (x.dist || 0), 0);
