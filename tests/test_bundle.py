@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import json
+from datetime import date, time
+from zoneinfo import ZoneInfo
+
+from export.bundle import build_patrols, build_reference, leg_day_span
+from export.smartdb import SmartDb, hyphenate
+from tests.conftest import (CA_A, EMP_LEAD, EMP_TWO, TEAM, STATION, TRANSPORT_FOOT, MANDATE_LAW, PATROL_1,
+                            LEG_1, DAY_1, WP_1, OBS_1, OBS_2, ATTACH_1)
+
+MANILA = ZoneInfo("Asia/Manila")
+
+
+def test_reference(smart_parquet):
+    ref = build_reference(SmartDb(smart_parquet), CA_A)
+    assert ref["patrol_types"] == [{"key": "AIR", "active": False, "max_speed": 500}, {"key": "GROUND", "active": True, "max_speed": 120}]
+    assert ref["transports"] == [{"uuid": hyphenate(TRANSPORT_FOOT), "key": "foot", "labels": {"en": "Foot"}, "label": "Foot", "patrol_type": "GROUND", "active": True}]
+    assert ref["mandates"][0]["key"] == "law" and ref["stations"][0]["label"] == "HQ"
+    assert ref["teams"] == [{"uuid": hyphenate(TEAM), "labels": {"en": "Team One"}, "label": "Team One", "member_uuids": [hyphenate(EMP_LEAD), hyphenate(EMP_TWO)]}]
+    emps = {e["id"]: e for e in ref["employees"]}
+    assert emps["E1"] == {"uuid": hyphenate(EMP_LEAD), "id": "E1", "given_name": "Ana", "family_name": "Cruz",
+                          "agency_uuid": ref["agencies"][0]["uuid"], "rank_uuid": ref["ranks"][0]["uuid"],
+                          "employment_start": "2017-01-01", "employment_end": None, "active": True}
+    assert emps["E2"]["active"] is False and emps["E2"]["employment_end"] == "2018-06-30"
+    assert "smartuserid" not in json.dumps(ref) and "birth" not in json.dumps(ref)
+    assert ref["ranks"] == [{"uuid": ref["ranks"][0]["uuid"], "agency_uuid": ref["agencies"][0]["uuid"], "labels": {"en": "Ranger"}, "label": "Ranger"}]
+    assert ref["patrol_attributes"] == []
+
+
+def test_leg_day_midnight_and_null_times():
+    assert leg_day_span(date(2019, 4, 1), time(22, 0), time(1, 30), MANILA) == ("2019-04-01T22:00:00+08:00", "2019-04-02T01:30:00+08:00")
+    assert leg_day_span(date(2019, 4, 1), None, None, MANILA) == (None, None)
+    assert leg_day_span(date(2019, 4, 1), time(6, 0), None, MANILA) == ("2019-04-01T06:00:00+08:00", None)
+
+
+def test_patrols(smart_parquet, tmp_path):
+    db = SmartDb(smart_parquet)
+    att_root = tmp_path / "site_attachments"
+    (att_root / CA_A / "patrol" / PATROL_1).mkdir(parents=True)
+    (att_root / CA_A / "patrol" / PATROL_1 / "photo1.jpg").write_bytes(b"\xff\xd8jpg")
+    out = tmp_path / "bundle"
+    warnings: list = []
+    d = build_patrols(db, CA_A, MANILA, att_root, out, warnings)
+    assert warnings == []
+    p1, p2 = d["patrols"]
+    assert p1["uuid"] == hyphenate(PATROL_1) and p1["id"] == "P-0001" and p1["patrol_type"] == "GROUND"
+    assert p1["station_uuid"] == hyphenate(STATION) and p1["team_uuid"] == hyphenate(TEAM)
+    assert p1["objective"] == "Boundary walk" and p1["comment"] == "Fine weather" and p1["armed"] is False
+    assert p1["start_date"] == "2019-03-04" and p1["end_date"] == "2019-03-05" and p1["attributes"] == []
+    leg = p1["legs"][0]
+    assert leg["uuid"] == hyphenate(LEG_1) and leg["transport_uuid"] == hyphenate(TRANSPORT_FOOT) and leg["mandate_uuid"] == hyphenate(MANDATE_LAW)
+    assert leg["members"] == [{"employee_uuid": hyphenate(EMP_LEAD), "leader": True, "pilot": False},
+                              {"employee_uuid": hyphenate(EMP_TWO), "leader": False, "pilot": False}]
+    day = leg["days"][0]
+    assert day == {"uuid": hyphenate(DAY_1), "date": "2019-03-04", "start_time": "06:10:00", "end_time": "14:35:00", "rest_minutes": 0,
+                   "start": "2019-03-04T06:10:00+08:00", "end": "2019-03-04T14:35:00+08:00", "has_track": True}
+    wp = leg["waypoints"][0]
+    assert wp["uuid"] == hyphenate(WP_1) and wp["leg_day_uuid"] == hyphenate(DAY_1) and wp["id"] == "WP-1"
+    assert wp["time"] == "2019-03-04T08:12:31+08:00" and wp["location"] == [123.9, 14.1] and wp["comment"] == "Near the river"
+    assert wp["source"] == "PATROL" and wp["last_modified_by_uuid"] == hyphenate(EMP_LEAD)
+    assert wp["attachments"] == [{"uuid": hyphenate(ATTACH_1), "filename": "photo1.jpg", "path": f"attachments/{hyphenate(WP_1)}/photo1.jpg"}]
+    assert (out / "attachments" / hyphenate(WP_1) / "photo1.jpg").read_bytes() == b"\xff\xd8jpg"
+    obs = {o["uuid"]: o for o in wp["observation_groups"][0]["observations"]}
+    o1, o2 = obs[hyphenate(OBS_1)], obs[hyphenate(OBS_2)]
+    assert o1["category_key"] == "animals.liveanimals" and o1["category_hkey"] == "animals.liveanimals." and o1["employee_uuid"] == hyphenate(EMP_LEAD)
+    assert o1["attributes"] == [{"key": "count", "type": "NUMERIC", "value": 3.0},
+                                {"key": "species", "type": "LIST", "value": "elephant", "label": "Elephant"}]
+    assert o2["employee_uuid"] is None
+    assert {a["key"]: a for a in o2["attributes"]} == {
+        "threattype": {"key": "threattype", "type": "TREE", "value": "snare.wire", "label": "Wire snare"},
+        "threat": {"key": "threat", "type": "MLIST", "value": ["snare", "fire"], "labels": ["Snare", "Fire"]},
+        "armed": {"key": "armed", "type": "BOOLEAN", "value": True},
+        "seen": {"key": "seen", "type": "DATE", "value": "2019-03-01"}}
+    assert p2["legs"][0]["days"][0]["end"] == "2019-04-02T01:30:00+08:00" and p2["legs"][0]["days"][0]["has_track"] is False
+    assert p2["legs"][0]["days"][0]["rest_minutes"] is None and p2["legs"][0]["waypoints"] == []
+
+
+def test_missing_attachment_warns(smart_parquet, tmp_path):
+    warnings: list = []
+    build_patrols(SmartDb(smart_parquet), CA_A, MANILA, tmp_path / "nothing", tmp_path / "bundle", warnings)
+    assert warnings == [f"attachment photo1.jpg of waypoint {hyphenate(WP_1)} is not in the extracted filestore"]
+
+
+def test_json_is_utf8(smart_parquet, tmp_path):
+    d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, None, None, [])
+    s = json.dumps(d, ensure_ascii=False)
+    assert "Elephant" in s and "\\u" not in s
+    labels = [a.get("label") for p in d["patrols"] for l in p["legs"] for w in l["waypoints"]
+              for g in w["observation_groups"] for o in g["observations"] for a in o["attributes"]]
+    assert "Elephant" in labels
