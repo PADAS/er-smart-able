@@ -336,9 +336,10 @@ from `employment_end` being null or in the future.
                       { "key": "notes", "type": "TEXT", "value": "…" } ] } ] } ] } ] } ] } ] }
 ```
 
-Waypoints belong to leg days in SMART through `patrol_leg_day` and the
-waypoint's date; the emitter attaches each waypoint to the leg whose day
-range contains it and reports those it cannot place under `warnings`.
+Waypoints are tied to leg days by the `patrol_waypoint(wp_uuid,
+leg_day_uuid)` link table, so each waypoint lands on exactly one leg; the
+emitter adds `leg_day_uuid` to every waypoint and reports waypoints whose
+link points at a missing leg day under `warnings`.
 Attribute values are typed by `dm_attribute.att_type`: LIST values are the
 option `keyid`, TREE values are the node `hkey` without the trailing dot,
 MLIST is an array, NUMERIC a number, BOOLEAN true/false, DATE an ISO date,
@@ -349,14 +350,22 @@ day crossed midnight; `end` is advanced one day in that case.
 
 ```json
 { "tracks": [ { "leg_day_uuid", "leg_uuid", "patrol_uuid", "distance_km": 12.3,
-                "geometry": { "type": "LineString", "coordinates": [[lon, lat], …] } } ] }
+                "start": "2023-06-19T13:46:45+08:00", "end": "2023-06-19T15:58:09+08:00",
+                "parts": [ { "coordinates": [[lon, lat], …], "times": ["2023-06-19T13:46:45+08:00", …] } ] } ] }
 ```
 
-`track.geometry` is big-endian WKB in hex (observed type `0x80000002`,
-LineString Z); Z is dropped. SMART track points carry no per-point time, so
-the importer spreads them evenly across the leg day's start and end. The
-manifest states this under `warnings` so the ER side knows the timestamps
-are interpolated.
+`track.geometry` is big-endian extended WKB in hex with the Z flag set:
+`0x80000002` LineString Z (504 rows in Lawin) or `0x80000005`
+MultiLineString Z (2,144 rows), parsed with `struct`, no GIS dependency.
+The Z coordinate is the point's timestamp as Unix epoch milliseconds, UTC
+(verified: values are monotonic within a part and fall on the leg day).
+Each part keeps its coordinates and the matching ISO timestamps, so the
+importer gets real per-point times rather than interpolated ones. `start`
+and `end` are the first and last timestamps across parts. Because the Z
+times are UTC and the leg day's `start_time` is local wall-clock, their
+difference is an independent check of the bundle timezone; the exporter
+compares them on every leg day with a track and warns when the implied
+offset disagrees with the chosen zone.
 
 **attachments/.** Waypoint attachments copied from the decrypted filestore;
 missing files are listed under `warnings` with the waypoint UUID.
@@ -381,7 +390,8 @@ and into `manifest.warnings`) when: the SMART version is outside 7.5.x; an
 icon has no file for a referenced icon set; a label is missing in the
 default language; a waypoint cannot be placed on a leg; an attachment file
 is missing; a coordinate is outside WGS 84 range; the timezone was inferred
-rather than configured; `useEarthRanger` or any other XML attribute was
+rather than configured; a track's UTC timestamps imply a different offset
+than the chosen zone; `useEarthRanger` or any other XML attribute was
 defaulted because the source column is unknown.
 
 ## Testing
@@ -409,8 +419,7 @@ smart-able has no test suite yet. This adds `tests/` with pytest, run with
 | Exact icon file naming in the export | Read from the reference export; until then icons section is emitted with stored filenames and a warning. |
 | `useEarthRanger`, `extraData` keys, element and attribute ordering in CM XML | Confirm against the reference export; Botswana sample is the interim guide. |
 | Namespace version for SMART 8.x backups | Table in the emitter; 8.1 backup expected later will show whether the DataModel format changed. |
-| Waypoint to leg placement when leg dates overlap | Prefer the leg whose members include the waypoint's `last_modified_by` employee; else first match; always warn. |
-| Track point times | Interpolated on the ER side; documented in manifest warnings. |
+| Track Z timestamps on older SMART versions | Lawin (7.5.x) stores epoch milliseconds in Z. If a backup has Z values outside 1990–2100 when read as milliseconds, the exporter omits `times` for that track and warns, and the importer falls back to spreading points across the leg day. |
 
 ## Follow-ups (not in this spec)
 
