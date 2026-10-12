@@ -199,6 +199,13 @@ browse() {
   if [ -d "$ROOT/.venv" ]; then
     say "Inferring timezones from GPS"
     uv run --project "$ROOT" --quiet python "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
+    # keep the Data Model tab working when browse is re-run after export (browse rebuilds site/data from scratch)
+    if ls "$WORK"/export/*/datamodel.json >/dev/null 2>&1; then
+      uv run --project "$ROOT" --quiet python -c 'import glob, json, sys; json.dump([json.load(open(f, encoding="utf-8")) for f in sorted(glob.glob(sys.argv[1]))], open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)' "$WORK/export/*/datamodel.json" "$WORK/site/data/datamodel.json"
+      echo "  datamodel.json restored from $WORK/export"
+    fi
+    say "Publishing the SMART data quirks page"
+    uv run --project "$ROOT" --quiet python "$ROOT/browse/build_quirks.py" "$ROOT/docs/smart-data-quirks.md" "$WORK/site/quirks.html"
   else
     warn "no .venv (run ./smart-able setup); timestamps will be shown without a timezone"
   fi

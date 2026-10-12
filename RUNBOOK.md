@@ -272,6 +272,13 @@ duckdb -c "select * from 'work/parquet/db_version.parquet'"
 
 ## Handling the data
 
+Reading SMART data has a number of non-obvious behaviours (zone-less times,
+timestamps hidden in track geometry, label fallbacks, value encodings,
+export ordering rules, placeholder dates). They are written up in
+[docs/smart-data-quirks.md](docs/smart-data-quirks.md), which `browse`
+publishes as `quirks.html` next to the browser; the warnings above and the
+browser's views link to the relevant sections.
+
 - Everything generated is under `work/` (the database copy, CSV, Parquet,
   browser data, and decrypted photos). It is gitignored; never commit it or
   copy it into the repository.

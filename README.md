@@ -146,6 +146,11 @@ way it will look in the system it is moving to.
   output, troubleshooting.
 - [docs/smart-data-model.md](docs/smart-data-model.md): SMART's tables,
   observation values, time, geometry, and attachment encryption.
+- [docs/smart-data-quirks.md](docs/smart-data-quirks.md): what to know when
+  reading SMART data (zone-less times, track timestamps, labels, value
+  encodings, export formats). Published with the browser as `quirks.html`
+  and linked from its views; see [quirks.html#patrol-times](docs/smart-data-quirks.md#patrol-times)
+  for how patrol times reach EarthRanger.
 - [docs/decisions.md](docs/decisions.md): design decisions and what would
   reopen them.
 - [docs/profiles-to-er-entities.md](docs/profiles-to-er-entities.md): can

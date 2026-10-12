@@ -611,6 +611,7 @@ function rOverview(v) {
   v.appendChild(el('p', 'tiny', esc('Source: SMART Derby database' + (D.meta.db_version ? ' (schema ' + D.meta.db_version + ')' : '') +
     ', extracted ' + D.meta.generated + '. SMART stores timestamps as local wall-clock times without a timezone' +
     (zones.length ? '; this browser anchors them to ' + zones.join(', ') + ', inferred from each conservation area\'s GPS locations.' : '.'))));
+  v.lastChild.insertAdjacentHTML('beforeend', ' <a href="quirks.html#timezones" target="_blank" rel="noopener">Why times need a zone</a>');
 }
 const tile = (n, label) => '<div class="tile"><b>' + fmt(n) + '</b><span>' + label + '</span></div>';
 
@@ -705,6 +706,7 @@ function rPatrols(v) {
   clearB.innerHTML = '<span class="mi" aria-hidden="true">close</span>Clear';
   clearB.style.marginTop = '0'; bar.appendChild(clearB);
   clearB.onclick = () => { patrolQuery = ''; tfMode = 'off'; tfFrom = tfTo = tfCenter = ''; patrolShown = 60; render(); };
+  bar.insertAdjacentHTML('beforeend', '<a class="tiny" href="quirks.html#patrol-times" target="_blank" rel="noopener" title="SMART patrols carry dates only; where their times come from">How patrol times are derived</a>');
   const wrap = el('div', 'tableWrap'); box.appendChild(wrap);
   const moreB = el('button', 'more', 'Show more'); box.appendChild(moreB);
   moreB.onclick = () => { patrolShown += 120; drawRows(); };
@@ -748,6 +750,7 @@ async function patrolDrawer(pu) {
   const d = openDrawer();
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
   const kv = [['Conservation area', (D.caById.get(p.ca) || {}).n || p.ca],
+    ['Times', 'legs carry dates; times come from tracks, leg-day start/end and waypoints — <a href="quirks.html#patrol-times" target="_blank" rel="noopener">how</a>'],
     ['Dates', p.sd + ' → ' + p.ed], ['Type', p.ty], ['Armed', p.armed ? 'yes' : 'no'],
     ['Team', p.tm || '—'], ['Station', p.st || '—'], ['Waypoints', fmt(p.nwp)]];
   if (p.obj) kv.push(['Objective', p.obj]);
@@ -764,7 +767,7 @@ async function patrolDrawer(pu) {
   let lines = [];
   try { await ensureTracks(); lines = (D.tracks.get(pu) || []).flatMap(geomLines); } catch (e) {}
   miniMap(d, wps, lines);
-  d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track. ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
+  d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track (<a href="quirks.html#tracks" target="_blank" rel="noopener">about tracks</a>). ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
   // observations at each waypoint
   d.insertAdjacentHTML('beforeend', '<h2>Waypoints & observations</h2>');
   const list = el('div');
@@ -1830,6 +1833,7 @@ i_entity ─┬─ i_entity_type (name = value of the type's id_attribute)
 <li><b>Profiles</b> (<code>i2</code> plugin): <code>i_entity</code> rows are persistent subjects typed by <code>i_entity_type</code>; the entity's display name is the value of the type's <code>id_attribute</code>. Records (<code>i_record</code>) are dated reports linked many-to-many via <code>i_entity_record</code>.</li>
 <li><b>Attachments</b> are files under <code>filestore/&lt;ca_uuid&gt;/…</code>, AES-128-CBC encrypted with the CA UUID as key; only filenames are in the DB, so photos are not shown in this browser.</li>
 <li>All primary keys are UUIDs (<code>CHAR(16) FOR BIT DATA</code> in Derby, hex strings here). Everything scopes to a conservation area via <code>ca_uuid</code>.</li>
+<li><a href="quirks.html" target="_blank" rel="noopener">The full list of SMART data quirks</a>: timezones, patrol times, tracks, labels, value encodings, export formats.</li>
 </ul></div>`);
 }
 
