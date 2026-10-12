@@ -224,11 +224,13 @@ source is `datamodel.json`, one per CA, merged by the CA picker the browser
 already has:
 
 ```json
-{ "ca": "…uuid…", "languages": ["en", "en_PH"], "default_language": "en",
-  "categories": [{ "key", "hkey", "label", "multiple", "active", "icon",
+{ "ca": "…uuid…", "default_language": "en",
+  "languages": [{ "code": "en", "default": true, "labels": 6375, "missing": 0 },
+                { "code": "en_PH", "default": false, "labels": 7, "missing": 6368 }],
+  "categories": [{ "key", "hkey", "labels": { "en": "…", "en_PH": "…" }, "label", "multiple", "active", "icon",
                    "attributes": [{ "key", "active", "order" }], "children": [...] }],
-  "attributes": { "<key>": { "label", "type", "required", "icon", "min", "max", "regex",
-                             "options": [{ "key", "label", "active", "children": [...] }] } },
+  "attributes": { "<key>": { "labels", "label", "type", "required", "icon", "min", "max", "regex",
+                             "options": [{ "key", "labels", "label", "active", "children": [...] }] } },
   "configurable_models": [{ "uuid", "label", "file": "configurable_model_<uuid>.xml",
                             "nodes": [{ "label", "category", "children", "attributes": [{ "key", "config", "options" }] }] }],
   "files": { "datamodel": "datamodel.xml" } }
@@ -237,7 +239,12 @@ already has:
 Layout: category tree on the left (search box, inactive items greyed), the
 selected category's attributes on the right with type, required flag and
 option list; a configurable-model picker above the tree that swaps the tree
-for the model's node tree and marks which options the model keeps. Download
+for the model's node tree and marks which options the model keeps. A
+language picker beside it lists the CA's languages with the default
+preselected and, for each, how many labels it is missing; every label in
+the tab switches with it. This is where a user decides which language
+er-smart-sync should populate EarthRanger with (its `--smart-language`
+flag), so the picker shows the exact code to pass. Download
 links for each XML file at the top. Counts in the tab header
 (categories, attributes, models). Same single-file, no-build approach as the
 rest of `browse/index.html`; the help drawer gets a page explaining data
@@ -249,7 +256,9 @@ All four files are UTF-8 JSON, objects at the top level, keys in
 `snake_case`, SMART UUIDs in hyphenated canonical form, timestamps in
 RFC 3339 with a UTC offset, coordinates as WGS 84 `[longitude, latitude]`.
 Labels are objects keyed by language code, with a `label` convenience field
-in the CA's default language.
+in the CA's default language. The bundle always carries every language the
+CA defines; choosing the language that populates EarthRanger is the
+importer's job (er-smart-sync `--smart-language`), not the exporter's.
 
 **manifest.json**
 
@@ -260,7 +269,9 @@ in the CA's default language.
   "source": { "kind": "backup" | "export", "file": "<zip name>", "smart_version": "7.5.6" },
   "conservation_area": { "uuid", "id", "name", "designation", "country", "organization", "owner" },
   "timezone": { "name": "Asia/Manila", "source": "inferred" | "configured" },
-  "languages": ["en", "en_PH"], "default_language": "en",
+  "default_language": "en",
+  "languages": [{ "code": "en", "default": true, "labels": 6375, "missing": 0 },
+                { "code": "en_PH", "default": false, "labels": 7, "missing": 6368 }],
   "counts": { "patrols": 1527, "legs": …, "leg_days": …, "waypoints": …, "observations": …, "track_points": …, "employees": …, "attachments": … },
   "warnings": ["…"] }
 ```
@@ -270,7 +281,10 @@ The timezone comes from `browse/infer_timezones.py` (already derived from
 waypoint positions), overridable with `SMART_ABLE_TIMEZONE=<IANA name>`.
 Every timestamp in the bundle is written with that zone's offset. The
 manifest says which it was and where it came from so the importer can show
-it in the preflight report.
+it in the preflight report. `languages` lists each language with its label
+count and how many labelled elements lack a value in it, so the importer can
+validate a requested language and warn about its coverage without scanning
+the files.
 
 **reference.json**
 
