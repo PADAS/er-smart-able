@@ -319,15 +319,27 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
         tnode(None, "treeNode")
         x.close("attributeConfig")
 
+    # CyberTracker / SMART Mobile settings travel as extraData (layout from the Botswana Guardians sample)
+    if db.has("connect_ct_properties"):
+        for r in db.rows(f"SELECT ping_frequency, data_frequency, ping_type FROM {db.t('connect_ct_properties')} WHERE cm_uuid = ? ORDER BY uuid", [cm_uuid]):
+            x.open("extraData", [("type", "connect_ct_properties")])
+            x.empty("stringKey", [("key", "ping_alert_type")] + ([("value", r["ping_type"])] if r["ping_type"] is not None else []))
+            x.empty("integerKey", [("key", "ping_frequency")] + ([("value", str(r["ping_frequency"]))] if r["ping_frequency"] is not None else []))
+            x.empty("integerKey", [("key", "data_frequence")] + ([("value", str(r["data_frequency"]))] if r["data_frequency"] is not None else []))
+            x.close("extraData")
     if db.has("cm_ct_properties_profile") and db.has("ct_properties_profile"):
-        prof = db.rows(f"SELECT p.uuid, p.name FROM {db.t('cm_ct_properties_profile')} m "
-                       f"JOIN {db.t('ct_properties_profile')} p ON p.uuid = m.profile_uuid WHERE m.cm_uuid = ?", [cm_uuid])
-        if prof:
+        prof = db.rows(f"SELECT p.uuid FROM {db.t('cm_ct_properties_profile')} m "
+                       f"JOIN {db.t('ct_properties_profile')} p ON p.uuid = m.profile_uuid WHERE m.cm_uuid = ? ORDER BY p.uuid", [cm_uuid])
+        for r in prof:
             x.open("extraData", [("type", "ct_profile")])
             x.open("labelKey", [("key", "name")])
-            x.empty("label", [("language_code", codes[0] if codes else "en"), ("value", prof[0]["name"] or "")])
+            m = L.all(r["uuid"])
+            for c in codes:
+                if c in m:
+                    x.empty("label", [("language_code", c), ("value", m[c])])
             x.close("labelKey")
             x.close("extraData")
-            warnings.append("extraData written from ct_properties_profile.name only; connect_ct_properties keys unverified")
+        if prof:
+            warnings.append("extraData: CyberTracker profile options (ct_properties_profile_option) are not exported; unverified against a reference")
     x.close("ConfigurableModel")
     return x.render(), warnings

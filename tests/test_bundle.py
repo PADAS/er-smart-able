@@ -124,10 +124,22 @@ def test_track_without_plausible_times(smart_parquet):
 
 def test_track_offset_check(smart_parquet):
     warnings: list = []
-    check_track_offset(SmartDb(smart_parquet), CA_A, MANILA, warnings)
-    assert warnings == []
-    check_track_offset(SmartDb(smart_parquet), CA_A, ZoneInfo("Africa/Nairobi"), warnings)
-    assert warnings == ["track timestamps imply UTC+08:00 on 1 of 1 leg days with both a track and a start time, but the bundle timezone Africa/Nairobi is UTC+03:00; set SMART_ABLE_TIMEZONE"]
+    check_track_offset(SmartDb(smart_parquet), CA_A, warnings)
+    assert warnings == []   # track first point == leg-day start time: Z is local wall-clock as expected
+
+
+def test_track_offset_check_flags_shifted_tracks(smart_parquet):
+    import duckdb
+    p = smart_parquet / "track.parquet"
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{p}'")
+    con.execute("UPDATE x SET geometry = ?", [wkb_line_z([(123.72, 13.06, T0 - 8 * 3600000), (123.73, 13.07, T0 - 7 * 3600000)])])  # as if UTC
+    con.execute(f"COPY x TO '{p}' (FORMAT PARQUET)")
+    con.close()
+    warnings: list = []
+    check_track_offset(SmartDb(smart_parquet), CA_A, warnings)
+    assert warnings == ["track times are 8 h behind the leg-day start times on 1 of 1 leg days with both; SMART normally stores track times as local wall-clock, "
+                        "so these tracks may be in UTC or the leg-day times may be wrong (see quirks.html#patrol-times)"]
 
 
 def test_write_bundle(smart_parquet, tmp_path):

@@ -42,8 +42,13 @@ def localize(naive: datetime, zone: ZoneInfo) -> str:
     return naive.replace(tzinfo=zone).isoformat()
 
 
-def utc_ms_iso(ms: float, zone: ZoneInfo) -> str:
-    return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc).astimezone(zone).replace(microsecond=0).isoformat()
+def track_ms_iso(ms: float, zone: ZoneInfo) -> str:
+    """SMART track points store the local wall-clock time as epoch
+    milliseconds, as if the local clock were UTC (verified on Lawin, see
+    docs/smart-data-quirks.md#tracks). Decode it as a naive time and anchor
+    it to the bundle zone like every other SMART time."""
+    naive = datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc).replace(tzinfo=None, microsecond=0)
+    return localize(naive, zone)
 
 
 def plausible_epoch_ms(z: Optional[float]) -> bool:

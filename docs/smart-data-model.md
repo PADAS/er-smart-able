@@ -113,6 +113,13 @@ Where each attribute type keeps its value in `wp_observation_attributes`:
 `GeometryAttributeValue`); the 7.5.4 backup this was checked against has no
 values of these kinds.
 
+**Exporting it.** `./smart-able export` rebuilds SMART's own DataModel and
+ConfigurableModel XML from these tables (`export/datamodel_xml.py`), byte
+for byte where a reference export has been checked, so `er-smart-sync
+datamodel --from-file` can run without SMART Connect. The mapping and the
+ordering rules are in the spec,
+`docs/superpowers/specs/2026-10-12-datamodel-export-and-migration-bundle-design.md`.
+
 ### Display names (i18n)
 
 Named rows (categories, attributes, list options, teams, stations, …) have no

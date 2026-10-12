@@ -46,9 +46,10 @@ All output goes into `work/` (gitignored):
 | --- | --- |
 | `work/parquet/` | One Parquet file per SMART table, with exact column types. Query it with DuckDB, pandas, or Polars. |
 | `work/site/` | The browser: `index.html`, `data/` (JSON), and `attachments/` (decrypted photos). |
+| `work/export/<ca_id>/` | Per conservation area: the data model as SMART-exact `datamodel.xml` and one `configurable_model_<uuid>.xml` per configurable model, `datamodel.json` for the browser's Data Model tab, and `bundle/` (manifest, reference, patrols, tracks, attachments) for er-smart-sync's patrol migration. See [RUNBOOK.md § Export](RUNBOOK.md#export). |
 | `work/smartdb/`, `work/csv/` | The database copy and the intermediate CSV dump. |
 
-The browser has six tabs:
+The browser has seven tabs:
 
 - **Overview**: totals, waypoints per year, top observation categories.
 - **Patrols**: searchable list. A patrol opens to its legs, members, GPS track
@@ -58,6 +59,9 @@ The browser has six tabs:
   filters, plus Profiles entities that have a position, coloured by type or
   by any of their list attributes.
 - **Observations**: the category tree, with text search and time filters.
+- **Data model**: the conservation area's categories and attributes, with a
+  language picker and a configurable-model picker that shows which options
+  each mobile form keeps, and downloads of the XML. Needs `./smart-able export`.
 - **Profiles**: the trackers configured in SMART's optional Profiles plugin.
   A Profile owns entity types and record sources; the Lawin sites have one
   named "Threat/Response Tracking". The tab shows the flow of entities
@@ -72,7 +76,7 @@ conservation area's timezone from its GPS locations and uses it throughout.
 ## Repository layout
 
 ```
-smart-able              the command: setup, check, extract, browse, serve, all, clean
+smart-able              the command: setup, check, extract, browse, export, serve, all, clean
 web/                    the web service (FastAPI) and extraction job for Cloud Run; see web/DEPLOY.md
 extract/
   DumpSmartDb.java        Derby → CSV (+ column types), via JDBC
@@ -86,6 +90,16 @@ browse/
   build_profiles.sql      the same for Profiles (run only when present)
   infer_timezones.py      GPS → IANA timezone per conservation area
   index.html              the browser (single file, no build step)
+export/
+  smartdb.py              DuckDB access to the Parquet: conservation areas, languages, labels
+  datamodel_xml.py        SMART-exact DataModel and ConfigurableModel XML
+  datamodel_json.py       the Data Model tab's JSON
+  bundle.py, bundle.schema.json
+                          the migration bundle er-smart-sync reads, and its JSON Schema
+  timezone.py, wkb.py     timezone resolution; track geometry (WKB with per-point times)
+  verify_xml.py           diff our XML against SMART Desktop's own export
+  __main__.py             the `./smart-able export` entry point
+tests/                    pytest suite on a synthetic SMART database (uv run pytest)
 lib/derby/              Apache Derby 10.17 jars (Apache-2.0)
 pyproject.toml          project metadata and Python dependencies (managed with uv)
 uv.lock                 pinned Python dependency versions

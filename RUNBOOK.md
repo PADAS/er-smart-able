@@ -144,6 +144,48 @@ that is decryption.
 | Timezones | `work/site/data/timezones.json` | One line per CA with a plausible zone. The demo CA "SMART" is in Gabon (`Africa/Libreville`). |
 | Attachments | `all N attachments the database refers to are present`, or a warning | See [Warnings](#warnings). |
 
+### Export
+
+```sh
+./smart-able export            # every conservation area
+./smart-able export 050500     # one, by conservation_area.id
+```
+
+Writes `work/export/<ca_id>/`:
+
+| File | Contents |
+| --- | --- |
+| `datamodel.xml` | the data model in SMART's own DataModel export format (SMART Desktop: Data Model > Export) |
+| `configurable_model_<uuid>.xml` | one per configurable model, in SMART's ConfigurableModel format |
+| `datamodel.json` | the browser's Data Model tab (also copied to `work/site/data/`; the XML is copied to `work/site/export/`) |
+| `bundle/manifest.json` | what this bundle is: conservation area, SMART version, timezone, label coverage per language, counts, how well leg days are timed, warnings |
+| `bundle/reference.json` | patrol types, transports, mandates, stations, custom patrol attributes, agencies, ranks, teams, employees |
+| `bundle/patrols.json` | patrols → legs → days, members, waypoints → observations with typed attribute values, attachments |
+| `bundle/tracks.json` | one line (or several parts) per leg day with per-point times |
+| `bundle/attachments/<wp_uuid>/` | waypoint photos |
+
+The bundle is what er-smart-sync's patrol migration reads; its contract is
+`export/bundle.schema.json` and every bundle is validated against it as it
+is written. A conservation area with no patrols gets the XML and JSON but no
+bundle.
+
+Timezone: SMART stores wall-clock times without a zone. The bundle anchors
+them to the zone inferred from the waypoints (see Browse) unless you set
+`SMART_ABLE_TIMEZONE=Asia/Manila` (any IANA name). The manifest records
+which, and the export cross-checks the zone against the UTC timestamps in
+the tracks. See [quirks.html#timezones](docs/smart-data-quirks.md#timezones).
+
+Patrol times: SMART patrols and legs carry dates only. The summary line
+reports how many leg days get their times from a track, from the leg day's
+start and end, from waypoints, or from the date alone; see
+[quirks.html#patrol-times](docs/smart-data-quirks.md#patrol-times).
+
+Fidelity check against SMART's own export of the same conservation area:
+
+```sh
+uv run python -m export.verify_xml ~/path/to/reference/datamodel.xml work/export/<ca_id>/datamodel.xml
+```
+
 ### Warnings
 
 smart-able makes a few assumptions about the data; where it can check them,
@@ -158,6 +200,19 @@ it prints a `warning:` line rather than stopping. They mean:
 | `type change` | A column's type differs from the snapshot (databases only; exports have no types). | Check whether the browser SQL still works on it. |
 | `N of M attachments the database refers to are not in the backup` | The database has attachment rows whose files are missing from the filestore (or the export). The browser shows those as missing photos. | Nothing to fix in smart-able; the source install has the same gaps. |
 | `line 1 of conservationarea.dat is not a conservation area uuid` | The export is not in the layout smart-able expects. | The attachments won't decrypt; check the export with SMART's own import first. |
+| `SMART version 'X' is not one this exporter knows (7.x)` | The DataModel XML namespace is chosen by SMART major version; only 7.x has been verified. | The 7.x namespace is written. Check the output against an export from that SMART version. See quirks.html#backups-versus-exports. |
+| `icon ... has no files in any icon set` / `referenced but missing from the icon table` | A category or attribute points at an icon the backup lacks. | Harmless for ER; the XML omits the file entries. See quirks.html#data-model-export. |
+| `useEarthRanger has no known source column` / `extraData written from ct_properties_profile.name only` | Two ConfigurableModel XML attributes have no known table behind them and are written with defaults. | Only matters when loading the XML back into SMART. See quirks.html#configurable-models. |
+| `timezone X was inferred from waypoint positions` | No `SMART_ABLE_TIMEZONE` was set; the zone comes from the median waypoint. | Fine when the site is in one zone. Set the variable to be explicit. See quirks.html#timezones. |
+| `no timezone could be inferred (no GPS waypoints)` | Nothing to infer from; times are written as UTC. | Set `SMART_ABLE_TIMEZONE` and re-run `export`. |
+| `track timestamps imply UTC+HH:00 ... but the bundle timezone ... is UTC+HH:00` | The UTC times inside the tracks disagree with the chosen zone. | The zone is probably wrong: set `SMART_ABLE_TIMEZONE` to the implied one. See quirks.html#tracks. |
+| `N track(s) have Z values that are not epoch-millisecond timestamps` | Those tracks store something else in Z (elevation from a GPX tool, for example). | Their points are exported without times; the importer spreads them over the leg day. See quirks.html#tracks. |
+| `track ... has unreadable geometry` | The WKB could not be parsed. | The track is left out; report it with the SMART version. |
+| `N of M leg days have no times at all` | Neither a track, nor start/end times, nor a timed waypoint exists for those days. | ER gets whole-day ranges for them. See quirks.html#patrol-times. |
+| `waypoint ... links to a leg day that does not exist` | A `patrol_waypoint` row points at a missing leg day. | The waypoint is left out of the bundle (it is still in the browser). See quirks.html#waypoints-and-legs. |
+| `attachment ... is not in the extracted filestore` | The database refers to a photo the backup lacks (same gap as the browse warning above). | Nothing to fix in smart-able. See quirks.html#attachments. |
+| `waypoint ... has coordinates outside WGS 84 range` | `waypoint.x/y` are not longitude/latitude. | The CA may use a projected CRS; report it, since the bundle assumes WGS 84. |
+| `bundle schema: ...` | The written bundle does not match `export/bundle.schema.json`. | A smart-able bug; report the message. |
 
 ### Serve
 

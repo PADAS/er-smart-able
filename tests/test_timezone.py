@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from export.smartdb import SmartDb
-from export.timezone import localize, plausible_epoch_ms, resolve_timezone, utc_ms_iso
+from export.timezone import localize, plausible_epoch_ms, resolve_timezone, track_ms_iso
 from tests.conftest import T0
 
 
@@ -37,5 +37,6 @@ def test_default_when_no_gps(smart_parquet):
 def test_formatting():
     z = ZoneInfo("Asia/Manila")
     assert localize(datetime(2019, 3, 4, 6, 10, 0), z) == "2019-03-04T06:10:00+08:00"
-    assert utc_ms_iso(T0, z) == "2019-03-04T06:10:00+08:00"
+    assert track_ms_iso(T0, z) == "2019-03-04T06:10:00+08:00"        # wall-clock epoch, not UTC
+    assert track_ms_iso(T0, ZoneInfo("Africa/Nairobi")) == "2019-03-04T06:10:00+03:00"
     assert plausible_epoch_ms(T0) and not plausible_epoch_ms(1234.5) and not plausible_epoch_ms(5e15)

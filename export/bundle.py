@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 from . import version
 from .datamodel_json import language_coverage
 from .smartdb import CA, Labels, SmartDb, hyphenate
-from .timezone import localize, plausible_epoch_ms, utc_ms_iso
+from .timezone import localize, plausible_epoch_ms, track_ms_iso
 from .wkb import parse_track_wkb
 
 BUNDLE_SCHEMA_VERSION = 1
@@ -264,7 +264,7 @@ def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str])
         for part in parts:
             jp: dict = {"coordinates": [[x, y] for (x, y, _) in part]}
             if timed and part:
-                jp["times"] = [utc_ms_iso(z, zone) for (_, _, z) in part]
+                jp["times"] = [track_ms_iso(z, zone) for (_, _, z) in part]
                 first = jp["times"][0] if first is None else min(first, jp["times"][0])
                 last = jp["times"][-1] if last is None else max(last, jp["times"][-1])
             jparts.append(jp)
@@ -275,13 +275,11 @@ def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str])
     return {"tracks": out}
 
 
-def _fmt_offset(h: int) -> str:
-    return f"UTC{'+' if h >= 0 else '-'}{abs(h):02d}:00"
-
-
-def check_track_offset(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str]) -> None:
-    """Compare each leg day's local start time with its track's first UTC
-    timestamp; the rounded difference is the offset the data implies."""
+def check_track_offset(db: SmartDb, ca_uuid: str, warnings: List[str]) -> None:
+    """Compare each leg day's start time with its track's first point. SMART
+    stores both as local wall-clock, so they should agree to the hour; a
+    majority that does not means the tracks are in true UTC (another SMART
+    version) or the leg-day times are wrong."""
     votes: Dict[int, int] = defaultdict(int)
     for r in _track_rows(db, ca_uuid):
         if r["start_time"] is None:
@@ -294,17 +292,16 @@ def check_track_offset(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List
         if not zs:
             continue
         local = datetime.combine(r["patrol_day"], r["start_time"])
-        utc = datetime.fromtimestamp(min(zs) / 1000.0, tz=_tz.utc).replace(tzinfo=None)
-        votes[round((local - utc).total_seconds() / 3600)] += 1
+        first = datetime.fromtimestamp(min(zs) / 1000.0, tz=_tz.utc).replace(tzinfo=None)
+        votes[round((local - first).total_seconds() / 3600)] += 1
     if not votes:
         return
-    implied, n = max(votes.items(), key=lambda kv: kv[1])
+    diff, n = max(votes.items(), key=lambda kv: kv[1])
     total = sum(votes.values())
-    # offsets can vary with DST: accept the zone's January or July offset
-    offsets = {int(datetime(2019, m, 1).replace(tzinfo=zone).utcoffset().total_seconds() // 3600) for m in (1, 7)}
-    if implied not in offsets:
-        warnings.append(f"track timestamps imply {_fmt_offset(implied)} on {n} of {total} leg days with both a track and a start time, "
-                        f"but the bundle timezone {zone.key} is {_fmt_offset(min(offsets))}; set SMART_ABLE_TIMEZONE")
+    if diff != 0:
+        warnings.append(f"track times are {abs(diff)} h {'behind' if diff > 0 else 'ahead of'} the leg-day start times on {n} of {total} leg days with both; "
+                        f"SMART normally stores track times as local wall-clock, so these tracks may be in UTC or the leg-day times may be wrong "
+                        f"(see quirks.html#patrol-times)")
 
 
 def time_coverage(patrols: dict, tracks: dict) -> dict:
@@ -351,7 +348,7 @@ def write_bundle(db: SmartDb, ca: CA, out_dir: Path, zone_name: str, zone_source
         warnings.append("no timezone could be inferred (no GPS waypoints); times are written as UTC; set SMART_ABLE_TIMEZONE")
     out_dir.mkdir(parents=True, exist_ok=True)
     tracks = build_tracks(db, ca.uuid, zone, warnings)
-    check_track_offset(db, ca.uuid, zone, warnings)
+    check_track_offset(db, ca.uuid, warnings)
     patrols = build_patrols(db, ca.uuid, zone, attachments_root, out_dir, warnings)
     reference = build_reference(db, ca.uuid)
     legs = [l for p in patrols["patrols"] for l in p["legs"]]

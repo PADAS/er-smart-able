@@ -159,6 +159,16 @@ GOLDEN_CM = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <name language_code="fr" value="Éléphant" source="DM"/>
         </listItem>
     </attributeConfig>
+    <extraData type="connect_ct_properties">
+        <stringKey key="ping_alert_type"/>
+        <integerKey key="ping_frequency" value="0"/>
+        <integerKey key="data_frequence"/>
+    </extraData>
+    <extraData type="ct_profile">
+        <labelKey key="name">
+            <label language_code="en" value="Default"/>
+        </labelKey>
+    </extraData>
 </ConfigurableModel>
 '''
 
@@ -171,4 +181,5 @@ def test_list_configurable_models(smart_parquet):
 def test_golden_configurable_model(smart_parquet):
     xml, warnings = build_configurable_model_xml(SmartDb(smart_parquet), CM)
     assert_same(xml, GOLDEN_CM)
-    assert warnings == ["useEarthRanger has no known source column; written as false"]
+    assert warnings == ["useEarthRanger has no known source column; written as false",
+                        "extraData: CyberTracker profile options (ct_properties_profile_option) are not exported; unverified against a reference"]

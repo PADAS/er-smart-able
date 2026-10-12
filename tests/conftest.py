@@ -22,13 +22,14 @@ ATT_SPECIES, ATT_COUNT, ATT_ARMED, ATT_SEEN, ATT_NOTE, ATT_THREAT, ATT_TREE = (U
 LIST_ELE, LIST_LION = U(0x400), U(0x401)
 TREE_SNARE, TREE_WIRE, TREE_FIRE = U(0x410), U(0x411), U(0x412)
 ICON_SPECIES, ICONSET_LINE, ICONSET_COLOR, ICONFILE_1, ICONFILE_2 = U(0x500), U(0x501), U(0x502), U(0x503), U(0x504)
-CM, NODE_GROUP, NODE_LIVE, CMATT_SPECIES, CMCONF_SPECIES, CMLIST_ELE = (U(0x600 + i) for i in range(6))
+CM, NODE_GROUP, NODE_LIVE, CMATT_SPECIES, CMCONF_SPECIES, CMLIST_ELE, CT_PROFILE = (U(0x600 + i) for i in range(7))
 EMP_LEAD, EMP_TWO, AGENCY, RANK, TEAM, STATION, STATION_DESC = (U(0x700 + i) for i in range(7))
 TRANSPORT_FOOT, MANDATE_LAW = U(0x800), U(0x801)
 PATROL_1, PATROL_2, LEG_1, LEG_2, DAY_1, DAY_2, WP_1, GROUP_1, OBS_1, OBS_2, TRACK_1, ATTACH_1 = (U(0x900 + i) for i in range(12))
 
-# epoch ms (UTC) for 2019-03-04 06:10:00 +08:00, and one hour later
-T0 = 1551651000000
+# SMART stores track times as local wall-clock encoded as epoch milliseconds
+# (as if the local clock were UTC): 2019-03-04 06:10:00 -> 1551679800000
+T0 = 1551679800000
 
 
 def wkb_line_z(points) -> str:
@@ -103,6 +104,7 @@ def _tables():
          (LANG_EN, TREE_SNARE, "Snare"), (LANG_EN, TREE_WIRE, "Wire snare"), (LANG_EN, TREE_FIRE, "Fire"),
          (LANG_EN, ICON_SPECIES, "Species icon"),
          (LANG_EN, CM, "Alpha mobile model"), (LANG_EN, NODE_GROUP, "Sightings"), (LANG_EN, CMCONF_SPECIES, "Species (curated)"),
+         (LANG_EN, CT_PROFILE, "Default"),
          (LANG_EN, TRANSPORT_FOOT, "Foot"), (LANG_EN, MANDATE_LAW, "Law enforcement"), (LANG_EN, STATION_DESC, "HQ"),
          (LANG_EN, TEAM, "Team One"), (LANG_EN, RANK, "Ranger")],
     )
@@ -124,9 +126,10 @@ def _tables():
                                 [(U(0x610), CMATT_SPECIES, "IS_VISIBLE", 1.0, None, None),
                                  (U(0x611), CMATT_SPECIES, "ENTER_ONCE", None, "NONE", None)])
     t["cm_attribute_tree_node"] = (["uuid", "dm_tree_node_uuid", "is_active", "parent_uuid", "node_order", "display_mode", "config_uuid", "imagetype"], [])
-    t["cm_ct_properties_profile"] = (["cm_uuid", "profile_uuid"], [])
-    t["ct_properties_profile"] = (["uuid", "ca_uuid", "name"], [])
-    t["connect_ct_properties"] = (["uuid", "ca_uuid", "key", "value"], [])
+    t["cm_ct_properties_profile"] = (["cm_uuid", "profile_uuid"], [(CM, CT_PROFILE)])
+    t["ct_properties_profile"] = (["uuid", "ca_uuid", "is_default"], [(CT_PROFILE, CA_A, True)])
+    t["connect_ct_properties"] = (["uuid", "cm_uuid", "ping_frequency", "data_frequency", "ping_type"],
+                                  [(U(0x620), CM, 0, None, None)])
     t["agency"] = (["uuid", "ca_uuid", "keyid"], [(AGENCY, CA_A, "denr")])
     t["rank"] = (["uuid", "agency_uuid"], [(RANK, AGENCY)])
     t["employee"] = (
@@ -196,6 +199,8 @@ CASTS = {
     "cm_attribute": "attribute_order::INTEGER AS attribute_order",
     "cm_attribute_list": "is_active::BOOLEAN AS is_active, list_order::INTEGER AS list_order",
     "cm_attribute_option": "number_value::DOUBLE AS number_value",
+    "ct_properties_profile": "is_default::BOOLEAN AS is_default",
+    "connect_ct_properties": "ping_frequency::INTEGER AS ping_frequency, data_frequency::INTEGER AS data_frequency",
     "employee": "startemploymentdate::DATE AS startemploymentdate, endemploymentdate::DATE AS endemploymentdate, datecreated::DATE AS datecreated, birthdate::DATE AS birthdate, smartuserlevel::INTEGER AS smartuserlevel",
     "station": "is_active::BOOLEAN AS is_active",
     "patrol_type": "is_active::BOOLEAN AS is_active, max_speed::INTEGER AS max_speed",

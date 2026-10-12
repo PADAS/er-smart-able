@@ -366,15 +366,21 @@ day crossed midnight; `end` is advanced one day in that case.
 `track.geometry` is big-endian extended WKB in hex with the Z flag set:
 `0x80000002` LineString Z (504 rows in Lawin) or `0x80000005`
 MultiLineString Z (2,144 rows), parsed with `struct`, no GIS dependency.
-The Z coordinate is the point's timestamp as Unix epoch milliseconds, UTC
-(verified: values are monotonic within a part and fall on the leg day).
-Each part keeps its coordinates and the matching ISO timestamps, so the
-importer gets real per-point times rather than interpolated ones. `start`
-and `end` are the first and last timestamps across parts. Because the Z
-times are UTC and the leg day's `start_time` is local wall-clock, their
-difference is an independent check of the bundle timezone; the exporter
-compares them on every leg day with a track and warns when the implied
-offset disagrees with the chosen zone.
+The Z coordinate is the point's timestamp as epoch milliseconds of the
+**local wall-clock time read as if it were UTC**, not true UTC. Verified on
+Lawin (2026-10-12): on 1,296 of 1,573 leg days with both a track and a
+start time, the track's first point equals the leg day's `start_time` to
+the minute when Z is decoded as a naive clock time, and the first-point
+hours cluster at 05:00–10:00 local; decoded as UTC they would put patrols
+in the afternoon. The exporter therefore decodes Z as a naive datetime and
+anchors it to the bundle timezone like every other SMART time. Each part
+keeps its coordinates and the matching ISO timestamps, so the importer
+gets real per-point times rather than interpolated ones. `start` and `end`
+are the first and last timestamps across parts. As a consistency check the
+exporter compares each leg day's `start_time` with its track's first point
+and warns when the majority disagree by an hour or more, which would mean
+the tracks are in true UTC (another SMART version) or the leg-day times
+are wrong; Lawin has a minority of 2017 leg days that are 8 hours off.
 
 **attachments/.** Waypoint attachments copied from the decrypted filestore;
 missing files are listed under `warnings` with the waypoint UUID.
@@ -414,8 +420,8 @@ and into `manifest.warnings`) when: the SMART version is outside 7.5.x; an
 icon has no file for a referenced icon set; a label is missing in the
 default language; a waypoint cannot be placed on a leg; an attachment file
 is missing; a coordinate is outside WGS 84 range; the timezone was inferred
-rather than configured; a track's UTC timestamps imply a different offset
-than the chosen zone; `useEarthRanger` or any other XML attribute was
+rather than configured; track times disagree with leg-day start times by
+an hour or more on most leg days; `useEarthRanger` or any other XML attribute was
 defaulted because the source column is unknown.
 
 ## Testing
