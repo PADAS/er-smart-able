@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
-from .smartdb import Labels, SmartDb
+from .smartdb import Labels, SmartDb, hyphenate
 from .xmlwriter import Xml, java_double
 
 DM_NS = {"7": "http://www.smartconservationsoftware.org/xml/1.1/datamodel"}
@@ -158,4 +158,176 @@ def build_datamodel_xml(db: SmartDb, ca_uuid: str) -> Tuple[str, List[str]]:
             _names(x, L, icon_uuid, codes)
             x.close("icons")
     x.close("DataModel")
+    return x.render(), warnings
+
+
+CM_NS = "http://www.smartconservationsoftware.org/xml/1.0/dataentry"
+
+
+def list_configurable_models(db: SmartDb, ca_uuid: str) -> List[dict]:
+    if not db.has("configurable_model"):
+        return []
+    L = db.labels(ca_uuid)
+    rows = db.rows(f"SELECT uuid FROM {db.t('configurable_model')} WHERE ca_uuid = ?", [ca_uuid])
+    out = [{"uuid": r["uuid"], "label": L.get(r["uuid"]) or r["uuid"]} for r in rows]
+    out.sort(key=lambda m: (m["label"].lower(), m["uuid"]))
+    return out
+
+
+def _name_els(x: Xml, labels: Labels, uuid: str, codes: List[str], source: str) -> None:
+    m = labels.all(uuid)
+    for c in codes:
+        if c in m:
+            x.empty("name", [("language_code", c), ("value", m[c]), ("source", source)])
+
+
+def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[str]]:
+    warnings: List[str] = []
+    cm = db.rows(f"SELECT uuid, ca_uuid, display_mode, instant_gps, photo_first, iconset_uuid "
+                 f"FROM {db.t('configurable_model')} WHERE uuid = ?", [cm_uuid])
+    if not cm:
+        raise KeyError(f"no configurable model {cm_uuid}")
+    cm = cm[0]
+    ca_uuid = cm["ca_uuid"]
+    langs = db.languages(ca_uuid)
+    codes = [l.code for l in langs]
+    L = db.labels(ca_uuid)
+    iconset = db.rows(f"SELECT keyid FROM {db.t('iconset')} WHERE uuid = ?", [cm["iconset_uuid"]])
+    iconset_key = iconset[0]["keyid"] if iconset else "color"
+    warnings.append("useEarthRanger has no known source column; written as false")
+
+    cats = {c["uuid"]: c for c in db.rows(f"SELECT uuid, keyid, hkey FROM {db.t('dm_category')} WHERE ca_uuid = ?", [ca_uuid])}
+    atts = {a["uuid"]: a for a in db.rows(f"SELECT uuid, keyid, att_type, is_required FROM {db.t('dm_attribute')} WHERE ca_uuid = ?", [ca_uuid])}
+    list_el = {r["uuid"]: r for r in db.rows(f"SELECT l.uuid, l.keyid FROM {db.t('dm_attribute_list')} l "
+                                             f"JOIN {db.t('dm_attribute')} a ON a.uuid = l.attribute_uuid WHERE a.ca_uuid = ?", [ca_uuid])}
+    tree_el = {r["uuid"]: r for r in db.rows(f"SELECT n.uuid, n.keyid, n.hkey FROM {db.t('dm_attribute_tree')} n "
+                                             f"JOIN {db.t('dm_attribute')} a ON a.uuid = n.attribute_uuid WHERE a.ca_uuid = ?", [ca_uuid])}
+
+    nodes = db.rows(f"SELECT uuid, category_uuid, parent_node_uuid, node_order, photo_allowed, photo_required, "
+                    f"collect_multiple_obs, use_single_gps_point, display_mode, imagetype FROM {db.t('cm_node')} "
+                    f"WHERE cm_uuid = ? ORDER BY node_order, uuid", [cm_uuid])
+    node_children: Dict[Optional[str], list] = defaultdict(list)
+    for n in nodes:
+        node_children[n["parent_node_uuid"]].append(n)
+    node_atts: Dict[str, list] = defaultdict(list)
+    for r in db.rows(f"SELECT a.uuid, a.node_uuid, a.attribute_uuid, a.config_uuid, a.attribute_order FROM {db.t('cm_attribute')} a "
+                     f"JOIN {db.t('cm_node')} n ON n.uuid = a.node_uuid WHERE n.cm_uuid = ? ORDER BY a.attribute_order, a.uuid", [cm_uuid]):
+        node_atts[r["node_uuid"]].append(r)
+    options: Dict[str, list] = defaultdict(list)
+    for r in db.rows(f"SELECT o.cm_attribute_uuid, o.option_id, o.number_value, o.string_value FROM {db.t('cm_attribute_option')} o "
+                     f"JOIN {db.t('cm_attribute')} a ON a.uuid = o.cm_attribute_uuid "
+                     f"JOIN {db.t('cm_node')} n ON n.uuid = a.node_uuid WHERE n.cm_uuid = ?", [cm_uuid]):
+        options[r["cm_attribute_uuid"]].append(r)
+    configs = db.rows(f"SELECT uuid, dm_attribute_uuid, display_mode, is_default FROM {db.t('cm_attribute_config')} "
+                      f"WHERE cm_uuid = ? ORDER BY uuid", [cm_uuid])
+    cfg_lists: Dict[str, list] = defaultdict(list)
+    for r in db.rows(f"SELECT l.uuid, l.config_uuid, l.list_element_uuid, l.is_active, l.imagetype FROM {db.t('cm_attribute_list')} l "
+                     f"JOIN {db.t('cm_attribute_config')} c ON c.uuid = l.config_uuid WHERE c.cm_uuid = ? ORDER BY l.list_order, l.uuid", [cm_uuid]):
+        cfg_lists[r["config_uuid"]].append(r)
+    cfg_tree: Dict[Tuple[str, Optional[str]], list] = defaultdict(list)
+    for r in db.rows(f"SELECT t.uuid, t.config_uuid, t.dm_tree_node_uuid, t.is_active, t.parent_uuid, t.imagetype FROM {db.t('cm_attribute_tree_node')} t "
+                     f"JOIN {db.t('cm_attribute_config')} c ON c.uuid = t.config_uuid WHERE c.cm_uuid = ? ORDER BY t.node_order, t.uuid", [cm_uuid]):
+        cfg_tree[(r["config_uuid"], r["parent_uuid"])].append(r)
+
+    def image_attrs(row: dict, uuid: str) -> List[Tuple[str, str]]:
+        if row.get("imagetype"):
+            return [("imageFile", f"cn_img1_{uuid.replace('-', '')}.{row['imagetype'].lower()}"), ("isCustomImage", "true")]
+        return [("isCustomImage", "false")]
+
+    x = Xml()
+    x.open("ConfigurableModel", [("xmlns", CM_NS), ("displayMode", cm["display_mode"] or "TEXT_IMAGE"),
+                                 ("instantGps", _b(cm["instant_gps"])), ("photoFirst", _b(cm["photo_first"])),
+                                 ("useEarthRanger", "false"), ("iconSet", iconset_key)])
+    x.open("languages")
+    for l in langs:
+        x.empty("language", [("code", l.code), ("is_default", _b(l.default))])
+    x.close("languages")
+    _name_els(x, L, cm_uuid, codes, "CM")
+
+    def node(n: dict) -> None:
+        cat = cats.get(n["category_uuid"]) if n["category_uuid"] else None
+        if cat:
+            x.open("node", [("categoryKey", cat["keyid"]), ("categoryHkey", cat["hkey"]), ("dmUuid", cat["uuid"]),
+                            ("photoAllowed", _b(n["photo_allowed"])), ("photoRequired", _b(n["photo_required"])),
+                            ("displayMode", n["display_mode"] or "TEXT"), ("id", hyphenate(n["uuid"])),
+                            ("collectMultipleObs", _b(n["collect_multiple_obs"])), ("useSingleGpsPoint", _b(n["use_single_gps_point"]))]
+                   + ([] if not n.get("imagetype") else image_attrs(n, n["uuid"])))
+            if L.all(n["uuid"]):
+                _name_els(x, L, n["uuid"], codes, "CM")
+            else:
+                _name_els(x, L, cat["uuid"], codes, "DM")
+        else:
+            x.open("node", [("id", hyphenate(n["uuid"]))] + ([] if not n.get("imagetype") else image_attrs(n, n["uuid"])))
+            _name_els(x, L, n["uuid"], codes, "CM")
+        for a in node_atts.get(n["uuid"], []):
+            da = atts.get(a["attribute_uuid"])
+            if not da:
+                warnings.append(f"cm_attribute {a['uuid']} refers to unknown attribute {a['attribute_uuid']}")
+                continue
+            x.open("attribute", [("attributeKey", da["keyid"]), ("dmUuid", da["uuid"]), ("id", hyphenate(a["uuid"]))]
+                   + ([("configId", hyphenate(a["config_uuid"]))] if a["config_uuid"] else [])
+                   + [("type", (da["att_type"] or "").strip()), ("required", _b(da["is_required"]))]
+                   + image_attrs(a, a["uuid"]))
+            _name_els(x, L, da["uuid"], codes, "DM")
+            for o in options.get(a["uuid"], []):
+                if o["number_value"] is not None:
+                    x.empty("option", [("id", o["option_id"]), ("doubleValue", java_double(o["number_value"]))])
+                elif o["string_value"] is not None:
+                    x.empty("option", [("id", o["option_id"]), ("stringValue", o["string_value"])])
+                else:
+                    x.empty("option", [("id", o["option_id"])])
+            x.close("attribute")
+        for child in node_children.get(n["uuid"], []):
+            node(child)
+        x.close("node")
+
+    x.open("nodes")
+    for n in node_children.get(None, []):
+        node(n)
+    x.close("nodes")
+
+    for c in configs:
+        da = atts.get(c["dm_attribute_uuid"])
+        if not da:
+            warnings.append(f"cm_attribute_config {c['uuid']} refers to unknown attribute {c['dm_attribute_uuid']}")
+            continue
+        x.open("attributeConfig", [("id", hyphenate(c["uuid"])), ("attributeKey", da["keyid"]),
+                                   ("displayMode", c["display_mode"] or "TEXT"), ("isDefault", _b(c["is_default"])),
+                                   ("attributeUuid", da["uuid"])])
+        _name_els(x, L, c["uuid"], codes, "CM")
+        for li in cfg_lists.get(c["uuid"], []):
+            el = list_el.get(li["list_element_uuid"])
+            if not el:
+                warnings.append(f"cm_attribute_list {li['uuid']} refers to unknown list value")
+                continue
+            x.open("listItem", [("keyRef", el["keyid"]), ("dmUuid", el["uuid"]), ("isActive", _b(li["is_active"])),
+                                ("id", hyphenate(li["uuid"]))] + image_attrs(li, li["uuid"]))
+            _name_els(x, L, el["uuid"], codes, "DM")
+            x.close("listItem")
+
+        def tnode(parent: Optional[str], tag: str, cfg: str = c["uuid"]) -> None:
+            for tn in cfg_tree.get((cfg, parent), []):
+                el = tree_el.get(tn["dm_tree_node_uuid"])
+                if not el:
+                    warnings.append(f"cm_attribute_tree_node {tn['uuid']} refers to unknown tree node")
+                    continue
+                x.open(tag, [("keyRef", el["keyid"]), ("hkeyRef", el["hkey"]), ("dmUuid", el["uuid"]),
+                             ("isActive", _b(tn["is_active"])), ("id", hyphenate(tn["uuid"]))] + image_attrs(tn, tn["uuid"]))
+                _name_els(x, L, el["uuid"], codes, "DM")
+                tnode(tn["uuid"], "children", cfg)
+                x.close(tag)
+        tnode(None, "treeNode")
+        x.close("attributeConfig")
+
+    if db.has("cm_ct_properties_profile") and db.has("ct_properties_profile"):
+        prof = db.rows(f"SELECT p.uuid, p.name FROM {db.t('cm_ct_properties_profile')} m "
+                       f"JOIN {db.t('ct_properties_profile')} p ON p.uuid = m.profile_uuid WHERE m.cm_uuid = ?", [cm_uuid])
+        if prof:
+            x.open("extraData", [("type", "ct_profile")])
+            x.open("labelKey", [("key", "name")])
+            x.empty("label", [("language_code", codes[0] if codes else "en"), ("value", prof[0]["name"] or "")])
+            x.close("labelKey")
+            x.close("extraData")
+            warnings.append("extraData written from ct_properties_profile.name only; connect_ct_properties keys unverified")
+    x.close("ConfigurableModel")
     return x.render(), warnings

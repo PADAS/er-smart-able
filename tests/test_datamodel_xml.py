@@ -124,3 +124,51 @@ def test_icons_only_referenced_and_unique(smart_parquet):
     xml_b, warnings = build_datamodel_xml(SmartDb(smart_parquet), CA_B)
     assert "<icons key=" not in xml_b
     assert "<attributes>\n    </attributes>" in xml_b
+
+
+from export.datamodel_xml import build_configurable_model_xml, list_configurable_models  # noqa: E402
+from export.smartdb import hyphenate  # noqa: E402
+from tests.conftest import (CM, NODE_GROUP, NODE_LIVE, CAT_LIVE, ATT_SPECIES, CMATT_SPECIES,  # noqa: E402
+                            CMCONF_SPECIES, CMLIST_ELE, LIST_ELE)
+
+GOLDEN_CM = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ConfigurableModel xmlns="http://www.smartconservationsoftware.org/xml/1.0/dataentry" displayMode="TEXT_IMAGE" instantGps="true" photoFirst="false" useEarthRanger="false" iconSet="color">
+    <languages>
+        <language code="en" is_default="true"/>
+        <language code="fr" is_default="false"/>
+    </languages>
+    <name language_code="en" value="Alpha mobile model" source="CM"/>
+    <nodes>
+        <node id="{hyphenate(NODE_GROUP)}">
+            <name language_code="en" value="Sightings" source="CM"/>
+            <node categoryKey="liveanimals" categoryHkey="animals.liveanimals." dmUuid="{CAT_LIVE}" photoAllowed="true" photoRequired="false" displayMode="TEXT" id="{hyphenate(NODE_LIVE)}" collectMultipleObs="false" useSingleGpsPoint="false">
+                <name language_code="en" value="Live animals" source="DM"/>
+                <attribute attributeKey="species" dmUuid="{ATT_SPECIES}" id="{hyphenate(CMATT_SPECIES)}" configId="{hyphenate(CMCONF_SPECIES)}" type="LIST" required="true" isCustomImage="false">
+                    <name language_code="en" value="Species" source="DM"/>
+                    <name language_code="fr" value="Espèce" source="DM"/>
+                    <option id="IS_VISIBLE" doubleValue="1.0"/>
+                    <option id="ENTER_ONCE" stringValue="NONE"/>
+                </attribute>
+            </node>
+        </node>
+    </nodes>
+    <attributeConfig id="{hyphenate(CMCONF_SPECIES)}" attributeKey="species" displayMode="TEXT" isDefault="true" attributeUuid="{ATT_SPECIES}">
+        <name language_code="en" value="Species (curated)" source="CM"/>
+        <listItem keyRef="elephant" dmUuid="{LIST_ELE}" isActive="true" id="{hyphenate(CMLIST_ELE)}" isCustomImage="false">
+            <name language_code="en" value="Elephant" source="DM"/>
+            <name language_code="fr" value="Éléphant" source="DM"/>
+        </listItem>
+    </attributeConfig>
+</ConfigurableModel>
+'''
+
+
+def test_list_configurable_models(smart_parquet):
+    assert list_configurable_models(SmartDb(smart_parquet), CA_A) == [{"uuid": CM, "label": "Alpha mobile model"}]
+    assert list_configurable_models(SmartDb(smart_parquet), CA_B) == []
+
+
+def test_golden_configurable_model(smart_parquet):
+    xml, warnings = build_configurable_model_xml(SmartDb(smart_parquet), CM)
+    assert_same(xml, GOLDEN_CM)
+    assert warnings == ["useEarthRanger has no known source column; written as false"]
