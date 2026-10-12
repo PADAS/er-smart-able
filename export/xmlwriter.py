@@ -33,12 +33,11 @@ def java_double(x: float) -> str:
     e10 = exp + len(digits) - 1          # scientific exponent
     neg = "-" if sign else ""
     if 1e-3 <= abs(x) < 1e7:
-        s = f"{abs(x):f}".rstrip("0")
-        if s.endswith("."):
-            s += "0"
-        if "." not in s:
-            s += ".0"
-        return neg + s
+        ds = "".join(str(c) for c in digits)       # shortest digits, trailing zeros stripped
+        if exp >= 0:
+            return f"{neg}{ds}{'0' * exp}.0"
+        k = len(ds) + exp                         # digits before the decimal point
+        return f"{neg}{ds[:k]}.{ds[k:]}" if k > 0 else f"{neg}0.{'0' * -k}{ds}"
     mant = str(digits[0]) + "." + ("".join(str(c) for c in digits[1:]) or "0")
     return f"{neg}{mant}E{e10}"
 

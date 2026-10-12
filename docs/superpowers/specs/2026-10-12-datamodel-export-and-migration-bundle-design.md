@@ -138,10 +138,10 @@ same way. Under each: `names`, then `<attributes isactive attributekey/>` per
 **icons.** One `<icons key issystem>` per `icon` referenced by any category,
 attribute, list value, or tree node, with one `<icons iconset file/>` per
 `iconfile` row and the icon's `names`. `issystem` is true when the stored
-filename starts with `platform:/plugin/`. SMART's export renames system
-icon files to a UUID-based `.svg`; which UUID it uses is the first thing to
-read off the reference export. Custom icons are copied from the decrypted
-filestore next to the XML when present.
+filename starts with `platform:/plugin/`. SMART's export names icon files
+`<iconfile.uuid>.svg` (verified on the reference export). Custom icon files
+are not copied next to the XML yet; the exporter warns when a CA uses them
+(no dataset seen so far does), and copying is a follow-up once one appears.
 
 Formatting: XML declaration with `standalone="yes"`, four-space indentation,
 attributes in the order listed above, empty elements self-closed, and the
@@ -332,7 +332,7 @@ from `employment_end` being null or in the future.
                    "has_track": true }],
         "waypoints": [
           { "uuid", "id", "time": "2019-03-04T08:12:31+08:00", "location": [123.9, 14.1],
-            "comment": "…", "source": "…", "recorded_by_uuid": null,
+            "comment": "…", "source": "…", "last_modified_by_uuid": null,
             "attachments": [{ "uuid", "filename", "path": "attachments/<wp_uuid>/<filename>" }],
             "observation_groups": [
               { "uuid", "observations": [
@@ -349,7 +349,9 @@ Waypoints are tied to leg days by the `patrol_waypoint(wp_uuid,
 leg_day_uuid)` link table, so each waypoint lands on exactly one leg; the
 emitter adds `leg_day_uuid` to every waypoint and reports waypoints whose
 link points at a missing leg day under `warnings`.
-Attribute values are typed by `dm_attribute.att_type`: LIST values are the
+`last_modified_by_uuid` is the employee who last edited the waypoint, which
+SMART records; the observer, when known, is on each observation as
+`employee_uuid`. Attribute values are typed by `dm_attribute.att_type`: LIST values are the
 option `keyid`, TREE values are the node `hkey` without the trailing dot,
 MLIST is an array, NUMERIC a number, BOOLEAN true/false, DATE an ISO date,
 TEXT a string. `end_time` earlier than `start_time` on a leg day means the

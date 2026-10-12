@@ -152,6 +152,9 @@ def build_datamodel_xml(db: SmartDb, ca_uuid: str) -> Tuple[str, List[str]]:
             if not rows:
                 warnings.append(f"icon {icon_key[icon_uuid]!r} has no files in any icon set")
             system = all(r["filename"].startswith("platform:/plugin/") for r in rows) if rows else True
+            if not system:
+                custom = ", ".join(sorted({r["filename"] for r in rows if not r["filename"].startswith("platform:/plugin/")}))
+                warnings.append(f"icon {icon_key[icon_uuid]!r} uses custom files ({custom}); they are not copied next to the XML")
             x.open("icons", [("key", icon_key[icon_uuid]), ("issystem", _b(system))])
             for r in rows:
                 x.empty("icons", [("iconset", r["iconset"]), ("file", f"{r['uuid']}.svg")])

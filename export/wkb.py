@@ -46,6 +46,8 @@ def _line(r: _Reader, has_z: bool, bo: str) -> List[Point]:
 
 
 def parse_track_wkb(hexstr: str) -> List[List[Point]]:
+    if not hexstr:
+        raise ValueError("no geometry")
     r = _Reader(bytes.fromhex(hexstr))
     base, has_z, bo = _geometry(r)
     if base == LINESTRING:

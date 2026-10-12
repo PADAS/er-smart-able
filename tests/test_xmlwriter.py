@@ -13,6 +13,10 @@ def test_java_double():
     assert java_double(0.001) == "0.001"
     assert java_double(0.0001) == "1.0E-4"
     assert java_double(-2.5) == "-2.5"
+    assert java_double(1.23456789) == "1.23456789"
+    assert java_double(0.1234567891) == "0.1234567891"
+    assert java_double(123456.000001) == "123456.000001"
+    assert java_double(9999999.999) == "9999999.999"
 
 
 def test_escape():

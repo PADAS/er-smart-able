@@ -166,14 +166,17 @@ Writes `work/export/<ca_id>/`:
 
 The bundle is what er-smart-sync's patrol migration reads; its contract is
 `export/bundle.schema.json` and every bundle is validated against it as it
-is written. A conservation area with no patrols gets the XML and JSON but no
+is written (schema errors are printed as warnings). A conservation area with no patrols gets the XML and JSON but no
 bundle.
 
-Timezone: SMART stores wall-clock times without a zone. The bundle anchors
-them to the zone inferred from the waypoints (see Browse) unless you set
-`SMART_ABLE_TIMEZONE=Asia/Manila` (any IANA name). The manifest records
-which, and the export cross-checks the zone against the UTC timestamps in
-the tracks. See [quirks.html#timezones](docs/smart-data-quirks.md#timezones).
+Timezone: SMART stores wall-clock times without a zone, track points
+included (their timestamps are local wall-clock encoded as epoch
+milliseconds). The bundle anchors everything to the zone inferred from the
+waypoints (see Browse) unless you set `SMART_ABLE_TIMEZONE=Asia/Manila`
+(any IANA name). The manifest records which. The export checks that each
+leg day's start time agrees with its track's first point, since both are
+local; see [quirks.html#timezones](docs/smart-data-quirks.md#timezones) and
+[quirks.html#patrol-times](docs/smart-data-quirks.md#patrol-times).
 
 Patrol times: SMART patrols and legs carry dates only. The summary line
 reports how many leg days get their times from a track, from the leg day's
@@ -192,14 +195,16 @@ byte-identical except the icon file names, which are the exporting
 install's `iconfile` row UUIDs and so differ between installs
 (`--ignore-icon-files` sets them aside; the icons themselves are the same).
 smartconnect-client reads both files to the same categories, attributes and
-options. The ConfigurableModel XML follows the one sample we hold
-(Botswana Guardians) and has not been checked against an export of the same
-CA yet; `useEarthRanger`, `extraData` and option order are the open points.
-`tests/test_reference_export.py` repeats the check when
-`SMART_ABLE_REFERENCE_DIR` points at a directory holding
-`reference/datamodel.xml` and `work/` for the same CA. Note that
-`er-smart-sync --dry-run datamodel` still reads existing event types and
-choices from the ER site, so it needs a reachable site even in dry-run mode.
+options (the spec's acceptance level 1). Level 2, a clean
+`er-smart-sync --dry-run datamodel --from-file` run, is still open: the dry
+run reads existing event types and choices from the ER site before planning,
+so offline it reports network errors rather than a plan; run it against a
+sandbox site before the first real use. The ConfigurableModel XML follows
+the one sample we hold (Botswana Guardians) and has not been checked against
+an export of the same CA yet; `useEarthRanger`, `extraData` and option order
+are the open points. `tests/test_reference_export.py` repeats the DataModel
+check when `SMART_ABLE_REFERENCE_DIR` points at a directory holding
+`reference/datamodel.xml` and `work/` for the same CA.
 
 ### Warnings
 
@@ -217,10 +222,14 @@ it prints a `warning:` line rather than stopping. They mean:
 | `line 1 of conservationarea.dat is not a conservation area uuid` | The export is not in the layout smart-able expects. | The attachments won't decrypt; check the export with SMART's own import first. |
 | `SMART version 'X' is not one this exporter knows (7.x)` | The DataModel XML namespace is chosen by SMART major version; only 7.x has been verified. | The 7.x namespace is written. Check the output against an export from that SMART version. See quirks.html#backups-versus-exports. |
 | `icon ... has no files in any icon set` / `referenced but missing from the icon table` | A category or attribute points at an icon the backup lacks. | Harmless for ER; the XML omits the file entries. See quirks.html#data-model-export. |
-| `useEarthRanger has no known source column` / `extraData written from ct_properties_profile.name only` | Two ConfigurableModel XML attributes have no known table behind them and are written with defaults. | Only matters when loading the XML back into SMART. See quirks.html#configurable-models. |
+| `useEarthRanger has no known source column` / `extraData: CyberTracker profile options ... are not exported` | Two ConfigurableModel XML attributes have no known table behind them and are written with defaults. | Only matters when loading the XML back into SMART. See quirks.html#configurable-models. |
 | `timezone X was inferred from waypoint positions` | No `SMART_ABLE_TIMEZONE` was set; the zone comes from the median waypoint. | Fine when the site is in one zone. Set the variable to be explicit. See quirks.html#timezones. |
 | `no timezone could be inferred (no GPS waypoints)` | Nothing to infer from; times are written as UTC. | Set `SMART_ABLE_TIMEZONE` and re-run `export`. |
-| `track timestamps imply UTC+HH:00 ... but the bundle timezone ... is UTC+HH:00` | The UTC times inside the tracks disagree with the chosen zone. | The zone is probably wrong: set `SMART_ABLE_TIMEZONE` to the implied one. See quirks.html#tracks. |
+| `track times are N h behind/ahead of the leg-day start times on N of M leg days` | Track points and leg-day start times are both local wall-clock in SMART 7.5, so they should agree to the hour; most of them do not here. | Either this SMART version stores tracks in true UTC or the leg-day times are wrong. Check a few patrols in the browser; the importer unions the two sources anyway. See quirks.html#patrol-times. |
+| `icon 'X' uses custom files (...); they are not copied next to the XML` | The CA has its own icon files rather than SMART's built-in set. | Harmless for ER. To load the XML back into SMART you would need the files from the filestore; not yet automated. See quirks.html#data-model-export. |
+| `N element(s) have no label in the default language (en)` | Some categories, attributes or values are only labelled in another language. | The export and the bundle use another language's label for those; pick the best-covered language in the Data Model tab. See quirks.html#labels-and-languages. |
+| `track ... has no geometry` | A `track` row with a NULL geometry. | The track is left out; the leg day keeps its start/end times. |
+| `attachment '...' of waypoint ... has a path in its name` | A `wp_attachments.filename` contains a directory separator, which smart-able refuses to use as a path. | Left out of the bundle; inspect the row. |
 | `N track(s) have Z values that are not epoch-millisecond timestamps` | Those tracks store something else in Z (elevation from a GPX tool, for example). | Their points are exported without times; the importer spreads them over the leg day. See quirks.html#tracks. |
 | `track ... has unreadable geometry` | The WKB could not be parsed. | The track is left out; report it with the SMART version. |
 | `N of M leg days have no times at all` | Neither a track, nor start/end times, nor a timed waypoint exists for those days. | ER gets whole-day ranges for them. See quirks.html#patrol-times. |

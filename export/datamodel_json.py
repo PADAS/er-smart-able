@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 from .datamodel_xml import list_configurable_models
-from .smartdb import CA, Labels, SmartDb
+from .smartdb import CA, Labels, SmartDb, safe_id
 
 
 def language_coverage(db: SmartDb, ca_uuid: str) -> List[dict]:
@@ -106,7 +106,7 @@ def build_datamodel_json(db: SmartDb, ca: CA) -> dict:
                             "children": nnodes(n["uuid"], nkids, natts, kept)})
             return out
 
-        cms.append({"uuid": m["uuid"], "label": m["label"], "file": f"configurable_model_{m['uuid']}.xml", "nodes": nnodes(None)})
+        cms.append({"uuid": m["uuid"], "label": m["label"], "file": f"configurable_model_{safe_id(m['uuid'])}.xml", "nodes": nnodes(None)})
 
     langs = db.languages(ca.uuid)
     return {"ca": ca.uuid, "ca_id": ca.id, "ca_name": ca.name,

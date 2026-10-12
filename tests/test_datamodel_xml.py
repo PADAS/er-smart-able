@@ -183,3 +183,16 @@ def test_golden_configurable_model(smart_parquet):
     assert_same(xml, GOLDEN_CM)
     assert warnings == ["useEarthRanger has no known source column; written as false",
                         "extraData: CyberTracker profile options (ct_properties_profile_option) are not exported; unverified against a reference"]
+
+
+def test_custom_icon_files_are_reported(smart_parquet):
+    import duckdb
+    p = smart_parquet / "iconfile.parquet"
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{p}'")
+    con.execute("UPDATE x SET filename = 'my_species.svg'")
+    con.execute(f"COPY x TO '{p}' (FORMAT PARQUET)")
+    con.close()
+    xml, warnings = build_datamodel_xml(SmartDb(smart_parquet), CA_A)
+    assert '<icons key="species" issystem="false">' in xml
+    assert warnings == ["icon 'species' uses custom files (my_species.svg); they are not copied next to the XML"]

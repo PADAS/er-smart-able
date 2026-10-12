@@ -10,6 +10,7 @@ dependencies = [
     "timezonefinder>=6",
     "duckdb>=1.1",
     "markdown>=3.6",
+    "jsonschema>=4.23",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +28,6 @@ web = [
 # tests: uv sync --extra dev && uv run pytest
 dev = [
     "pytest>=8",
-    "jsonschema>=4.23",
 ]
 
 [tool.pytest.ini_options]

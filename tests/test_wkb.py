@@ -32,3 +32,10 @@ def test_little_endian_and_bad_type():
     assert parse_track_wkb(wkb) == [[(1.0, 2.0, 5.0)]]
     with pytest.raises(ValueError):
         parse_track_wkb("00" + "00000001" + "00")
+
+
+def test_null_geometry_is_a_value_error():
+    with pytest.raises(ValueError):
+        parse_track_wkb(None)
+    with pytest.raises(ValueError):
+        parse_track_wkb("")

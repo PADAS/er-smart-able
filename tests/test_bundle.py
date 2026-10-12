@@ -180,3 +180,32 @@ def test_placeholder_leg_start_warns(smart_parquet, tmp_path):
     leg = d["patrols"][1]["legs"][0]
     assert leg["start_date"] == "1970-01-01" and leg["placeholder_dates"] is True
     assert d["patrols"][0]["legs"][0]["placeholder_dates"] is False
+
+
+def _rewrite(parquet_path, sql_update):
+    import duckdb
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{parquet_path}'")
+    con.execute(sql_update)
+    con.execute(f"COPY x TO '{parquet_path}' (FORMAT PARQUET)")
+    con.close()
+
+
+def test_null_track_geometry_is_skipped_with_a_warning(smart_parquet):
+    _rewrite(smart_parquet / "track.parquet", "UPDATE x SET geometry = NULL")
+    warnings: list = []
+    d = build_tracks(SmartDb(smart_parquet), CA_A, MANILA, warnings)
+    assert d["tracks"] == []
+    assert warnings == [f"track {hyphenate(TRACK_1)} has no geometry; left out"]
+    check_track_offset(SmartDb(smart_parquet), CA_A, warnings)   # must not raise
+    assert len(warnings) == 1
+
+
+def test_attachment_filename_with_path_parts_is_refused(smart_parquet, tmp_path):
+    _rewrite(smart_parquet / "wp_attachments.parquet", "UPDATE x SET filename = '../../escape.jpg'")
+    warnings: list = []
+    d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, tmp_path / "att", tmp_path / "bundle", warnings)
+    wp = d["patrols"][0]["legs"][0]["waypoints"][0]
+    assert wp["attachments"] == []
+    assert warnings == [f"attachment '../../escape.jpg' of waypoint {hyphenate(WP_1)} has a path in its name; left out"]
+    assert not (tmp_path / "escape.jpg").exists()

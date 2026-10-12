@@ -97,6 +97,7 @@ extract() {
   [ -n "$backup" ] || die "usage: ./smart-able extract <backup>"
   [ -e "$backup" ] || die "not found: $backup"
   mkdir -p "$WORK"
+  rm -rf "$WORK/export" "$WORK/site/export"   # outputs of a previous export belong to the previous backup
 
   local src=$backup
   if [ -f "$backup" ]; then

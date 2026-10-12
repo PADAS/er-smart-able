@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -24,7 +25,8 @@ SKIP_CA_UUID = "0" * 32   # "Cross Conservation Area Analysis" placeholder row
 QUIRK = {"timezone": "timezones", "no timezone": "timezones", "track": "tracks", "attachment": "attachments",
          "icon": "data-model-export", "useEarthRanger": "configurable-models", "extraData": "configurable-models",
          "waypoint": "waypoints-and-legs", "SMART version": "backups-versus-exports"}
-QUIRK_CONTAINS = {"leg days have no times": "patrol-times", "placeholder for an unset date": "patrol-times"}
+QUIRK_CONTAINS = {"leg days have no times": "patrol-times", "placeholder for an unset date": "patrol-times",
+                  "no label in the default language": "labels-and-languages"}
 
 
 def quirk_anchor(msg: str) -> Optional[str]:
@@ -67,24 +69,46 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         cas = [by_id[i] for i in a.ca_ids]
     attachments = a.attachments or (a.work / "site" / "attachments")
-    merged = []
+    failed = 0
     for ca in cas:
-        out = a.work / "export" / safe_id(ca.id)
-        out.mkdir(parents=True, exist_ok=True)
+        try:
+            export_ca(db, ca, a, attachments)
+        except Exception as e:  # one CA's problem must not take the others (or the browser) down
+            failed += 1
+            print(f"error: {ca.id}: {type(e).__name__}: {e}", file=sys.stderr)
+    if a.site_data:
+        # merge every CA on disk, not just the ones exported this run
+        merged = [json.loads(f.read_text(encoding="utf-8")) for f in sorted((a.work / "export").glob("*/datamodel.json"))]
+        merged.sort(key=lambda d: d.get("ca_id", ""))
+        a.site_data.mkdir(parents=True, exist_ok=True)
+        (a.site_data / "datamodel.json").write_text(json.dumps(merged, ensure_ascii=False) + "\n", encoding="utf-8")
+    return 1 if failed else 0
+
+
+def export_ca(db: SmartDb, ca, a, attachments: Path) -> None:
+    out = a.work / "export" / safe_id(ca.id)
+    shutil.rmtree(out, ignore_errors=True)   # no stale XML or attachments from an earlier backup
+    out.mkdir(parents=True, exist_ok=True)
+    if True:
         xml, warnings = build_datamodel_xml(db, ca.uuid)
         (out / "datamodel.xml").write_text(xml, encoding="utf-8")
         for m in list_configurable_models(db, ca.uuid):
             cm_xml, w = build_configurable_model_xml(db, m["uuid"])
-            (out / f"configurable_model_{m['uuid']}.xml").write_text(cm_xml, encoding="utf-8")
+            (out / f"configurable_model_{safe_id(m['uuid'])}.xml").write_text(cm_xml, encoding="utf-8")
             warnings += w
         dmj = build_datamodel_json(db, ca)
         (out / "datamodel.json").write_text(json.dumps(dmj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-        merged.append(dmj)
+        default = next((l for l in dmj["languages"] if l["default"]), None)
+        if default and default["missing"]:
+            warnings.append(f"{default['missing']} element(s) have no label in the default language ({default['code']}); another language's label is used")
         n_patrols = db.rows(f"SELECT count(*) AS n FROM {db.t('patrol')} WHERE ca_uuid = ?", [ca.uuid])[0]["n"]
         summary = (f"  {ca.id}: data model ({len(dmj['categories'])} root categories, {len(dmj['attributes'])} attributes, "
                    f"{len(dmj['configurable_models'])} configurable models)")
         if n_patrols:
-            zone, source = resolve_timezone(db, ca, a.site_data)
+            try:
+                zone, source = resolve_timezone(db, ca, a.site_data)
+            except Exception as e:   # ZoneInfoNotFoundError for a bad SMART_ABLE_TIMEZONE
+                raise RuntimeError(f"unknown timezone {os.environ.get('SMART_ABLE_TIMEZONE')!r} in SMART_ABLE_TIMEZONE ({e})") from None
             manifest = write_bundle(db, ca, out / "bundle", zone, source,
                                     attachments if attachments.exists() else None,
                                     {"kind": a.source_kind, "file": a.source_file})
@@ -93,13 +117,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             tc = manifest["time_coverage"]
             summary += (f"; bundle ({c['patrols']} patrols, {c['waypoints']} waypoints, {c['tracks']} tracks, timezone {zone}; "
                         f"leg-day times from track {tc['track']}, start/end {tc['leg_day_times']}, waypoints {tc['waypoints']}, date only {tc['date_only']})")
-            try:
-                from .bundle import validate_bundle_dir
-                errs = validate_bundle_dir(out / "bundle")
-            except ImportError:
-                errs = []
-                print("  (jsonschema not installed; bundle not validated)")
-            for e in errs:
+            from .bundle import validate_bundle_dir
+            for e in validate_bundle_dir(out / "bundle"):
                 warn(f"{ca.id}: bundle schema: {e}")
         else:
             summary += "; no patrols, no bundle"
@@ -117,13 +136,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             warn(f"{ca.id}: {w}")
         if a.site_data:
             site_export = a.site_data.parent / "export" / safe_id(ca.id)
+            shutil.rmtree(site_export, ignore_errors=True)
             site_export.mkdir(parents=True, exist_ok=True)
             for f in out.glob("*.xml"):
                 shutil.copyfile(f, site_export / f.name)
-    if a.site_data:
-        a.site_data.mkdir(parents=True, exist_ok=True)
-        (a.site_data / "datamodel.json").write_text(json.dumps(merged, ensure_ascii=False) + "\n", encoding="utf-8")
-    return 0
 
 
 if __name__ == "__main__":

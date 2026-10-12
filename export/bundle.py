@@ -194,6 +194,10 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
     def waypoint(w: dict) -> dict:
         files = []
         for a in atts.get(w["uuid"], []):
+            name = a["filename"] or ""
+            if not name or Path(name).name != name or name in (".", ".."):
+                warnings.append(f"attachment {name!r} of waypoint {H(w['uuid'])} has a path in its name; left out")
+                continue
             rel = f"attachments/{H(w['uuid'])}/{a['filename']}"
             src = attachments_root / ca_uuid / "patrol" / wp_patrol[w["uuid"]] / a["filename"] if attachments_root else None
             if src is not None and src.exists():
@@ -260,6 +264,9 @@ def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str])
     out = []
     untimed = 0
     for r in _track_rows(db, ca_uuid):
+        if not r["geometry"]:
+            warnings.append(f"track {H(r['uuid'])} has no geometry; left out")
+            continue
         try:
             parts = parse_track_wkb(r["geometry"])
         except (ValueError, struct.error) as e:
@@ -291,7 +298,7 @@ def check_track_offset(db: SmartDb, ca_uuid: str, warnings: List[str]) -> None:
     version) or the leg-day times are wrong."""
     votes: Dict[int, int] = defaultdict(int)
     for r in _track_rows(db, ca_uuid):
-        if r["start_time"] is None:
+        if r["start_time"] is None or not r["geometry"]:
             continue
         try:
             parts = parse_track_wkb(r["geometry"])
