@@ -273,6 +273,7 @@ importer's job (er-smart-sync `--smart-language`), not the exporter's.
   "languages": [{ "code": "en", "default": true, "labels": 6375, "missing": 0 },
                 { "code": "en_PH", "default": false, "labels": 7, "missing": 6368 }],
   "counts": { "patrols": 1527, "legs": …, "leg_days": …, "waypoints": …, "observations": …, "track_points": …, "employees": …, "attachments": … },
+  "time_coverage": { "leg_days": 3597, "track": 2648, "leg_day_times": 900, "waypoints": 40, "date_only": 9 },
   "warnings": ["…"] }
 ```
 
@@ -285,6 +286,14 @@ it in the preflight report. `languages` lists each language with its label
 count and how many labelled elements lack a value in it, so the importer can
 validate a requested language and warn about its coverage without scanning
 the files.
+
+`time_coverage` counts leg days by the best time source they have: a timed
+track, else `start_time`/`end_time`, else a timed waypoint on the day, else
+the date alone. SMART patrols and legs carry no timestamps themselves; the
+importer derives each ER segment's time range with that same precedence
+(see the er-smart-sync spec, "Patrol times"), so this block tells the user
+before an import how precise the result will be. A warning is written when
+any leg day is date-only.
 
 **reference.json**
 
@@ -375,6 +384,21 @@ missing files are listed under `warnings` with the waypoint UUID.
 schema is the contract: a change that removes or renames a field bumps
 `bundle_schema_version`; additions do not. er-smart-sync copies the file
 into its own tree and validates at load time.
+
+## SMART data quirks document
+
+Reading SMART data has enough non-obvious behaviour (zone-less times,
+timestamps hidden in track Z coordinates, label fallbacks, value
+encodings, export ordering rules) that users need it written down where
+they work. `docs/smart-data-quirks.md` is the source, one `##` section per
+quirk with a stable heading slug. `./smart-able browse` renders it to
+`work/site/quirks.html` (Python-Markdown with the `toc` extension) so it
+ships with every browser, including datasets served by the web app.
+The app deep-links to sections: the Overview timezone line, the Patrols
+view and patrol drawer (patrol times, tracks), the Data Model tab
+(labels and languages, data model export), the Schema notes, exporter
+warnings (`see quirks.html#…`), and the RUNBOOK warnings table. A test
+checks every linked anchor exists.
 
 ## Multi-CA backups and the export zip
 
