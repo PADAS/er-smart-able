@@ -238,3 +238,133 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
                     "objective": p["objective"], "comment": p["comment"], "armed": None if p["is_armed"] is None else bool(p["is_armed"]),
                     "start_date": iso_date(p["start_date"]), "end_date": iso_date(p["end_date"]), "attributes": pattrs.get(p["uuid"], []), "legs": pl})
     return {"patrols": out}
+
+
+def _track_rows(db: SmartDb, ca_uuid: str) -> List[dict]:
+    return db.rows(f"SELECT t.uuid, t.patrol_leg_day_uuid, t.geometry, t.distance, l.uuid AS leg_uuid, p.uuid AS patrol_uuid, "
+                   f"d.patrol_day, d.start_time FROM {db.t('track')} t JOIN {db.t('patrol_leg_day')} d ON d.uuid = t.patrol_leg_day_uuid "
+                   f"JOIN {db.t('patrol_leg')} l ON l.uuid = d.patrol_leg_uuid JOIN {db.t('patrol')} p ON p.uuid = l.patrol_uuid "
+                   f"WHERE p.ca_uuid = ? ORDER BY d.patrol_day, t.uuid", [ca_uuid])
+
+
+def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str]) -> dict:
+    out = []
+    untimed = 0
+    for r in _track_rows(db, ca_uuid):
+        try:
+            parts = parse_track_wkb(r["geometry"])
+        except (ValueError, struct.error) as e:
+            warnings.append(f"track {H(r['uuid'])} has unreadable geometry ({e}); left out")
+            continue
+        timed = any(parts) and all(plausible_epoch_ms(z) for part in parts for (_, _, z) in part)
+        if not timed:
+            untimed += 1
+        first = last = None
+        jparts = []
+        for part in parts:
+            jp: dict = {"coordinates": [[x, y] for (x, y, _) in part]}
+            if timed and part:
+                jp["times"] = [utc_ms_iso(z, zone) for (_, _, z) in part]
+                first = jp["times"][0] if first is None else min(first, jp["times"][0])
+                last = jp["times"][-1] if last is None else max(last, jp["times"][-1])
+            jparts.append(jp)
+        out.append({"uuid": H(r["uuid"]), "leg_day_uuid": H(r["patrol_leg_day_uuid"]), "leg_uuid": H(r["leg_uuid"]), "patrol_uuid": H(r["patrol_uuid"]),
+                    "distance_km": r["distance"], "start": first, "end": last, "parts": jparts})
+    if untimed:
+        warnings.append(f"{untimed} track(s) have Z values that are not epoch-millisecond timestamps; their points carry no times")
+    return {"tracks": out}
+
+
+def _fmt_offset(h: int) -> str:
+    return f"UTC{'+' if h >= 0 else '-'}{abs(h):02d}:00"
+
+
+def check_track_offset(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str]) -> None:
+    """Compare each leg day's local start time with its track's first UTC
+    timestamp; the rounded difference is the offset the data implies."""
+    votes: Dict[int, int] = defaultdict(int)
+    for r in _track_rows(db, ca_uuid):
+        if r["start_time"] is None:
+            continue
+        try:
+            parts = parse_track_wkb(r["geometry"])
+        except (ValueError, struct.error):
+            continue
+        zs = [z for part in parts for (_, _, z) in part if plausible_epoch_ms(z)]
+        if not zs:
+            continue
+        local = datetime.combine(r["patrol_day"], r["start_time"])
+        utc = datetime.fromtimestamp(min(zs) / 1000.0, tz=_tz.utc).replace(tzinfo=None)
+        votes[round((local - utc).total_seconds() / 3600)] += 1
+    if not votes:
+        return
+    implied, n = max(votes.items(), key=lambda kv: kv[1])
+    total = sum(votes.values())
+    # offsets can vary with DST: accept the zone's January or July offset
+    offsets = {int(datetime(2019, m, 1).replace(tzinfo=zone).utcoffset().total_seconds() // 3600) for m in (1, 7)}
+    if implied not in offsets:
+        warnings.append(f"track timestamps imply {_fmt_offset(implied)} on {n} of {total} leg days with both a track and a start time, "
+                        f"but the bundle timezone {zone.key} is {_fmt_offset(min(offsets))}; set SMART_ABLE_TIMEZONE")
+
+
+def time_coverage(patrols: dict, tracks: dict) -> dict:
+    """How well each leg day's time range is pinned down, by its best source.
+    The importer uses the same precedence to set ER segment time ranges."""
+    timed = {t["leg_day_uuid"] for t in tracks["tracks"] if t["start"] and t["end"]}
+    out = {"leg_days": 0, "track": 0, "leg_day_times": 0, "waypoints": 0, "date_only": 0}
+    for p in patrols["patrols"]:
+        for l in p["legs"]:
+            wp_days = {w["leg_day_uuid"] for w in l["waypoints"] if w["time"]}
+            for d in l["days"]:
+                out["leg_days"] += 1
+                if d["uuid"] in timed:
+                    out["track"] += 1
+                elif d["start"] and d["end"]:
+                    out["leg_day_times"] += 1
+                elif d["uuid"] in wp_days:
+                    out["waypoints"] += 1
+                else:
+                    out["date_only"] += 1
+    return out
+
+
+def build_manifest(db: SmartDb, ca: CA, zone_name: str, zone_source: str, source: dict, counts: dict, coverage: dict, warnings: List[str]) -> dict:
+    langs = db.languages(ca.uuid)
+    return {"bundle_schema_version": BUNDLE_SCHEMA_VERSION,
+            "generated_at": datetime.now(_tz.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "generator": {"name": "smart-able", "version": version()},
+            "source": {"kind": source.get("kind"), "file": source.get("file"), "smart_version": db.smart_version()},
+            "conservation_area": {"uuid": H(ca.uuid), "id": ca.id, "name": ca.name, "designation": ca.designation,
+                                  "country": ca.country, "organization": ca.organization, "owner": ca.owner},
+            "timezone": {"name": zone_name, "source": zone_source},
+            "default_language": next((l.code for l in langs if l.default), langs[0].code if langs else "en"),
+            "languages": language_coverage(db, ca.uuid),
+            "counts": counts, "time_coverage": coverage, "warnings": list(warnings)}
+
+
+def write_bundle(db: SmartDb, ca: CA, out_dir: Path, zone_name: str, zone_source: str, attachments_root: Optional[Path], source: dict) -> dict:
+    zone = ZoneInfo(zone_name)
+    warnings: List[str] = []
+    if zone_source == "inferred":
+        warnings.append(f"timezone {zone_name} was inferred from waypoint positions; set SMART_ABLE_TIMEZONE to override")
+    elif zone_source == "default":
+        warnings.append("no timezone could be inferred (no GPS waypoints); times are written as UTC; set SMART_ABLE_TIMEZONE")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tracks = build_tracks(db, ca.uuid, zone, warnings)
+    check_track_offset(db, ca.uuid, zone, warnings)
+    patrols = build_patrols(db, ca.uuid, zone, attachments_root, out_dir, warnings)
+    reference = build_reference(db, ca.uuid)
+    legs = [l for p in patrols["patrols"] for l in p["legs"]]
+    wps = [w for l in legs for w in l["waypoints"]]
+    counts = {"patrols": len(patrols["patrols"]), "legs": len(legs), "leg_days": sum(len(l["days"]) for l in legs),
+              "waypoints": len(wps), "observations": sum(len(g["observations"]) for w in wps for g in w["observation_groups"]),
+              "tracks": len(tracks["tracks"]), "track_points": sum(len(p["coordinates"]) for t in tracks["tracks"] for p in t["parts"]),
+              "employees": len(reference["employees"]), "attachments": sum(len(w["attachments"]) for w in wps)}
+    coverage = time_coverage(patrols, tracks)
+    if coverage["date_only"]:
+        warnings.append(f"{coverage['date_only']} of {coverage['leg_days']} leg days have no times at all (no track, no start/end, no timed waypoint); "
+                        f"ER will get whole-day ranges for them")
+    manifest = build_manifest(db, ca, zone_name, zone_source, source, counts, coverage, warnings)
+    for name, doc in (("reference.json", reference), ("patrols.json", patrols), ("tracks.json", tracks), ("manifest.json", manifest)):
+        (out_dir / name).write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return manifest

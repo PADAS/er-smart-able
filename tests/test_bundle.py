@@ -89,3 +89,61 @@ def test_json_is_utf8(smart_parquet, tmp_path):
     labels = [a.get("label") for p in d["patrols"] for l in p["legs"] for w in l["waypoints"]
               for g in w["observation_groups"] for o in g["observations"] for a in o["attributes"]]
     assert "Elephant" in labels
+
+
+from export.bundle import build_tracks, check_track_offset, write_bundle  # noqa: E402
+from tests.conftest import T0, TRACK_1, PATROL_1 as _P1, wkb_line_z  # noqa: E402,F401
+
+
+def test_tracks(smart_parquet):
+    warnings: list = []
+    d = build_tracks(SmartDb(smart_parquet), CA_A, MANILA, warnings)
+    assert warnings == []
+    t = d["tracks"][0]
+    assert t["uuid"] == hyphenate(TRACK_1) and t["leg_day_uuid"] == hyphenate(DAY_1) and t["leg_uuid"] == hyphenate(LEG_1) and t["patrol_uuid"] == hyphenate(PATROL_1)
+    assert t["distance_km"] == 1.5
+    assert t["start"] == "2019-03-04T06:10:00+08:00" and t["end"] == "2019-03-04T07:10:00+08:00"
+    assert t["parts"] == [{"coordinates": [[123.72, 13.06], [123.73, 13.07]],
+                           "times": ["2019-03-04T06:10:00+08:00", "2019-03-04T07:10:00+08:00"]}]
+
+
+def test_track_without_plausible_times(smart_parquet):
+    import duckdb
+    p = smart_parquet / "track.parquet"
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{p}'")
+    con.execute("UPDATE x SET geometry = ?", [wkb_line_z([(1.0, 2.0, 350.0), (1.1, 2.1, 360.0)])])  # Z is an elevation
+    con.execute(f"COPY x TO '{p}' (FORMAT PARQUET)")
+    con.close()
+    warnings: list = []
+    d = build_tracks(SmartDb(smart_parquet), CA_A, MANILA, warnings)
+    t = d["tracks"][0]
+    assert "times" not in t["parts"][0] and t["start"] is None and t["end"] is None
+    assert warnings == ["1 track(s) have Z values that are not epoch-millisecond timestamps; their points carry no times"]
+
+
+def test_track_offset_check(smart_parquet):
+    warnings: list = []
+    check_track_offset(SmartDb(smart_parquet), CA_A, MANILA, warnings)
+    assert warnings == []
+    check_track_offset(SmartDb(smart_parquet), CA_A, ZoneInfo("Africa/Nairobi"), warnings)
+    assert warnings == ["track timestamps imply UTC+08:00 on 1 of 1 leg days with both a track and a start time, but the bundle timezone Africa/Nairobi is UTC+03:00; set SMART_ABLE_TIMEZONE"]
+
+
+def test_write_bundle(smart_parquet, tmp_path):
+    db = SmartDb(smart_parquet)
+    ca = db.cas()[0]
+    out = tmp_path / "bundle"
+    m = write_bundle(db, ca, out, "Asia/Manila", "inferred", None, {"kind": "backup", "file": "x.zip"})
+    assert sorted(p.name for p in out.iterdir()) == ["manifest.json", "patrols.json", "reference.json", "tracks.json"]
+    assert m["bundle_schema_version"] == 1 and m["conservation_area"]["uuid"] == hyphenate(CA_A) and m["conservation_area"]["id"] == "ALPHA"
+    assert m["source"] == {"kind": "backup", "file": "x.zip", "smart_version": "7.5.4"}
+    assert m["timezone"] == {"name": "Asia/Manila", "source": "inferred"}
+    assert m["default_language"] == "en" and m["languages"][1] == {"code": "fr", "default": False, "labels": 3, "missing": 23}
+    assert m["counts"] == {"patrols": 2, "legs": 2, "leg_days": 2, "waypoints": 1, "observations": 2, "tracks": 1, "track_points": 2, "employees": 2, "attachments": 1}
+    # best available time source per leg day: DAY_1 has a timed track, DAY_2 only its start/end times
+    assert m["time_coverage"] == {"leg_days": 2, "track": 1, "leg_day_times": 1, "waypoints": 0, "date_only": 0}
+    assert m["generator"]["name"] == "smart-able"
+    assert any("not in the extracted filestore" in w for w in m["warnings"])
+    assert json.loads((out / "manifest.json").read_text()) == m
+    assert m["generated_at"].endswith("Z")
