@@ -197,10 +197,9 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
     L = db.labels(ca_uuid)
     iconset = db.rows(f"SELECT keyid FROM {db.t('iconset')} WHERE uuid = ?", [cm["iconset_uuid"]])
     iconset_key = iconset[0]["keyid"] if iconset else "color"
-    warnings.append("useEarthRanger has no known source column; written as false")
 
     cats = {c["uuid"]: c for c in db.rows(f"SELECT uuid, keyid, hkey FROM {db.t('dm_category')} WHERE ca_uuid = ?", [ca_uuid])}
-    atts = {a["uuid"]: a for a in db.rows(f"SELECT uuid, keyid, att_type, is_required FROM {db.t('dm_attribute')} WHERE ca_uuid = ?", [ca_uuid])}
+    atts = {a["uuid"]: a for a in db.rows(f"SELECT uuid, keyid, att_type, is_required, icon_uuid, min_value, max_value FROM {db.t('dm_attribute')} WHERE ca_uuid = ?", [ca_uuid])}
     list_el = {r["uuid"]: r for r in db.rows(f"SELECT l.uuid, l.keyid FROM {db.t('dm_attribute_list')} l "
                                              f"JOIN {db.t('dm_attribute')} a ON a.uuid = l.attribute_uuid WHERE a.ca_uuid = ?", [ca_uuid])}
     tree_el = {r["uuid"]: r for r in db.rows(f"SELECT n.uuid, n.keyid, n.hkey FROM {db.t('dm_attribute_tree')} n "
@@ -238,9 +237,8 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
         return [("isCustomImage", "false")]
 
     x = Xml()
-    x.open("ConfigurableModel", [("xmlns", CM_NS), ("displayMode", cm["display_mode"] or "TEXT_IMAGE"),
-                                 ("instantGps", _b(cm["instant_gps"])), ("photoFirst", _b(cm["photo_first"])),
-                                 ("useEarthRanger", "false"), ("iconSet", iconset_key)])
+    x.open("ConfigurableModel", [("xmlns", CM_NS)] + ([("displayMode", cm["display_mode"])] if cm["display_mode"] else [])
+           + [("instantGps", _b(cm["instant_gps"])), ("photoFirst", _b(cm["photo_first"])), ("iconSet", iconset_key)])
     x.open("languages")
     for l in langs:
         x.empty("language", [("code", l.code), ("is_default", _b(l.default))])
@@ -249,28 +247,36 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
 
     def node(n: dict) -> None:
         cat = cats.get(n["category_uuid"]) if n["category_uuid"] else None
+        if n["category_uuid"] and not cat:
+            warnings.append(f"cm_node {n['uuid']} refers to category {n['category_uuid']} that is not in this CA; written as a group")
+        common = ([("photoAllowed", _b(n["photo_allowed"])), ("photoRequired", _b(n["photo_required"]))]
+                  + ([("displayMode", n["display_mode"])] if n["display_mode"] else [])
+                  + [("id", hyphenate(n["uuid"])), ("collectMultipleObs", _b(n["collect_multiple_obs"])),
+                     ("useSingleGpsPoint", _b(n["use_single_gps_point"]))] + image_attrs(n, n["uuid"]))
         if cat:
-            x.open("node", [("categoryKey", cat["keyid"]), ("categoryHkey", cat["hkey"]), ("dmUuid", cat["uuid"]),
-                            ("photoAllowed", _b(n["photo_allowed"])), ("photoRequired", _b(n["photo_required"])),
-                            ("displayMode", n["display_mode"] or "TEXT"), ("id", hyphenate(n["uuid"])),
-                            ("collectMultipleObs", _b(n["collect_multiple_obs"])), ("useSingleGpsPoint", _b(n["use_single_gps_point"]))]
-                   + ([] if not n.get("imagetype") else image_attrs(n, n["uuid"])))
+            x.open("node", [("categoryKey", cat["keyid"]), ("categoryHkey", cat["hkey"]), ("dmUuid", cat["uuid"])] + common)
             if L.all(n["uuid"]):
                 _name_els(x, L, n["uuid"], codes, "CM")
             else:
                 _name_els(x, L, cat["uuid"], codes, "DM")
         else:
-            x.open("node", [("id", hyphenate(n["uuid"]))] + ([] if not n.get("imagetype") else image_attrs(n, n["uuid"])))
+            x.open("node", common)
             _name_els(x, L, n["uuid"], codes, "CM")
         for a in node_atts.get(n["uuid"], []):
             da = atts.get(a["attribute_uuid"])
             if not da:
                 warnings.append(f"cm_attribute {a['uuid']} refers to unknown attribute {a['attribute_uuid']}")
                 continue
+            # an attribute whose data-model definition has an icon gets a (system) image named after this element
+            img = [("imageFile", f"cn_img1_{a['uuid']}.svg")] if da["icon_uuid"] else []
+            qa = ([("minValue", java_double(da["min_value"]))] if da["min_value"] is not None else []) \
+                + ([("maxValue", java_double(da["max_value"]))] if da["max_value"] is not None else [])
             x.open("attribute", [("attributeKey", da["keyid"]), ("dmUuid", da["uuid"]), ("id", hyphenate(a["uuid"]))]
                    + ([("configId", hyphenate(a["config_uuid"]))] if a["config_uuid"] else [])
                    + [("type", (da["att_type"] or "").strip()), ("required", _b(da["is_required"]))]
-                   + image_attrs(a, a["uuid"]))
+                   + img + [("isCustomImage", "false")] + qa)
+            if a["config_uuid"]:
+                config_order.setdefault(a["config_uuid"], len(config_order))
             _name_els(x, L, da["uuid"], codes, "DM")
             for o in options.get(a["uuid"], []):
                 if o["number_value"] is not None:
@@ -284,11 +290,13 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
             node(child)
         x.close("node")
 
+    config_order: Dict[str, int] = {}   # attributeConfig elements follow their first use in the nodes
     x.open("nodes")
     for n in node_children.get(None, []):
         node(n)
     x.close("nodes")
 
+    configs.sort(key=lambda c: (config_order.get(c["uuid"], len(config_order)), c["uuid"]))
     for c in configs:
         da = atts.get(c["dm_attribute_uuid"])
         if not da:
@@ -322,18 +330,10 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
         tnode(None, "treeNode")
         x.close("attributeConfig")
 
-    # CyberTracker / SMART Mobile settings travel as extraData (layout from the Botswana Guardians sample)
-    if db.has("connect_ct_properties"):
-        for r in db.rows(f"SELECT ping_frequency, data_frequency, ping_type FROM {db.t('connect_ct_properties')} WHERE cm_uuid = ? ORDER BY uuid", [cm_uuid]):
-            x.open("extraData", [("type", "connect_ct_properties")])
-            x.empty("stringKey", [("key", "ping_alert_type")] + ([("value", r["ping_type"])] if r["ping_type"] is not None else []))
-            x.empty("integerKey", [("key", "ping_frequency")] + ([("value", str(r["ping_frequency"]))] if r["ping_frequency"] is not None else []))
-            x.empty("integerKey", [("key", "data_frequence")] + ([("value", str(r["data_frequency"]))] if r["data_frequency"] is not None else []))
-            x.close("extraData")
+    # CyberTracker / SMART Mobile settings travel as extraData (order verified on the R05 Lawin export)
     if db.has("cm_ct_properties_profile") and db.has("ct_properties_profile"):
-        prof = db.rows(f"SELECT p.uuid FROM {db.t('cm_ct_properties_profile')} m "
-                       f"JOIN {db.t('ct_properties_profile')} p ON p.uuid = m.profile_uuid WHERE m.cm_uuid = ? ORDER BY p.uuid", [cm_uuid])
-        for r in prof:
+        for r in db.rows(f"SELECT p.uuid FROM {db.t('cm_ct_properties_profile')} m "
+                         f"JOIN {db.t('ct_properties_profile')} p ON p.uuid = m.profile_uuid WHERE m.cm_uuid = ? ORDER BY p.uuid", [cm_uuid]):
             x.open("extraData", [("type", "ct_profile")])
             x.open("labelKey", [("key", "name")])
             m = L.all(r["uuid"])
@@ -342,7 +342,12 @@ def build_configurable_model_xml(db: SmartDb, cm_uuid: str) -> Tuple[str, List[s
                     x.empty("label", [("language_code", c), ("value", m[c])])
             x.close("labelKey")
             x.close("extraData")
-        if prof:
-            warnings.append("extraData: CyberTracker profile options (ct_properties_profile_option) are not exported; unverified against a reference")
+    if db.has("connect_ct_properties"):
+        for r in db.rows(f"SELECT ping_frequency, data_frequency, ping_type FROM {db.t('connect_ct_properties')} WHERE cm_uuid = ? ORDER BY uuid", [cm_uuid]):
+            x.open("extraData", [("type", "connect_ct_properties")])
+            x.empty("stringKey", [("key", "ping_alert_type")] + ([("value", r["ping_type"])] if r["ping_type"] is not None else []))
+            x.empty("integerKey", [("key", "ping_frequency")] + ([("value", str(r["ping_frequency"]))] if r["ping_frequency"] is not None else []))
+            x.empty("integerKey", [("key", "data_frequence")] + ([("value", str(r["data_frequency"]))] if r["data_frequency"] is not None else []))
+            x.close("extraData")
     x.close("ConfigurableModel")
     return x.render(), warnings

@@ -199,10 +199,13 @@ options (the spec's acceptance level 1). Level 2, a clean
 `er-smart-sync --dry-run datamodel --from-file` run, is still open: the dry
 run reads existing event types and choices from the ER site before planning,
 so offline it reports network errors rather than a plan; run it against a
-sandbox site before the first real use. The ConfigurableModel XML follows
-the one sample we hold (Botswana Guardians) and has not been checked against
-an export of the same CA yet; `useEarthRanger`, `extraData` and option order
-are the open points. `tests/test_reference_export.py` repeats the DataModel
+sandbox site before the first real use. The ConfigurableModel XML was verified
+byte-identical to SMART Desktop's export of the "R05 Lawin" model of the
+Albay CA (2026-10-12): no `useEarthRanger` attribute in 7.5, `displayMode`
+only when set, every node carries `isCustomImage`, an attribute whose
+data-model definition has an icon carries `imageFile`, NUMERIC bounds
+appear as `minValue`/`maxValue`, attribute configs follow their first use,
+and `extraData` lists the CyberTracker profile before the Connect properties. `tests/test_reference_export.py` repeats the DataModel
 check when `SMART_ABLE_REFERENCE_DIR` points at a directory holding
 `reference/datamodel.xml` and `work/` for the same CA.
 
@@ -222,7 +225,6 @@ it prints a `warning:` line rather than stopping. They mean:
 | `line 1 of conservationarea.dat is not a conservation area uuid` | The export is not in the layout smart-able expects. | The attachments won't decrypt; check the export with SMART's own import first. |
 | `SMART version 'X' is not one this exporter knows (7.x)` | The DataModel XML namespace is chosen by SMART major version; only 7.x has been verified. | The 7.x namespace is written. Check the output against an export from that SMART version. See quirks.html#backups-versus-exports. |
 | `icon ... has no files in any icon set` / `referenced but missing from the icon table` | A category or attribute points at an icon the backup lacks. | Harmless for ER; the XML omits the file entries. See quirks.html#data-model-export. |
-| `useEarthRanger has no known source column` / `extraData: CyberTracker profile options ... are not exported` | Two ConfigurableModel XML attributes have no known table behind them and are written with defaults. | Only matters when loading the XML back into SMART. See quirks.html#configurable-models. |
 | `timezone X was inferred from waypoint positions` | No `SMART_ABLE_TIMEZONE` was set; the zone comes from the median waypoint. | Fine when the site is in one zone. Set the variable to be explicit. See quirks.html#timezones. |
 | `no timezone could be inferred (no GPS waypoints)` | Nothing to infer from; times are written as UTC. | Set `SMART_ABLE_TIMEZONE` and re-run `export`. |
 | `track times are N h behind/ahead of the leg-day start times on N of M leg days` | Track points and leg-day start times are both local wall-clock in SMART 7.5, so they should agree to the hour; most of them do not here. | Either this SMART version stores tracks in true UTC or the leg-day times are wrong. Check a few patrols in the browser; the importer unions the two sources anyway. See quirks.html#patrol-times. |

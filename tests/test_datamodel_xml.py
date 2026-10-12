@@ -132,18 +132,18 @@ from tests.conftest import (CM, NODE_GROUP, NODE_LIVE, CAT_LIVE, ATT_SPECIES, CM
                             CMCONF_SPECIES, CMLIST_ELE, LIST_ELE)
 
 GOLDEN_CM = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ConfigurableModel xmlns="http://www.smartconservationsoftware.org/xml/1.0/dataentry" displayMode="TEXT_IMAGE" instantGps="true" photoFirst="false" useEarthRanger="false" iconSet="color">
+<ConfigurableModel xmlns="http://www.smartconservationsoftware.org/xml/1.0/dataentry" displayMode="TEXT_IMAGE" instantGps="true" photoFirst="false" iconSet="color">
     <languages>
         <language code="en" is_default="true"/>
         <language code="fr" is_default="false"/>
     </languages>
     <name language_code="en" value="Alpha mobile model" source="CM"/>
     <nodes>
-        <node id="{hyphenate(NODE_GROUP)}">
+        <node photoAllowed="false" photoRequired="false" id="{hyphenate(NODE_GROUP)}" collectMultipleObs="false" useSingleGpsPoint="false" isCustomImage="false">
             <name language_code="en" value="Sightings" source="CM"/>
-            <node categoryKey="liveanimals" categoryHkey="animals.liveanimals." dmUuid="{CAT_LIVE}" photoAllowed="true" photoRequired="false" displayMode="TEXT" id="{hyphenate(NODE_LIVE)}" collectMultipleObs="false" useSingleGpsPoint="false">
+            <node categoryKey="liveanimals" categoryHkey="animals.liveanimals." dmUuid="{CAT_LIVE}" photoAllowed="true" photoRequired="false" displayMode="TEXT" id="{hyphenate(NODE_LIVE)}" collectMultipleObs="false" useSingleGpsPoint="false" isCustomImage="false">
                 <name language_code="en" value="Live animals" source="DM"/>
-                <attribute attributeKey="species" dmUuid="{ATT_SPECIES}" id="{hyphenate(CMATT_SPECIES)}" configId="{hyphenate(CMCONF_SPECIES)}" type="LIST" required="true" isCustomImage="false">
+                <attribute attributeKey="species" dmUuid="{ATT_SPECIES}" id="{hyphenate(CMATT_SPECIES)}" configId="{hyphenate(CMCONF_SPECIES)}" type="LIST" required="true" imageFile="cn_img1_{CMATT_SPECIES}.svg" isCustomImage="false">
                     <name language_code="en" value="Species" source="DM"/>
                     <name language_code="fr" value="Espèce" source="DM"/>
                     <option id="IS_VISIBLE" doubleValue="1.0"/>
@@ -159,15 +159,15 @@ GOLDEN_CM = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <name language_code="fr" value="Éléphant" source="DM"/>
         </listItem>
     </attributeConfig>
-    <extraData type="connect_ct_properties">
-        <stringKey key="ping_alert_type"/>
-        <integerKey key="ping_frequency" value="0"/>
-        <integerKey key="data_frequence"/>
-    </extraData>
     <extraData type="ct_profile">
         <labelKey key="name">
             <label language_code="en" value="Default"/>
         </labelKey>
+    </extraData>
+    <extraData type="connect_ct_properties">
+        <stringKey key="ping_alert_type"/>
+        <integerKey key="ping_frequency" value="0"/>
+        <integerKey key="data_frequence"/>
     </extraData>
 </ConfigurableModel>
 '''
@@ -181,8 +181,7 @@ def test_list_configurable_models(smart_parquet):
 def test_golden_configurable_model(smart_parquet):
     xml, warnings = build_configurable_model_xml(SmartDb(smart_parquet), CM)
     assert_same(xml, GOLDEN_CM)
-    assert warnings == ["useEarthRanger has no known source column; written as false",
-                        "extraData: CyberTracker profile options (ct_properties_profile_option) are not exported; unverified against a reference"]
+    assert warnings == []
 
 
 def test_custom_icon_files_are_reported(smart_parquet):

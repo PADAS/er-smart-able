@@ -174,14 +174,16 @@ data model for a mobile form: `cm_node` rows form the tree (a node with a
 `FLATTEN_TREE`, ...). A conservation area can have several models; Lawin's
 CAs have one each.
 
-smart-able writes SMART's ConfigurableModel XML (`xml/1.0/dataentry`)
-following the one sample export we hold (Botswana Guardians). Two things in
-that format have no known source column and are written with defaults, with
-a warning: the root's `useEarthRanger` attribute (`false`) and the
-CyberTracker profile options behind `extraData` (only the profile name and
-the `connect_ct_properties` keys are written). The output has not yet been
-compared with an export of the same CA; the Data Model tab shows which
-options each model keeps, which is what the EarthRanger sync uses.
+smart-able writes SMART's ConfigurableModel XML (`xml/1.0/dataentry`),
+verified byte-identical to SMART Desktop's export of the Albay CA's
+"R05 Lawin" model. Points worth knowing: `displayMode` appears only when
+set; every node and attribute carries `isCustomImage`; an attribute whose
+data-model definition has an icon carries `imageFile="cn_img1_<id>.svg"`;
+NUMERIC bounds appear as `minValue`/`maxValue`; attribute configs are
+listed in the order the nodes first use them; `extraData` carries the
+CyberTracker profile name (from `i18n_label`) and the Connect ping settings
+(`connect_ct_properties`). The Data Model tab shows which options each
+model keeps, which is what the EarthRanger sync uses.
 
 ## Patrol metadata
 
