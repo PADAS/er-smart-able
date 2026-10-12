@@ -368,3 +368,25 @@ def write_bundle(db: SmartDb, ca: CA, out_dir: Path, zone_name: str, zone_source
     for name, doc in (("reference.json", reference), ("patrols.json", patrols), ("tracks.json", tracks), ("manifest.json", manifest)):
         (out_dir / name).write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return manifest
+
+
+SCHEMA_PATH = Path(__file__).with_name("bundle.schema.json")
+BUNDLE_FILES = ("manifest", "reference", "patrols", "tracks")
+
+
+def validate_bundle_dir(path: Path) -> List[str]:
+    """Validate the four files against bundle.schema.json; [] when all pass."""
+    import jsonschema
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    errors: List[str] = []
+    for name in BUNDLE_FILES:
+        f = path / f"{name}.json"
+        if not f.exists():
+            errors.append(f"{name}.json: missing")
+            continue
+        sub = {"$ref": f"#/$defs/{name}", "$defs": schema["$defs"]}
+        v = jsonschema.Draft202012Validator(sub)
+        for e in sorted(v.iter_errors(json.loads(f.read_text(encoding="utf-8"))), key=lambda e: list(e.path)):
+            where = "/".join(str(p) for p in e.path) or "(root)"
+            errors.append(f"{name}.json: {where}: {e.message}")
+    return errors
