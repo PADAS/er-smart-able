@@ -8,6 +8,7 @@ license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
 dependencies = [
     "timezonefinder>=6",
+    "duckdb>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +23,15 @@ web = [
     "google-cloud-storage>=2.19",
     "google-cloud-run>=0.10",
 ]
+# tests: uv sync --extra dev && uv run pytest
+dev = [
+    "pytest>=8",
+    "jsonschema>=4.23",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.uv]
 # Not a Python package: the Python here is a helper script run by ./smart-able.
