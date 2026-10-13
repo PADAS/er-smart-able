@@ -195,11 +195,13 @@ byte-identical except the icon file names, which are the exporting
 install's `iconfile` row UUIDs and so differ between installs
 (`--ignore-icon-files` sets them aside; the icons themselves are the same).
 smartconnect-client reads both files to the same categories, attributes and
-options (the spec's acceptance level 1). Level 2, a clean
-`er-smart-sync --dry-run datamodel --from-file` run, is still open: the dry
-run reads existing event types and choices from the ER site before planning,
-so offline it reports network errors rather than a plan; run it against a
-sandbox site before the first real use. The ConfigurableModel XML was verified
+options (the spec's acceptance level 1). Level 2 also passes: against the
+gundi-dev sandbox (2026-10-12), `er-smart-sync --dry-run datamodel
+--from-file` planned the same 336 writes (1 category, 18 event types, 317
+choices) for our DataModel XML as for SMART's own export, and the runs with
+our configurable models (Camarines Norte, Albay "R05 Lawin") completed
+without errors. The dry run reads existing event types and choices from the
+ER site before planning, so it needs a reachable site and a token. The ConfigurableModel XML was verified
 byte-identical to SMART Desktop's export of the "R05 Lawin" model of the
 Albay CA (2026-10-12): no `useEarthRanger` attribute in 7.5, `displayMode`
 only when set, every node carries `isCustomImage`, an attribute whose
