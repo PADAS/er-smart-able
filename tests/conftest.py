@@ -136,7 +136,7 @@ def _tables():
         ["uuid", "ca_uuid", "id", "givenname", "familyname", "startemploymentdate", "endemploymentdate", "datecreated",
          "birthdate", "gender", "smartuserid", "agency_uuid", "rank_uuid", "smartuserlevel"],
         [(EMP_LEAD, CA_A, "E1", "Ana", "Cruz", "2017-01-01", None, "2017-01-01", "1990-01-01", "F", "ana", AGENCY, RANK, 1),
-         (EMP_TWO, CA_A, "E2", "Ben", "Reyes", "2017-01-01", "2018-06-30", "2017-01-01", None, None, "ben", AGENCY, None, 0)],
+         (EMP_TWO, CA_A, "E2", "Ben", "Reyes", "2017-01-01", "2018-06-30", "2017-01-01", None, None, " ", AGENCY, None, 0)],
     )
     t["employee_team"] = (["uuid", "ca_uuid"], [(TEAM, CA_A)])
     t["employee_team_member"] = (["employee_uuid", "team_uuid"], [(EMP_LEAD, TEAM), (EMP_TWO, TEAM)])
