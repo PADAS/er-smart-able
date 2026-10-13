@@ -111,3 +111,44 @@ def test_merge_only_rebuilds_site_json_from_disk(smart_parquet, tmp_path):
     assert main(["--work", str(work), "--site-data", str(site), "--merge-only"]) == 0
     assert [d["ca_id"] for d in json.loads((site / "datamodel.json").read_text())] == ["ALPHA", "BETA"]
     assert (site / "datamodel.json").read_text().endswith("\n")
+
+
+def _set_ca_id(parquet, old, new):
+    import duckdb
+    p = parquet / "conservation_area.parquet"
+    con = duckdb.connect()
+    con.execute(f"CREATE TABLE x AS SELECT * FROM '{p}'")
+    con.execute("UPDATE x SET id = ? WHERE id = ?", [new, old])
+    con.execute(f"COPY x TO '{p}' (FORMAT PARQUET)")
+    con.close()
+
+
+def test_reserved_ca_ids_get_a_safe_directory(smart_parquet, tmp_path):
+    from tests.conftest import CA_A
+    work = smart_parquet.parent
+    site = work / "site" / "data"
+    site.mkdir(parents=True)
+    assert main(["--work", str(work), "--site-data", str(site)]) == 0
+    assert (work / "export" / "BETA" / "datamodel.xml").exists()
+    for bad in ("..", ".", "...", ""):
+        _set_ca_id(smart_parquet, "ALPHA" if bad == ".." else prev, bad)
+        prev = bad
+        assert main(["--work", str(work), "--site-data", str(site)]) == 0, bad
+        safe = work / "export" / f"ca-{CA_A[:8]}"
+        assert (safe / "datamodel.xml").exists(), bad
+        assert (work / "export" / "BETA" / "datamodel.xml").exists(), bad      # sibling never deleted
+        assert (work / "parquet").exists() and (work / "site" / "data").exists(), bad   # parent never deleted
+        assert (work / "site" / "export" / f"ca-{CA_A[:8]}" / "datamodel.xml").exists(), bad
+
+
+def test_staging_never_collides_with_another_ca(smart_parquet, tmp_path):
+    work = smart_parquet.parent
+    _set_ca_id(smart_parquet, "BETA", "ALPHA.tmp")
+    assert main(["--work", str(work)]) == 0
+    assert (work / "export" / "ALPHA.tmp" / "datamodel.xml").exists()
+    (smart_parquet / "dm_attribute.parquet").unlink()
+    assert main(["--work", str(work), "ALPHA"]) == 1          # ALPHA's build fails …
+    assert (work / "export" / "ALPHA.tmp" / "datamodel.xml").exists()   # … and the other CA's export is untouched
+    assert (work / "export" / "ALPHA" / "datamodel.xml").exists()
+    assert not list((work / "export").glob("*.tmp*")) or (work / "export" / "ALPHA.tmp").is_dir()
+    assert not any(p.name.startswith(".") for p in (work / "export").iterdir())   # no staging left behind

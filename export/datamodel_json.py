@@ -109,7 +109,7 @@ def build_datamodel_json(db: SmartDb, ca: CA) -> dict:
         cms.append({"uuid": m["uuid"], "label": m["label"], "file": f"configurable_model_{safe_id(m['uuid'])}.xml", "nodes": nnodes(None)})
 
     langs = db.languages(ca.uuid)
-    return {"ca": ca.uuid, "ca_id": ca.id, "ca_name": ca.name,
+    return {"ca": ca.uuid, "ca_id": ca.id, "ca_name": ca.name, "dir": None,
             "default_language": next((l.code for l in langs if l.default), langs[0].code if langs else "en"),
             "languages": language_coverage(db, ca.uuid),
             "categories": cnodes(None), "attributes": attrs, "configurable_models": cms,

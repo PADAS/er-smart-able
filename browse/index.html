@@ -1852,7 +1852,7 @@ function rDataModel(v) {
   const cm = dm.configurable_models.find(m => m.uuid === dmCm) || null;
   const kept = new Map(); // attribute key -> Set(option keys kept by the selected model)
   if (cm) (function walk(nodes) { for (const n of nodes) { for (const a of n.attributes) { if (!kept.has(a.key)) kept.set(a.key, new Set()); a.options.forEach(o => kept.get(a.key).add(o)); } walk(n.children); } })(cm.nodes);
-  const safe = dm.ca_id.replace(/[^A-Za-z0-9._-]/g, '_');
+  const safe = dm.dir || dm.ca_id.replace(/[^A-Za-z0-9._-]/g, '_');
 
   const box = el('div', 'dm'); v.appendChild(box);
   const bar = el('div', 'panel filterbar'); box.appendChild(bar);

@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 from typing import List, Optional
 from zoneinfo import ZoneInfoNotFoundError
@@ -99,20 +100,39 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 1 if failed else 0
 
 
+def ca_dir_name(ca: CA, root: Path) -> str:
+    """Directory name for a CA under `root`: its id made filesystem-safe, or
+    `ca-<uuid prefix>` when the id would name the root itself or escape it."""
+    name = safe_id(ca.id)
+    if not name or set(name) <= {"."} or (root / name).resolve().parent != root.resolve():
+        name = f"ca-{ca.uuid[:8]}"
+    return name
+
+
 def export_ca(db: SmartDb, ca: CA, a, attachments: Path) -> None:
-    """Build the CA's outputs in a temporary directory and swap them in only
-    when everything succeeded, so a failure leaves the previous export intact."""
-    final = a.work / "export" / safe_id(ca.id)
-    out = final.with_name(final.name + ".tmp")
-    shutil.rmtree(out, ignore_errors=True)
-    out.mkdir(parents=True, exist_ok=True)
+    """Build the CA's outputs in a staging directory outside the export tree
+    and swap them in only when everything succeeded, so a failure leaves the
+    previous export intact and no CA's output is ever used as scratch space."""
+    root = a.work / "export"
+    root.mkdir(parents=True, exist_ok=True)
+    name = ca_dir_name(ca, root)
+    final = root / name
+    staging_root = a.work / ".export-staging"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix=name + "-", dir=staging_root))
     try:
         summary, warnings = _build_ca(db, ca, a, attachments, out)
     except BaseException:
         shutil.rmtree(out, ignore_errors=True)
         raise
-    shutil.rmtree(final, ignore_errors=True)   # no stale XML or attachments from an earlier backup
-    out.rename(final)
+    finally:
+        if staging_root.exists() and not any(staging_root.iterdir()):
+            staging_root.rmdir()
+    if final.exists():
+        shutil.rmtree(final)   # no stale XML or attachments from an earlier backup
+    shutil.move(str(out), str(final))
+    if staging_root.exists() and not any(staging_root.iterdir()):
+        staging_root.rmdir()
     print(summary)
     shown = 0
     unique = list(dict.fromkeys(warnings))
@@ -126,7 +146,9 @@ def export_ca(db: SmartDb, ca: CA, a, attachments: Path) -> None:
                 continue
         warn(f"{ca.id}: {w}")
     if a.site_data:
-        site_export = a.site_data.parent / "export" / safe_id(ca.id)
+        site_root = a.site_data.parent / "export"
+        site_root.mkdir(parents=True, exist_ok=True)
+        site_export = site_root / ca_dir_name(ca, site_root)
         shutil.rmtree(site_export, ignore_errors=True)
         site_export.mkdir(parents=True, exist_ok=True)
         for f in final.glob("*.xml"):
@@ -141,6 +163,7 @@ def _build_ca(db: SmartDb, ca: CA, a, attachments: Path, out: Path):
         (out / f"configurable_model_{safe_id(m['uuid'])}.xml").write_text(cm_xml, encoding="utf-8")
         warnings += w
     dmj = build_datamodel_json(db, ca)
+    dmj["dir"] = ca_dir_name(ca, a.work / "export")   # where the browser finds the XML under site/export/
     (out / "datamodel.json").write_text(json.dumps(dmj, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     default = next((l for l in dmj["languages"] if l["default"]), None)
     if default and default["missing"]:
