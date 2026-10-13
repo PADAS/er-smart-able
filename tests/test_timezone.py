@@ -40,3 +40,9 @@ def test_formatting():
     assert track_ms_iso(T0, z) == "2019-03-04T06:10:00+08:00"        # wall-clock epoch, not UTC
     assert track_ms_iso(T0, ZoneInfo("Africa/Nairobi")) == "2019-03-04T06:10:00+03:00"
     assert plausible_epoch_ms(T0) and not plausible_epoch_ms(1234.5) and not plausible_epoch_ms(5e15)
+
+
+def test_shared_inference_helper():
+    from export.timezone import infer_zone
+    assert infer_zone([123.9, 123.8, 0.0], [14.1, 14.2, 0.0]) == "Asia/Manila"   # 0,0 placeholder ignored
+    assert infer_zone([0.001], [0.0]) is None

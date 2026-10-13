@@ -74,3 +74,40 @@ def test_cli_selects_ca_and_rejects_unknown(smart_parquet, tmp_path, capsys):
     assert not (work / "export" / "ALPHA").exists()
     assert main(["--work", str(work), "NOPE"]) == 1
     assert "NOPE" in capsys.readouterr().err
+
+
+def test_failed_ca_keeps_its_previous_export(smart_parquet, tmp_path, capsys):
+    work = smart_parquet.parent
+    site = work / "site" / "data"
+    site.mkdir(parents=True)
+    assert main(["--work", str(work), "--site-data", str(site)]) == 0
+    before = (work / "export" / "ALPHA" / "datamodel.xml").read_text()
+    (smart_parquet / "dm_attribute.parquet").unlink()          # every CA's build now raises
+    assert main(["--work", str(work), "--site-data", str(site)]) == 1
+    err = capsys.readouterr().err
+    assert "error: ALPHA" in err and "Traceback" not in err
+    assert (work / "export" / "ALPHA" / "datamodel.xml").read_text() == before
+    assert (work / "site" / "export" / "ALPHA" / "datamodel.xml").exists()
+    assert [d["ca_id"] for d in json.loads((site / "datamodel.json").read_text())] == ["ALPHA", "BETA"]
+
+
+def test_corrupt_timezones_json_is_not_blamed_on_the_env_var(smart_parquet, monkeypatch, capsys):
+    monkeypatch.delenv("SMART_ABLE_TIMEZONE", raising=False)
+    work = smart_parquet.parent
+    site = work / "site" / "data"
+    site.mkdir(parents=True)
+    (site / "timezones.json").write_text("{not json")
+    assert main(["--work", str(work), "--site-data", str(site), "ALPHA"]) == 1
+    err = capsys.readouterr().err
+    assert "unknown timezone" not in err and "timezones.json" in err and "JSONDecodeError" in err
+
+
+def test_merge_only_rebuilds_site_json_from_disk(smart_parquet, tmp_path):
+    work = smart_parquet.parent
+    site = work / "site" / "data"
+    site.mkdir(parents=True)
+    assert main(["--work", str(work), "--site-data", str(site)]) == 0
+    (site / "datamodel.json").unlink()
+    assert main(["--work", str(work), "--site-data", str(site), "--merge-only"]) == 0
+    assert [d["ca_id"] for d in json.loads((site / "datamodel.json").read_text())] == ["ALPHA", "BETA"]
+    assert (site / "datamodel.json").read_text().endswith("\n")

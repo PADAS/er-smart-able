@@ -65,6 +65,7 @@ class SmartDb:
     def __init__(self, parquet_dir: Path):
         self.dir = Path(parquet_dir)
         self.con = duckdb.connect()
+        self._cache: dict = {}   # (what, ca_uuid) -> result; the Parquet never changes under one SmartDb
 
     def has(self, table: str) -> bool:
         return (self.dir / f"{table}.parquet").exists()
@@ -91,11 +92,23 @@ class SmartDb:
         return r[0]["v"] if r else None
 
     def languages(self, ca_uuid: str) -> list:
+        key = ("languages", ca_uuid)
+        if key not in self._cache:
+            self._cache[key] = self._languages(ca_uuid)
+        return self._cache[key]
+
+    def _languages(self, ca_uuid: str) -> list:
         rows = self.rows(f"SELECT uuid, code, isdefault FROM {self.t('language')} WHERE ca_uuid = ? "
                          f"ORDER BY isdefault DESC, code", [ca_uuid])
         return [Language(r["uuid"], r["code"], bool(r["isdefault"])) for r in rows]
 
     def labels(self, ca_uuid: str) -> Labels:
+        key = ("labels", ca_uuid)
+        if key not in self._cache:
+            self._cache[key] = self._labels(ca_uuid)
+        return self._cache[key]
+
+    def _labels(self, ca_uuid: str) -> Labels:
         langs = self.languages(ca_uuid)
         code_by_uuid = {l.uuid: l.code for l in langs}
         default = next((l.code for l in langs if l.default), langs[0].code if langs else "en")
@@ -109,6 +122,12 @@ class SmartDb:
 
     def labelled_elements(self, ca_uuid: str) -> set:
         """UUIDs of this CA's rows that carry i18n labels (for coverage counts)."""
+        key = ("labelled", ca_uuid)
+        if key not in self._cache:
+            self._cache[key] = self._labelled_elements(ca_uuid)
+        return self._cache[key]
+
+    def _labelled_elements(self, ca_uuid: str) -> set:
         q = [f"SELECT uuid FROM {self.t('dm_category')} WHERE ca_uuid = ?",
              f"SELECT uuid FROM {self.t('dm_attribute')} WHERE ca_uuid = ?",
              f"SELECT l.uuid FROM {self.t('dm_attribute_list')} l JOIN {self.t('dm_attribute')} a ON a.uuid = l.attribute_uuid WHERE a.ca_uuid = ?",

@@ -1885,9 +1885,9 @@ function rDataModel(v) {
   function drawTree() {
     left.innerHTML = '<h2>' + (cm ? esc(cm.label) : 'Categories') + '</h2>';
     const hit = c => !q || lab(c).toLowerCase().includes(q) || c.key.includes(q) || (c.attributes || []).some(a => a.key.includes(q));
+    const matches = c => hit(c) || c.children.some(matches);   // a branch stays only if something under it matches
     function catNode(c, depth) {
-      const any = hit(c) || c.children.some(k => hit(k));
-      if (!any && !c.children.length) return;
+      if (!matches(c)) return;
       const d = el('div', 'nd' + (c.hkey === dmSel ? ' sel' : '') + (c.active ? '' : ' off'));
       d.style.paddingLeft = (6 + depth * 14) + 'px';
       d.innerHTML = esc(lab(c)) + ' <span class="cnt">' + c.attributes.length + '</span>';

@@ -202,7 +202,7 @@ browse() {
     uv run --project "$ROOT" --quiet python "$ROOT/browse/infer_timezones.py" "$WORK/site/data"
     # keep the Data Model tab working when browse is re-run after export (browse rebuilds site/data from scratch)
     if ls "$WORK"/export/*/datamodel.json >/dev/null 2>&1; then
-      uv run --project "$ROOT" --quiet python -c 'import glob, json, sys; json.dump([json.load(open(f, encoding="utf-8")) for f in sorted(glob.glob(sys.argv[1]))], open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)' "$WORK/export/*/datamodel.json" "$WORK/site/data/datamodel.json"
+      uv run --project "$ROOT" --quiet python -m export --work "$WORK" --site-data "$WORK/site/data" --merge-only
       echo "  datamodel.json restored from $WORK/export"
     fi
     say "Publishing the SMART data quirks page"
@@ -264,7 +264,7 @@ case $cmd in
   serve)   serve "$@" ;;
   all)     extract "$@"; browse; export_ ;;
   clean)   clean ;;
-  export|load) die "'$cmd' is not implemented yet (see README.md, Roadmap)" ;;
+  load) die "'$cmd' is not implemented yet (see README.md, Roadmap)" ;;
   ""|-h|--help|help) usage ;;
   *) usage; exit 1 ;;
 esac

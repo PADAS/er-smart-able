@@ -39,3 +39,15 @@ def test_null_geometry_is_a_value_error():
         parse_track_wkb(None)
     with pytest.raises(ValueError):
         parse_track_wkb("")
+
+
+def test_ewkb_srid_flag_is_skipped_and_m_flag_rejected():
+    pts = [(1.0, 2.0, 5.0)]
+    body = struct.pack(">I", 1).hex() + struct.pack(">ddd", *pts[0]).hex()
+    with_srid = "00" + struct.pack(">I", 0x80000002 | 0x20000000).hex() + struct.pack(">I", 4326).hex() + body
+    assert parse_track_wkb(with_srid) == [[(1.0, 2.0, 5.0)]]
+    with_m = "00" + struct.pack(">I", 0x80000002 | 0x40000000).hex() + body
+    with pytest.raises(ValueError, match="M"):
+        parse_track_wkb(with_m)
+    with pytest.raises(ValueError, match="byte order"):
+        parse_track_wkb("02" + "00000002" + "00000000")

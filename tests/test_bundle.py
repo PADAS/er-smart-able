@@ -209,3 +209,15 @@ def test_attachment_filename_with_path_parts_is_refused(smart_parquet, tmp_path)
     assert wp["attachments"] == []
     assert warnings == [f"attachment '../../escape.jpg' of waypoint {hyphenate(WP_1)} has a path in its name; left out"]
     assert not (tmp_path / "escape.jpg").exists()
+
+
+def test_attachment_filename_with_windows_path_parts_is_refused(smart_parquet, tmp_path):
+    _rewrite(smart_parquet / "wp_attachments.parquet", "UPDATE x SET filename = '..\\\\..\\\\escape.jpg'")
+    warnings: list = []
+    d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, tmp_path / "att", tmp_path / "bundle", warnings)
+    assert d["patrols"][0]["legs"][0]["waypoints"][0]["attachments"] == []
+    assert len(warnings) == 1 and "has a path in its name" in warnings[0]
+    _rewrite(smart_parquet / "wp_attachments.parquet", "UPDATE x SET filename = 'C:photo.jpg'")
+    warnings = []
+    build_patrols(SmartDb(smart_parquet), CA_A, MANILA, tmp_path / "att", tmp_path / "bundle", warnings)
+    assert len(warnings) == 1 and "has a path in its name" in warnings[0]

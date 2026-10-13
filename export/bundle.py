@@ -12,7 +12,7 @@ import struct
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from datetime import timezone as _tz
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
@@ -195,7 +195,8 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
         files = []
         for a in atts.get(w["uuid"], []):
             name = a["filename"] or ""
-            if not name or Path(name).name != name or name in (".", ".."):
+            if (not name or Path(name).name != name or PureWindowsPath(name).name != name
+                    or "\\" in name or ":" in name or name in (".", "..")):
                 warnings.append(f"attachment {name!r} of waypoint {H(w['uuid'])} has a path in its name; left out")
                 continue
             rel = f"attachments/{H(w['uuid'])}/{a['filename']}"
@@ -260,18 +261,25 @@ def _track_rows(db: SmartDb, ca_uuid: str) -> List[dict]:
                    f"WHERE p.ca_uuid = ? ORDER BY d.patrol_day, t.uuid", [ca_uuid])
 
 
-def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str]) -> dict:
+def load_tracks(db: SmartDb, ca_uuid: str, warnings: List[str]) -> List[Tuple[dict, list]]:
+    """Every readable track of the CA with its parsed parts, parsed once for
+    both build_tracks and check_track_offset; unreadable ones are warned about here."""
     out = []
-    untimed = 0
     for r in _track_rows(db, ca_uuid):
         if not r["geometry"]:
             warnings.append(f"track {H(r['uuid'])} has no geometry; left out")
             continue
         try:
-            parts = parse_track_wkb(r["geometry"])
+            out.append((r, parse_track_wkb(r["geometry"])))
         except (ValueError, struct.error) as e:
             warnings.append(f"track {H(r['uuid'])} has unreadable geometry ({e}); left out")
-            continue
+    return out
+
+
+def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str], loaded: Optional[list] = None) -> dict:
+    out = []
+    untimed = 0
+    for r, parts in (load_tracks(db, ca_uuid, warnings) if loaded is None else loaded):
         timed = any(parts) and all(plausible_epoch_ms(z) for part in parts for (_, _, z) in part)
         if not timed:
             untimed += 1
@@ -291,18 +299,14 @@ def build_tracks(db: SmartDb, ca_uuid: str, zone: ZoneInfo, warnings: List[str])
     return {"tracks": out}
 
 
-def check_track_offset(db: SmartDb, ca_uuid: str, warnings: List[str]) -> None:
+def check_track_offset(db: SmartDb, ca_uuid: str, warnings: List[str], loaded: Optional[list] = None) -> None:
     """Compare each leg day's start time with its track's first point. SMART
     stores both as local wall-clock, so they should agree to the hour; a
     majority that does not means the tracks are in true UTC (another SMART
     version) or the leg-day times are wrong."""
     votes: Dict[int, int] = defaultdict(int)
-    for r in _track_rows(db, ca_uuid):
-        if r["start_time"] is None or not r["geometry"]:
-            continue
-        try:
-            parts = parse_track_wkb(r["geometry"])
-        except (ValueError, struct.error):
+    for r, parts in (load_tracks(db, ca_uuid, []) if loaded is None else loaded):
+        if r["start_time"] is None:
             continue
         zs = [z for part in parts for (_, _, z) in part if plausible_epoch_ms(z)]
         if not zs:
@@ -363,8 +367,9 @@ def write_bundle(db: SmartDb, ca: CA, out_dir: Path, zone_name: str, zone_source
     elif zone_source == "default":
         warnings.append("no timezone could be inferred (no GPS waypoints); times are written as UTC; set SMART_ABLE_TIMEZONE")
     out_dir.mkdir(parents=True, exist_ok=True)
-    tracks = build_tracks(db, ca.uuid, zone, warnings)
-    check_track_offset(db, ca.uuid, warnings)
+    loaded = load_tracks(db, ca.uuid, warnings)
+    tracks = build_tracks(db, ca.uuid, zone, warnings, loaded)
+    check_track_offset(db, ca.uuid, warnings, loaded)
     patrols = build_patrols(db, ca.uuid, zone, attachments_root, out_dir, warnings)
     reference = build_reference(db, ca.uuid)
     legs = [l for p in patrols["patrols"] for l in p["legs"]]
