@@ -145,6 +145,15 @@ button.more .mi, button.ghost .mi { font-size: 18px; color: inherit; }
 .tree div.nd.sel { background: var(--accent); color: var(--accent-ink); padding-left: 6px; }
 .tree .cnt { color: var(--ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .tree div.nd.sel .cnt { color: var(--accent-ink); opacity: 0.8; }
+/* data model tab */
+.dm .cols { grid-template-columns: 360px minmax(0, 1fr); }
+.dm .attr { border-top: 1px solid var(--line); padding: 8px 0; }
+.dm .attr:first-of-type { border-top: 0; }
+.dm .attr .opts { margin: 4px 0 0 0; padding-left: 18px; }
+.dm .attr .opts li.off, .dm .tree div.nd.off { color: var(--ink-3); text-decoration: line-through; }
+.dm .attr .opts li.kept { font-weight: 600; }
+.dm .dl a { margin-right: 14px; }
+.dm label.tiny select { margin-left: 4px; }
 /* map */
 #mapBox { position: relative; }
 canvas.map { width: 100%; border: 1px solid var(--line); border-radius: 10px;
@@ -290,6 +299,26 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
       </dl>
     </div>
   </template>
+  <template id="help-datamodel">
+    <div class="help">
+      <h3>Data model and configurable models</h3>
+      <p>The <b>data model</b> is the conservation area's full vocabulary: categories (what can be observed, as a tree)
+        and attributes (the fields each category asks for, with their list values or tree options). Every observation
+        in this backup is typed against it.</p>
+      <p>A <b>configurable model</b> is a curated subset of the data model, arranged for a mobile form: which categories
+        appear, in what groups, which attributes each node shows, and which list values are kept. A conservation area can
+        have several. Options the model keeps are shown in bold; dropped ones are struck through.</p>
+      <h2>Languages</h2>
+      <p>Labels exist per language. The picker shows each language's code and how many labels it is missing; when a label
+        is missing the default language's text is shown instead. The code shown is the value to pass to
+        <code>er-smart-sync --smart-language</code> when populating EarthRanger.
+        <a href="quirks.html#labels-and-languages" target="_blank" rel="noopener">More on labels and languages.</a></p>
+      <h2>Downloads</h2>
+      <p>The XML files are what SMART Desktop itself exports (Data Model &gt; Export), so they can be loaded into
+        <code>er-smart-sync datamodel --from-file</code> or back into SMART.
+        <a href="quirks.html#data-model-export" target="_blank" rel="noopener">Known differences from SMART's own output.</a></p>
+    </div>
+  </template>
   <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
 </div>
 <div id="tip" hidden></div>
@@ -340,6 +369,7 @@ async function boot() {
     catch (e) { D.profiles = null; }
     if (!D.profiles) D.profiles = { types: [], entities: [], records: [] };
     try { D.tz = await getJSON('timezones'); } catch (e) { D.tz = null; } // optional (infer_timezones.py)
+    try { D.dm = await getJSON('datamodel'); } catch (e) { D.dm = null; } // optional (./smart-able export)
     $('#dbver').textContent = D.meta.db_version ? '· SMART database ' + D.meta.db_version : '';
     index();
     $('#loading').textContent = 'Loading waypoints and observations…';
@@ -349,7 +379,7 @@ async function boot() {
     buildHeader();
     try { TAB = localStorage.getItem('tab') || 'overview'; } catch (e) {}
     const h = (location.hash || '').slice(1);
-    if (['overview','patrols','map','observations','profiles','schema'].includes(h)) TAB = h;
+    if (['overview','patrols','map','observations','datamodel','profiles','schema'].includes(h)) TAB = h;
     render();
   } catch (e) {
     $('#view').innerHTML = '<div class="panel">Could not load data: ' + esc(e.message) + '</div>';
@@ -537,7 +567,7 @@ const wpsFiltered = () => D.wps.filter(w => caOk(w.ca));
 
 function buildHeader() {
   const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],
-    ['map','Map','map'],['observations','Observations','visibility'],
+    ['map','Map','map'],['observations','Observations','visibility'],['datamodel','Data model','account_tree'],
     ['profiles','Profiles','badge'],['schema','Schema','schema']];
   const nav = $('#tabs'); nav.innerHTML = '';
   for (const [id, label, icon] of tabs) {
@@ -556,7 +586,7 @@ function buildHeader() {
 function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
   const v = $('#view'); v.innerHTML = '';
-  ({overview: rOverview, patrols: rPatrols, map: rMap, observations: rObs, profiles: rProfiles, schema: rSchema})[TAB](v);
+  ({overview: rOverview, patrols: rPatrols, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
 }
 
 /* ---------------- Overview ---------------- */
@@ -581,6 +611,7 @@ function rOverview(v) {
   v.appendChild(el('p', 'tiny', esc('Source: SMART Derby database' + (D.meta.db_version ? ' (schema ' + D.meta.db_version + ')' : '') +
     ', extracted ' + D.meta.generated + '. SMART stores timestamps as local wall-clock times without a timezone' +
     (zones.length ? '; this browser anchors them to ' + zones.join(', ') + ', inferred from each conservation area\'s GPS locations.' : '.'))));
+  v.lastChild.insertAdjacentHTML('beforeend', ' <a href="quirks.html#timezones" target="_blank" rel="noopener">Why times need a zone</a>');
 }
 const tile = (n, label) => '<div class="tile"><b>' + fmt(n) + '</b><span>' + label + '</span></div>';
 
@@ -675,6 +706,7 @@ function rPatrols(v) {
   clearB.innerHTML = '<span class="mi" aria-hidden="true">close</span>Clear';
   clearB.style.marginTop = '0'; bar.appendChild(clearB);
   clearB.onclick = () => { patrolQuery = ''; tfMode = 'off'; tfFrom = tfTo = tfCenter = ''; patrolShown = 60; render(); };
+  bar.insertAdjacentHTML('beforeend', '<a class="tiny" href="quirks.html#patrol-times" target="_blank" rel="noopener" title="SMART patrols carry dates only; where their times come from">How patrol times are derived</a>');
   const wrap = el('div', 'tableWrap'); box.appendChild(wrap);
   const moreB = el('button', 'more', 'Show more'); box.appendChild(moreB);
   moreB.onclick = () => { patrolShown += 120; drawRows(); };
@@ -722,6 +754,7 @@ async function patrolDrawer(pu) {
     ['Team', p.tm || '—'], ['Station', p.st || '—'], ['Waypoints', fmt(p.nwp)]];
   if (p.obj) kv.push(['Objective', p.obj]);
   d.insertAdjacentHTML('beforeend', '<div class="kv">' + kv.map(x => '<div>' + esc(x[0]) + '</div><div>' + esc(x[1]) + '</div>').join('') + '</div>');
+  d.insertAdjacentHTML('beforeend', '<p class="tiny">SMART patrols and legs carry dates only; times come from the track, the leg-day start and end, and the waypoints. <a href="quirks.html#patrol-times" target="_blank" rel="noopener">How patrol times are derived</a></p>');
   for (const leg of (p.legs || [])) {
     const days = (leg.days || []);
     const dist = days.reduce((s, x) => s + (x.dist || 0), 0);
@@ -734,7 +767,7 @@ async function patrolDrawer(pu) {
   let lines = [];
   try { await ensureTracks(); lines = (D.tracks.get(pu) || []).flatMap(geomLines); } catch (e) {}
   miniMap(d, wps, lines);
-  d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track. ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
+  d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track (<a href="quirks.html#tracks" target="_blank" rel="noopener">about tracks</a>). ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
   // observations at each waypoint
   d.insertAdjacentHTML('beforeend', '<h2>Waypoints & observations</h2>');
   const list = el('div');
@@ -1800,7 +1833,103 @@ i_entity ─┬─ i_entity_type (name = value of the type's id_attribute)
 <li><b>Profiles</b> (<code>i2</code> plugin): <code>i_entity</code> rows are persistent subjects typed by <code>i_entity_type</code>; the entity's display name is the value of the type's <code>id_attribute</code>. Records (<code>i_record</code>) are dated reports linked many-to-many via <code>i_entity_record</code>.</li>
 <li><b>Attachments</b> are files under <code>filestore/&lt;ca_uuid&gt;/…</code>, AES-128-CBC encrypted with the CA UUID as key; only filenames are in the DB, so photos are not shown in this browser.</li>
 <li>All primary keys are UUIDs (<code>CHAR(16) FOR BIT DATA</code> in Derby, hex strings here). Everything scopes to a conservation area via <code>ca_uuid</code>.</li>
+<li><a href="quirks.html" target="_blank" rel="noopener">The full list of SMART data quirks</a>: timezones, patrol times, tracks, labels, value encodings, export formats.</li>
 </ul></div>`);
+}
+
+/* ---------------- Data model ---------------- */
+let dmLang = null, dmCm = '', dmSel = '';
+function rDataModel(v) {
+  if (!D.dm) {
+    v.insertAdjacentHTML('beforeend', '<div class="panel">No data model export on disk. Run <code>./smart-able export</code> (or <code>./smart-able all</code>) and reload.</div>');
+    return;
+  }
+  const cas = D.dm.filter(d => CA === 'all' || d.ca_id === CA);
+  if (!cas.length) { v.insertAdjacentHTML('beforeend', '<div class="panel">No data model for this conservation area.</div>'); return; }
+  const dm = cas.find(d => d.ca_id === CA) || cas[0];
+  if (!dmLang || !dm.languages.some(l => l.code === dmLang)) dmLang = dm.default_language;
+  const lab = o => (o.labels && o.labels[dmLang]) || o.label || '';
+  const cm = dm.configurable_models.find(m => m.uuid === dmCm) || null;
+  const kept = new Map(); // attribute key -> Set(option keys kept by the selected model)
+  if (cm) (function walk(nodes) { for (const n of nodes) { for (const a of n.attributes) { if (!kept.has(a.key)) kept.set(a.key, new Set()); a.options.forEach(o => kept.get(a.key).add(o)); } walk(n.children); } })(cm.nodes);
+  const safe = dm.dir || dm.ca_id.replace(/[^A-Za-z0-9._-]/g, '_');
+
+  const box = el('div', 'dm'); v.appendChild(box);
+  const bar = el('div', 'panel filterbar'); box.appendChild(bar);
+  const nCats = (function count(cs) { return cs.reduce((n, c) => n + 1 + count(c.children), 0); })(dm.categories);
+  bar.insertAdjacentHTML('beforeend', '<div class="hdr"><h2>' + esc(dm.ca_name) + ' <span class="tiny">' + nCats + ' categories · ' +
+    Object.keys(dm.attributes).length + ' attributes · ' + dm.configurable_models.length + ' configurable models</span></h2>' +
+    '<button class="ghost" id="dmHelp"><span class="mi" aria-hidden="true">help</span>How to read this</button></div>');
+  $('#dmHelp', bar).onclick = () => helpDrawer('datamodel');
+  const langSel = el('select'); langSel.id = 'dmLang'; langSel.setAttribute('aria-label', 'Label language');
+  for (const l of dm.languages) langSel.appendChild(new Option(l.code + (l.default ? ' (default)' : '') + (l.missing ? ' · ' + l.missing + ' missing' : ''), l.code));
+  langSel.value = dmLang; langSel.onchange = () => { dmLang = langSel.value; render(); };
+  const cmSel = el('select'); cmSel.id = 'dmModel'; cmSel.setAttribute('aria-label', 'Configurable model');
+  cmSel.appendChild(new Option('Full data model', ''));
+  for (const m of dm.configurable_models) cmSel.appendChild(new Option(m.label, m.uuid));
+  cmSel.value = dmCm; cmSel.onchange = () => { dmCm = cmSel.value; dmSel = ''; render(); };
+  const { wrap: sw, inp } = searchField('dmSearch', 'Find category or attribute…', '');
+  const langLab = el('label', 'tiny', 'Language <a href="quirks.html#labels-and-languages" target="_blank" rel="noopener" title="About labels and languages"><span class="mi" aria-hidden="true">info</span></a>');
+  langLab.appendChild(langSel); bar.appendChild(langLab);
+  const cmLab = el('label', 'tiny', 'Model'); cmLab.appendChild(cmSel); bar.appendChild(cmLab);
+  bar.appendChild(sw);
+  const dl = el('div', 'dl tiny'); dl.innerHTML = 'Download: <a href="export/' + encodeURIComponent(safe) + '/' + dm.files.datamodel + '" download>datamodel.xml</a>' +
+    dm.configurable_models.map(m => '<a href="export/' + encodeURIComponent(safe) + '/' + m.file + '" download>' + esc(m.label) + '.xml</a>').join('');
+  bar.appendChild(dl);
+
+  const cols = el('div', 'cols'); box.appendChild(cols);
+  const left = el('div', 'panel tree'); const right = el('div', 'panel'); cols.append(left, right);
+  let q = '';
+  inp.oninput = () => { q = inp.value.toLowerCase(); drawTree(); };
+
+  function drawTree() {
+    left.innerHTML = '<h2>' + (cm ? esc(cm.label) : 'Categories') + '</h2>';
+    const hit = c => !q || lab(c).toLowerCase().includes(q) || c.key.includes(q) || (c.attributes || []).some(a => a.key.includes(q));
+    const matches = c => hit(c) || c.children.some(matches);   // a branch stays only if something under it matches
+    function catNode(c, depth) {
+      if (!matches(c)) return;
+      const d = el('div', 'nd' + (c.hkey === dmSel ? ' sel' : '') + (c.active ? '' : ' off'));
+      d.style.paddingLeft = (6 + depth * 14) + 'px';
+      d.innerHTML = esc(lab(c)) + ' <span class="cnt">' + c.attributes.length + '</span>';
+      d.onclick = () => { dmSel = c.hkey; drawTree(); drawRight(); };
+      left.appendChild(d);
+      c.children.forEach(k => catNode(k, depth + 1));
+    }
+    function cmNode(n, depth) {
+      const d = el('div', 'nd' + (n.category && n.category === dmSel ? ' sel' : ''));
+      d.style.paddingLeft = (6 + depth * 14) + 'px';
+      d.innerHTML = (n.category ? '' : '<span class="mi" aria-hidden="true">folder</span>') + esc(n.label || '') + ' <span class="cnt">' + n.attributes.length + '</span>';
+      if (n.category) d.onclick = () => { dmSel = n.category; drawTree(); drawRight(); };
+      left.appendChild(d);
+      n.children.forEach(k => cmNode(k, depth + 1));
+    }
+    (cm ? cm.nodes : dm.categories).forEach(c => (cm ? cmNode : catNode)(c, 0));
+  }
+  function findCat(cs, hkey) { for (const c of cs) { if (c.hkey === hkey) return c; const r = findCat(c.children, hkey); if (r) return r; } return null; }
+  function optList(opts, type, keep) {
+    if (!opts || !opts.length) return '';
+    const li = o => '<li class="' + (o.active ? '' : 'off') + (keep && keep.has(type === 'TREE' ? o.hkey : o.key) ? ' kept' : '') + '">' + esc(lab(o)) +
+      ' <span class="mono tiny">' + esc(o.key) + '</span>' + (o.children && o.children.length ? '<ul class="opts">' + o.children.map(li).join('') + '</ul>' : '') + '</li>';
+    return '<ul class="opts">' + opts.map(li).join('') + '</ul>';
+  }
+  function drawRight() {
+    const c = findCat(dm.categories, dmSel);
+    if (!c) { right.innerHTML = '<p class="muted">Select a category on the left to see its attributes.</p>'; return; }
+    let h = '<h2>' + esc(lab(c)) + ' <span class="mono tiny">' + esc(c.hkey) + '</span></h2>' +
+      '<p class="tiny">' + (c.multiple ? 'multiple observations allowed' : 'single observation') + (c.active ? '' : ' · inactive') + (c.icon ? ' · icon ' + esc(c.icon) : '') + '</p>';
+    for (const ref of c.attributes) {
+      const a = dm.attributes[ref.key]; if (!a) continue;
+      const keep = kept.get(ref.key);
+      h += '<div class="attr' + (ref.active ? '' : ' off') + '"><b>' + esc(lab(a)) + '</b> <span class="pill">' + esc(a.type) + '</span>' +
+        (a.required ? ' <span class="pill">required</span>' : '') + (ref.active ? '' : ' <span class="pill">inactive here</span>') +
+        ' <span class="mono tiny">' + esc(ref.key) + '</span>' +
+        (a.min != null || a.max != null ? '<div class="tiny">range ' + (a.min ?? '') + ' – ' + (a.max ?? '') + '</div>' : '') +
+        (a.regex ? '<div class="tiny mono">regex ' + esc(a.regex) + '</div>' : '') +
+        optList(a.options, a.type, keep) + '</div>';
+    }
+    right.innerHTML = h;
+  }
+  drawTree(); drawRight();
 }
 
 /* ---------------- drawer ---------------- */

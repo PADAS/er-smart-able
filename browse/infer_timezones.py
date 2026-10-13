@@ -9,11 +9,11 @@ EarthRanger) can anchor them to a real zone.
 Usage: infer_timezones.py <data_dir>   (run by `./smart-able browse`)
 """
 import json
-import statistics
 import sys
 from pathlib import Path
 
-from timezonefinder import TimezoneFinder
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # the repo root, for `export`
+from export.timezone import infer_zone, is_placeholder_gps  # noqa: E402  one inference rule for browser and bundle
 
 data = Path(sys.argv[1] if len(sys.argv) > 1 else "site/data")
 wps = json.loads((data / "waypoints.json").read_text())
@@ -21,17 +21,15 @@ wps = json.loads((data / "waypoints.json").read_text())
 by_ca: dict[str, tuple[list, list]] = {}
 for w in wps:
     x, y = w.get("x"), w.get("y")
-    if x is None or y is None or (abs(x) < 0.01 and abs(y) < 0.01):
+    if is_placeholder_gps(x, y):
         continue  # missing or 0,0 placeholder GPS
     xs, ys = by_ca.setdefault(w["ca"], ([], []))
     xs.append(x)
     ys.append(y)
 
-tf = TimezoneFinder()
 zones = {}
 for ca, (xs, ys) in by_ca.items():
-    # median centroid is robust to stray points
-    zones[ca] = tf.timezone_at(lng=statistics.median(xs), lat=statistics.median(ys))
+    zones[ca] = infer_zone(xs, ys)   # median centroid is robust to stray points
     print(f"  {ca}: {zones[ca]}  ({len(xs)} waypoints)")
 
 default_ca = max(by_ca, key=lambda c: len(by_ca[c][0])) if by_ca else None
