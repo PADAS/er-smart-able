@@ -307,12 +307,19 @@ any leg day is date-only.
   "ranks":            [{ "uuid", "agency_uuid", "labels", "label" }],
   "teams":            [{ "uuid", "labels", "label", "member_uuids": [] }],
   "employees":        [{ "uuid", "id", "given_name", "family_name", "agency_uuid", "rank_uuid",
-                         "employment_start": "2017-01-01", "employment_end": null, "active": true }] }
+                         "employment_start": "2017-01-01", "employment_end": null, "active": true,
+                         "has_smart_login": false }] }
 ```
 
 Employees carry what ER needs to create a ranger subject and nothing else:
 no SMART login, password hash, birth date or gender. `active` is derived
-from `employment_end` being null or in the future.
+from `employment_end` being null or in the future. `has_smart_login` says
+whether the row is also a SMART Desktop login (a non-blank `smartuserid`)
+without carrying the login name. SMART installs a default `smart` admin as
+an employee, and sites often record shared admin logins as patrol members,
+so er-smart-sync uses this flag together with leg membership to decide who
+becomes a ranger subject. It was added after `bundle_schema_version` 1
+shipped and is optional, so older bundles still validate.
 
 **patrols.json**
 

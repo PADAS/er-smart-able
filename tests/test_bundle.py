@@ -21,8 +21,9 @@ def test_reference(smart_parquet):
     emps = {e["id"]: e for e in ref["employees"]}
     assert emps["E1"] == {"uuid": hyphenate(EMP_LEAD), "id": "E1", "given_name": "Ana", "family_name": "Cruz",
                           "agency_uuid": ref["agencies"][0]["uuid"], "rank_uuid": ref["ranks"][0]["uuid"],
-                          "employment_start": "2017-01-01", "employment_end": None, "active": True}
+                          "employment_start": "2017-01-01", "employment_end": None, "active": True, "has_smart_login": True}
     assert emps["E2"]["active"] is False and emps["E2"]["employment_end"] == "2018-06-30"
+    assert emps["E2"]["has_smart_login"] is False  # a blank login is no login
     assert "smartuserid" not in json.dumps(ref) and "birth" not in json.dumps(ref)
     assert ref["ranks"] == [{"uuid": ref["ranks"][0]["uuid"], "agency_uuid": ref["agencies"][0]["uuid"], "labels": {"en": "Ranger"}, "label": "Ranger"}]
     assert ref["patrol_attributes"] == []

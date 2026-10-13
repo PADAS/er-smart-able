@@ -79,14 +79,17 @@ def build_reference(db: SmartDb, ca_uuid: str) -> dict:
                     for r in db.rows(f"SELECT uuid FROM {db.t('employee_team')} WHERE ca_uuid = ? ORDER BY uuid", [ca_uuid])] if db.has("employee_team") else []
     today = date.today()
     ref["employees"] = []
-    for r in db.rows(f"SELECT uuid, id, givenname, familyname, startemploymentdate, endemploymentdate, agency_uuid, rank_uuid "
+    for r in db.rows(f"SELECT uuid, id, givenname, familyname, startemploymentdate, endemploymentdate, agency_uuid, rank_uuid, "
+                     f"coalesce(trim(smartuserid), '') <> '' AS has_smart_login "
                      f"FROM {db.t('employee')} WHERE ca_uuid = ? ORDER BY familyname, givenname, id", [ca_uuid]):
         end = r["endemploymentdate"]
         end_d = None if end is None else (end if isinstance(end, date) else date.fromisoformat(str(end)[:10]))
         ref["employees"].append({"uuid": H(r["uuid"]), "id": r["id"], "given_name": r["givenname"], "family_name": r["familyname"],
                                  "agency_uuid": H(r["agency_uuid"]), "rank_uuid": H(r["rank_uuid"]),
                                  "employment_start": iso_date(r["startemploymentdate"]), "employment_end": iso_date(end),
-                                 "active": end_d is None or end_d >= today})
+                                 "active": end_d is None or end_d >= today,
+                                 # whether the row is also a SMART Desktop login; never the login name itself
+                                 "has_smart_login": bool(r["has_smart_login"])})
     return ref
 
 
