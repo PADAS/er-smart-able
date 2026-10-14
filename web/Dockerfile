@@ -10,8 +10,12 @@ ENV APP_VERSION=$APP_VERSION PYTHONUNBUFFERED=1 UV_PROJECT_ENVIRONMENT=/app/.ven
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --extra web --no-install-project
 
-# the browser page is served from the checkout, so copy just what the service reads
-COPY browse/index.html browse/index.html
+# the browser page and the docs page are served from the checkout, so copy
+# just what the service reads, and build the docs page (it reads index.html's
+# design tokens)
+COPY browse/index.html browse/build_quirks.py browse/
+COPY docs/smart-data-quirks.md docs/
+RUN /app/.venv/bin/python browse/build_quirks.py docs/smart-data-quirks.md browse/quirks.html
 COPY web web
 
 ENV PATH="/app/.venv/bin:${PATH}"

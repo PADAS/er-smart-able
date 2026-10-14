@@ -34,6 +34,10 @@ from store import ROOT, LocalStore, can_read, get_store, is_owner, now
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
 BROWSER = ROOT / "browse" / "index.html"
+# The docs page, built into the image (web/Dockerfile) and served instead of
+# each dataset's copy, so a docs or style change reaches every dataset like
+# the browser page does. Falls back to the dataset's copy when absent.
+QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 app = FastAPI(title="smart-able")
@@ -214,6 +218,8 @@ async def site_file(id: str, path: str, user=Depends(current_user)):
     _load(id, user)
     if path in ("", "index.html"):
         return FileResponse(BROWSER, media_type="text/html")
+    if path == "quirks.html" and QUIRKS.is_file():
+        return FileResponse(QUIRKS, media_type="text/html")
     try:
         found = get_store().open_site_file(id, path)
     except ValueError:
