@@ -7,6 +7,8 @@ area's patrols, observations, and photos in an embedded Apache Derby database
 that only SMART itself can read. smart-able opens a copy of that database
 without SMART, turns it into open formats, and lets you explore it, as the
 first half of moving the data into [EarthRanger](https://www.earthranger.com/).
+The second half, writing it to an EarthRanger site, is
+[er-smart-sync](https://github.com/PADAS/earthranger-smart-utils).
 
 The name reads as "SMART EBEL": the four stages.
 
@@ -14,8 +16,8 @@ The name reads as "SMART EBEL": the four stages.
 | --- | --- | --- |
 | **E**xtract | Dumps every table of a SMART backup or Conservation Area export to Parquet, and decrypts its photo attachments. | Done |
 | **B**rowse | A local web app for patrols, maps, observations, Profiles, and photos. | Done |
-| **E**xport | Write the data in a standard interchange format. | Planned |
-| **L**oad | Create the corresponding events, patrols, and subjects in an EarthRanger site. | Planned |
+| **E**xport | Writes the conservation area's data model as SMART-exact XML and its patrol history as a JSON migration bundle (`./smart-able export`). | Done |
+| **L**oad | Creates the corresponding event types, patrol types, subjects, patrols, events, and tracks in an EarthRanger site. Done by [er-smart-sync](https://github.com/PADAS/earthranger-smart-utils) (`datamodel`, `patrol-datamodel`, `patrol-preflight`, `import-patrols`), which reads the bundle; see its [Migrate SMART patrols](https://padas.github.io/earthranger-smart-utils/workflows/migrate-patrols/) guide. | Done |
 
 ## Quick start
 
