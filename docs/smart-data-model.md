@@ -169,10 +169,18 @@ The `isactive="false"` rows need care. All 16 Lawin threat types carry one
 for `levelofresponserequired`, an attribute they also inherit from Threats,
 yet both Lawin forms ask for it on every threat type and the recorded
 observations hold it (139 Farming, 523 Cutting of Trees and 4 Hunting
-observations have a value). So a child's inactive row for an inherited
-attribute does **not** hide that attribute; `er-smart-sync datamodel` keeps
-it on the event type, and the imported events carry it. Do not read these
-rows as switch-offs without checking the observations.
+observations have a value). So in SMART a child's inactive row for an
+inherited attribute does **not** hide that attribute.
+
+`er-smart-sync datamodel` reads it the other way. The child's row wins, and
+the field is marked `deprecated: true` in a v2 event type (`readOnly: true`
+in v1); ER's web client leaves deprecated fields out of the report form. On
+phinney, a data-model-only push left "Level of response required" off the
+form of every Lawin threat type, although the imported events keep their
+recorded values. A push with the configurable model keeps the field active,
+because the form's `IS_VISIBLE` of 1.0 decides (checked by dry run,
+2026-10-16). Do not read these rows as switch-offs without checking the
+forms and the observations.
 
 Attributes themselves carry only unconditional validation: `is_required`,
 `regex`, `min_value`/`max_value` (`isrequired`, `<qa_regex>`, `<qa_minmax>`
@@ -229,14 +237,20 @@ layers: pick a configurable model to see which options each form keeps.
 
 **What this means for EarthRanger.**
 
-1. Flattening is lossless for Layer 1. `er-smart-sync datamodel` creates
-   one ER event type per leaf category with its inherited and own
-   attributes, so each threat type gets exactly the fields its SMART form
-   asks for without any conditional schema.
+1. Flattening keeps Layer 1's structure, with one exception.
+   `er-smart-sync datamodel` creates one ER event type per leaf category
+   with its inherited and own attributes, and needs no conditional schema
+   for that. The exception is an inherited attribute that a child marks
+   inactive: the event type deprecates it even where the SMART form still
+   asks for it (see Layer 1 above). Check those attributes against the
+   forms before a data-model-only push.
 2. Layer 2 has two translations, and the choice is a product decision.
    `--cm-variant-mode split` (the default) makes one ER event type per CM
    node, so Botswana gets ten carcass report types, each with its own
-   narrowed lists and photo rule. When it reads a configurable model, the
+   narrowed lists. Per-node photo rules do not transfer: neither the SMART
+   client nor the event-type builders read `photoRequired` or
+   `photoAllowed`, so ER does not require a photo where the SMART node
+   did. When it reads a configurable model, the
    SMART client maps each placement's `IS_VISIBLE` onto the attribute's
    active flag (`smartconnect/models.py`, `generate_category_attributes`),
    so attributes a form hides are inactive in its event type. It treats
@@ -254,7 +268,7 @@ layers: pick a configurable model to see which options each form keeps.
    as Botswana's carcass types can only be told apart for data collected in
    ER from now on, not for migrated history.
 
-   As of er-smart-sync 0.7.0 the import therefore supports only categories
+   As of er-smart-sync 0.8.0 the import therefore supports only categories
    with **one** event type on the site (a `datamodel --from-file` push, or a
    CM push whose variant groups have one member). After a *split* push,
    `patrol-preflight` reports the affected categories as a blocking finding
@@ -269,6 +283,14 @@ layers: pick a configurable model to see which options each form keeps.
    history includes a variant category, push the data model without the
    configurable model (or with `--cm-variant-mode split` and accept the
    skips) until the mapping exists.
+
+   That advice is only for sites with variant categories, and it costs
+   something: a data-model-only push deprecates the inherited attributes
+   described under Layer 1. Push a site without variant groups, such as
+   Lawin, with its configurable model. If both pushes end up on one site,
+   `patrol-preflight` reports those categories as matching more than one
+   event type; pass `--event-type-prefix` to pick the push to import
+   against.
 
 The tree can always be expanded into value-time rules (consolidate mode does
 that). The reverse is not true: a rule such as "ask for the number of
