@@ -120,6 +120,161 @@ datamodel --from-file` can run without SMART Connect. The mapping and the
 ordering rules are in the spec,
 `docs/superpowers/specs/2026-10-12-datamodel-export-and-migration-bundle-design.md`.
 
+### Where the "conditional logic" is: the tree is the rule
+
+People who know SMART forms talk about their conditional logic. There is
+none in the sense of "if attribute X has value Y, show or require Z": no
+table or XML element in a 7.5.x database declares a condition on another
+field's value. The `is_visible` columns that exist are static switches:
+`screen_option` (which patrol-screen fields such as station, armed or
+comment a CA shows), `ct_metadata_value` (Connect/CyberTracker metadata
+packages) and the Profiles working-set tables. What SMART has instead is
+*branch-time* logic: a ranger taps down a tree of categories before
+entering any value, and the leaf they land on decides which attributes the
+form asks for, which options each list offers, and whether a photo is
+required. Anything another tool would write as a rule, SMART writes as a
+different node at the end of a different path. Two layers do this.
+
+**Layer 1, the DataModel tree: what the CA can record.** A child category
+inherits its parent's attributes and adds its own (`dm_cat_att_map`; in the
+XML, `<attributes attributekey isactive>` under each `<category>`). From
+Lawin's `datamodel.xml`:
+
+```xml
+<category key="threats">
+    <attributes isactive="true"  attributekey="actiontaken"/>
+    <attributes isactive="true"  attributekey="levelofresponserequired"/>
+    <attributes isactive="true"  attributekey="note"/>
+    <category key="hunting">
+        <attributes isactive="true"  attributekey="approximatedistance"/>
+        <attributes isactive="false" attributekey="levelofresponserequired"/>
+        <attributes isactive="true"  attributekey="species"/>
+        <attributes isactive="true"  attributekey="unit"/>
+        <attributes isactive="true"  attributekey="volumeorcount"/>
+    </category>
+    <category key="annualandperennialfarming">
+        <attributes isactive="true"  attributekey="approximatedistance"/>
+        <attributes isactive="false" attributekey="levelofresponserequired"/>
+        <attributes isactive="true"  attributekey="sizeoffarminha"/>
+    </category>
+```
+
+"Hunting" records action taken, level of response and note from Threats
+plus distance, species, unit and count of its own; "Annual and Perennial
+Farming" shares the Threats three and adds distance and farm size. The
+difference between threat types is which attributes each adds, fixed by
+where it sits in the tree.
+
+The `isactive="false"` rows need care. All 16 Lawin threat types carry one
+for `levelofresponserequired`, an attribute they also inherit from Threats,
+yet both Lawin forms ask for it on every threat type and the recorded
+observations hold it (139 Farming, 523 Cutting of Trees and 4 Hunting
+observations have a value). So a child's inactive row for an inherited
+attribute does **not** hide that attribute; `er-smart-sync datamodel` keeps
+it on the event type, and the imported events carry it. Do not read these
+rows as switch-offs without checking the observations.
+
+Attributes themselves carry only unconditional validation: `is_required`,
+`regex`, `min_value`/`max_value` (`isrequired`, `<qa_regex>`, `<qa_minmax>`
+in the XML).
+
+**Layer 2, the ConfigurableModel tree: what one form shows.** A configurable
+model (one `configurable_model_<uuid>.xml` each) is a hand-built navigation
+tree over the DataModel for one SMART Mobile form. Its tables: `cm_node`
+(the tree and per-node settings), `cm_attribute` (an attribute placed on a
+node), `cm_attribute_option` (per-placement options), `cm_attribute_config`
+(a curated option list), and `cm_attribute_list` / `cm_attribute_tree_node`
+(which list values and tree nodes that config shows). It can:
+
+- *Add grouping nodes that are not DataModel categories.* Botswana's form
+  has Animal Records → Animal with Problem → Snared Animal → Large Predator
+  Snared Animal; only the last node has a `categoryKey`
+  (`cm_node.category_uuid` is null for the others).
+- *Point several nodes at the same category, each with its own settings.*
+  Botswana defines ten carcass nodes ("Large Predator Carcass", "Small
+  Predator Carcass", "Herbivore Carcass", "Domestic Animal Carcass", "Other
+  Species Carcass", and a second set of five), all with
+  `categoryKey="carcass"`. Each has its own `photoRequired` (true for large
+  predators, false for small predators and other species) and its own
+  `<attributeConfig>` per attribute. This is how SMART says "the photo rule
+  and the species list depend on the kind of carcass": not a dependency, a
+  branch per case.
+- *Hide an attribute on one node.* Every `<attribute>` placed on a node
+  carries per-placement options in `cm_attribute_option`, keyed by
+  `option_id`: `IS_VISIBLE`, `MULTISELECT`, `FLATTEN_TREE`, `ENTER_ONCE`,
+  `DEFAULT_VALUE`, `NUMERIC`, `IMAGE`. `IS_VISIBLE` at 0.0 hides that
+  attribute on that node only. Of Botswana's 889 attribute placements, 620
+  are 1.0, 246 are 0.0 (hidden), and 23 are 2.0, a value whose meaning is
+  not established yet; both Lawin forms show all 108 of theirs (1.0). This
+  is the form-level switch-off that Layer 1's inactive rows are not.
+- *Narrow the options a list shows.* Each `<attributeConfig>` lists the
+  DataModel's values as `<listItem>`/`<treeNode>` with `isActive`
+  (`cm_attribute_list.is_active` and `cm_attribute_tree_node.is_active`).
+  In Botswana 26 configs hide options: `smallcarnivore` shows 9 of 15
+  species (genets and mongooses hidden), `affiliationofcommunitymember` 21
+  of 26, `activityundertaken` 6 of 11. Configs are per node, so two branches
+  can offer different subsets of one list: "Other Species Carcass" offers a
+  different `otherspecies` list (9 of 15, with Ostrich and Baboon, Chacma)
+  than the other carcass nodes (7 of 15).
+- *Set per-node collection behaviour:* `photoAllowed`, `photoRequired`,
+  `collectMultipleObs`, `useSingleGpsPoint` (same column names on
+  `cm_node`).
+
+The Lawin backup holds two conservation areas, Albay (050500) and Guinobatan
+(050504), each with one configurable model named "R05 Lawin" (different
+uuids). Both are shallow (Forest Condition; Indicator Species; Threats → 16
+threat types), show every attribute and every option, and so add nothing to
+Layer 1; Botswana leans on Layer 2. The browser's Data Model tab shows both
+layers: pick a configurable model to see which options each form keeps.
+
+**What this means for EarthRanger.**
+
+1. Flattening is lossless for Layer 1. `er-smart-sync datamodel` creates
+   one ER event type per leaf category with its inherited and own
+   attributes, so each threat type gets exactly the fields its SMART form
+   asks for without any conditional schema.
+2. Layer 2 has two translations, and the choice is a product decision.
+   `--cm-variant-mode split` (the default) makes one ER event type per CM
+   node, so Botswana gets ten carcass report types, each with its own
+   narrowed lists and photo rule. When it reads a configurable model, the
+   SMART client maps each placement's `IS_VISIBLE` onto the attribute's
+   active flag (`smartconnect/models.py`, `generate_category_attributes`),
+   so attributes a form hides are inactive in its event type. It treats
+   only 1.0 as visible, so Botswana's 23 placements at 2.0 also come out
+   inactive; check what 2.0 means in SMART before trusting that. `--cm-variant-mode consolidate` makes one
+   event type per DataModel category and uses ER's v2 conditional sections
+   with a `variant` discriminator dropdown, the one place where SMART's
+   tree becomes real *value-time* logic in ER. See
+   [CM variant groups](https://padas.github.io/earthranger-smart-utils/concepts/cm-variants/)
+   in the er-smart-sync docs.
+3. Historical data records the leaf, not the path. `wp_observation` carries
+   the DataModel category and the values; the CM node used to collect them
+   is not stored anywhere. That is why `import-patrols` can map every old
+   observation to an event type by category alone, and why CM variants such
+   as Botswana's carcass types can only be told apart for data collected in
+   ER from now on, not for migrated history.
+
+   As of er-smart-sync 0.7.0 the import therefore supports only categories
+   with **one** event type on the site (a `datamodel --from-file` push, or a
+   CM push whose variant groups have one member). After a *split* push,
+   `patrol-preflight` reports the affected categories as a blocking finding
+   ("exist only as configurable model variants"), and `import-patrols
+   --allow-blocking` imports the other patrols and skips these; a variant
+   mapping is a listed follow-up. After a *consolidate* push the event type
+   has the plain `<prefix>_<category path>` value, so preflight matches it
+   like any other type and does **not** warn, but the import writes the
+   SMART attribute keys (`species`, `sex`) while the consolidated schema
+   expects `section_N_<key>` names and a `variant` discriminator value, so
+   the events land with details the form does not render. For a site whose
+   history includes a variant category, push the data model without the
+   configurable model (or with `--cm-variant-mode split` and accept the
+   skips) until the mapping exists.
+
+The tree can always be expanded into value-time rules (consolidate mode does
+that). The reverse is not true: a rule such as "ask for the number of
+snares only when the method is snaring" has no place in a SMART data model
+or configurable model, so a SMART form never contains one.
+
 ### Display names (i18n)
 
 Named rows (categories, attributes, list options, teams, stations, …) have no
