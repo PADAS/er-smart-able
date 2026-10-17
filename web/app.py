@@ -29,7 +29,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
-from store import ROOT, LocalStore, can_read, get_store, is_owner, now
+from store import ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner, now
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -63,7 +63,7 @@ class SessionRequest(BaseModel):
 def _public(doc: dict, user: dict) -> dict:
     return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at",
                                     "source_name", "source_size", "cas", "db_version", "counts", "error")} | {
-        "mine": is_owner(doc, user)}
+        "mine": is_owner(doc, user), "extract_held": extract_in_progress(doc)}
 
 
 def _load(id: str, user: dict, owner: bool = False) -> dict:
@@ -147,18 +147,19 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
 @app.post("/api/datasets/{id}/extract")
 async def extract(id: str, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
-    if doc.get("status") == "running":
-        raise HTTPException(status_code=409, detail="Extraction already running")
     store = get_store()
     if not store.upload_exists(id, doc["source_name"]):
         raise HTTPException(status_code=400, detail="The upload is missing or incomplete; delete this dataset and upload again")
+    if not store.claim_extract(id):
+        raise HTTPException(status_code=409, detail="An extraction is already queued or running")
     try:
         execution = store.start_extract(id)
     except Exception as e:  # noqa: BLE001  the job did not start: say so, and leave the dataset retryable
         logging.exception("could not start extraction for %s", id)
         store.update(id, status="failed", error=f"Could not start the extraction: {type(e).__name__}: {e}")
         raise HTTPException(status_code=502, detail="Could not start the extraction job") from e
-    store.update(id, status="queued", error=None, execution=execution)
+    # status is not set here: the job may already have marked the dataset running
+    store.update(id, execution=execution)
     return {"ok": True, "execution": execution}
 
 
