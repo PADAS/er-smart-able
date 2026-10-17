@@ -22,7 +22,7 @@ import subprocess
 import sys
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BACKEND = os.environ.get("BACKEND", "gcp")
@@ -31,6 +31,22 @@ DATASET_FIELDS = ("name", "owner_uid", "owner_email", "shared_with", "status", "
                   "source_name", "source_size", "cas", "db_version", "counts", "error", "execution", "log_tail")
 
 now = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+# An extraction holds its dataset while queued or running. The job runs at most
+# 2 hours (--task-timeout in deploy.yml); a job killed outright never records
+# "failed", so after this long the hold lapses and the owner can run it again.
+EXTRACT_ACTIVE = ("queued", "running")
+EXTRACT_STALE_AFTER = timedelta(seconds=int(os.environ.get("EXTRACT_STALE_AFTER_SECONDS", 9000)))
+
+
+def extract_in_progress(doc: dict) -> bool:
+    if doc.get("status") not in EXTRACT_ACTIVE:
+        return False
+    try:
+        since = datetime.fromisoformat(doc["updated_at"])
+    except (KeyError, TypeError, ValueError):
+        return True
+    return datetime.now(timezone.utc) - since < EXTRACT_STALE_AFTER
 
 
 def is_owner(doc: dict, user: dict) -> bool:
@@ -92,6 +108,17 @@ class LocalStore:
     def delete(self, id: str):
         with self.lock:
             data = self._read(); data.pop(id, None); self._write(data)
+
+    def claim_extract(self, id: str) -> bool:
+        """Mark the dataset queued unless an extraction already holds it."""
+        with self.lock:
+            data = self._read()
+            doc = data.get(id)
+            if doc is None or extract_in_progress(doc):
+                return False
+            doc.update(status="queued", error=None, updated_at=now())
+            self._write(data)
+            return True
 
     # ---- storage
     def _p(self, id: str) -> Path:
@@ -175,6 +202,22 @@ class GcpStore:
 
     def delete(self, id: str):
         self._col().document(id).delete()
+
+    def claim_extract(self, id: str) -> bool:
+        """Mark the dataset queued unless an extraction already holds it. A
+        transaction, so two requests cannot both see it free."""
+        from google.cloud import firestore
+        ref = self._col().document(id)
+
+        @firestore.transactional
+        def claim(tx) -> bool:
+            snap = ref.get(transaction=tx)
+            if not snap.exists or extract_in_progress(snap.to_dict()):
+                return False
+            tx.update(ref, {"status": "queued", "error": None, "updated_at": now()})
+            return True
+
+        return claim(self.db.transaction())
 
     # ---- storage
     def _signer(self):
