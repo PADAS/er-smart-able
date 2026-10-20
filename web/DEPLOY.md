@@ -103,6 +103,17 @@ decrypted photos at once, about 10 GB. A Conservation Area export needs far
 less. Raise `--memory` in the workflow if a job dies with an out-of-memory
 error; lower it to save cost if only exports are uploaded.
 
+Starting an extraction claims the dataset first (a Firestore transaction),
+so while it is `queued` or `running` a second request gets 409 instead of
+launching a second job. A job killed outright, by running out of memory or
+by the 2-hour timeout, cannot record `failed`; its hold lapses 2.5 hours
+after the claim, or after the job's start once it is running
+(`EXTRACT_STALE_AFTER_SECONDS` on the service), and the owner can run the
+extraction again. Other edits, such as sharing, do not extend it. Keep that
+value above `--task-timeout`. The local backend enforces the same limit
+itself (`EXTRACT_TIMEOUT_SECONDS`, default 7200): it kills a run that goes
+past it, with every process the run started, and marks it `failed`.
+
 ## 4. Verify
 
 1. Open the service URL, sign in with an allowed account; a disallowed
@@ -139,7 +150,8 @@ The bucket is private with public access prevention enforced; only the
 runtime service account reads it, and every request to a dataset's files is
 checked against its owner and `shared_with`. Uploaded backups are deleted
 after 30 days by lifecycle rule; the extracted site stays until the owner
-deletes the dataset. The Parquet is not produced in the cloud at all, so the
-credential columns never leave the job's temporary disk. The site's JSON
+deletes the dataset. The job does write Parquet, including the credential
+columns, but only to its temporary disk, which is discarded when it ends:
+only the browser's data and photos (`work/site/`) are uploaded. The site's JSON
 still holds ranger names and the photos are plaintext: treat the bucket as
 you would a backup.
