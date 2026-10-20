@@ -18,6 +18,7 @@ import json
 import mimetypes
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -28,22 +29,28 @@ from pathlib import Path
 BACKEND = os.environ.get("BACKEND", "gcp")
 ROOT = Path(__file__).resolve().parent.parent  # the smart-able checkout
 DATASET_FIELDS = ("name", "owner_uid", "owner_email", "shared_with", "status", "created_at", "updated_at",
-                  "source_name", "source_size", "cas", "db_version", "counts", "error", "execution", "log_tail")
+                  "source_name", "source_size", "cas", "db_version", "counts", "error", "execution", "log_tail",
+                  "extract_claimed_at", "started_at")
 
 now = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-# An extraction holds its dataset while queued or running. The job runs at most
-# 2 hours (--task-timeout in deploy.yml); a job killed outright never records
-# "failed", so after this long the hold lapses and the owner can run it again.
+# An extraction holds its dataset while queued or running. A run lasts at most
+# EXTRACT_TIMEOUT: Cloud Run enforces it as --task-timeout in deploy.yml, the
+# local backend kills its worker. A run killed outright never records
+# "failed", so once EXTRACT_STALE_AFTER has passed since the claim (queued) or
+# the job's start (running), the hold lapses. It must exceed EXTRACT_TIMEOUT.
 EXTRACT_ACTIVE = ("queued", "running")
+EXTRACT_TIMEOUT = timedelta(seconds=int(os.environ.get("EXTRACT_TIMEOUT_SECONDS", 7200)))
 EXTRACT_STALE_AFTER = timedelta(seconds=int(os.environ.get("EXTRACT_STALE_AFTER_SECONDS", 9000)))
 
 
 def extract_in_progress(doc: dict) -> bool:
-    if doc.get("status") not in EXTRACT_ACTIVE:
+    status = doc.get("status")
+    if status not in EXTRACT_ACTIVE:
         return False
+    since = doc.get("started_at") if status == "running" else doc.get("extract_claimed_at")
     try:
-        since = datetime.fromisoformat(doc["updated_at"])
+        since = datetime.fromisoformat(since or doc["updated_at"])
     except (KeyError, TypeError, ValueError):
         return True
     return datetime.now(timezone.utc) - since < EXTRACT_STALE_AFTER
@@ -116,7 +123,7 @@ class LocalStore:
             doc = data.get(id)
             if doc is None or extract_in_progress(doc):
                 return False
-            doc.update(status="queued", error=None, updated_at=now())
+            doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now())
             self._write(data)
             return True
 
@@ -161,10 +168,25 @@ class LocalStore:
         shutil.rmtree(self._p(id), ignore_errors=True)
 
     # ---- extraction
+    def job_command(self, id: str) -> list:
+        return [sys.executable, str(ROOT / "web" / "job.py"), id]
+
     def start_extract(self, id: str) -> str:
-        """Run the job in a background thread of this process."""
+        """Run the job in a background thread of this process, killed with
+        everything it started once it passes EXTRACT_TIMEOUT, as Cloud Run
+        would."""
         def run():
-            subprocess.run([sys.executable, str(ROOT / "web" / "job.py"), id], env={**os.environ, "BACKEND": "local"})
+            proc = subprocess.Popen(self.job_command(id), env={**os.environ, "BACKEND": "local"},
+                                    start_new_session=True)
+            try:
+                proc.wait(timeout=EXTRACT_TIMEOUT.total_seconds())
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait()
+                self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}")
         threading.Thread(target=run, daemon=True).start()
         return "local-thread"
 
@@ -214,7 +236,7 @@ class GcpStore:
             snap = ref.get(transaction=tx)
             if not snap.exists or extract_in_progress(snap.to_dict()):
                 return False
-            tx.update(ref, {"status": "queued", "error": None, "updated_at": now()})
+            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now()})
             return True
 
         return claim(self.db.transaction())

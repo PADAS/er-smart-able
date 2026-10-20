@@ -116,3 +116,56 @@ def test_the_list_says_when_a_dataset_is_held(client, launches):
     c.post(f"/api/datasets/{fresh}/extract")
     held = {d["id"]: d["extract_held"] for d in c.get("/api/datasets").json()}
     assert held == {fresh: True, stale: False}
+
+
+@pytest.mark.parametrize("status, anchor", [("running", "started_at"), ("queued", "extract_claimed_at")])
+def test_a_metadata_edit_does_not_renew_a_stale_hold(client, launches, status, anchor):
+    app, c = client
+    store = app.get_store()
+    old = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat(timespec="seconds")
+    id = _dataset(store, status=status)
+    store.update(id, **{anchor: old})
+    # sharing rewrites updated_at; the hold is measured from the claim or the job's start
+    assert c.post(f"/api/datasets/{id}/share", json={"email": "colleague@earthranger.com"}).status_code == 200
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200
+    assert launches == [id]
+
+
+def test_a_claim_is_measured_from_its_own_time(client, launches):
+    app, c = client
+    store = app.get_store()
+    id = _dataset(store)
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200
+    doc = store.get(id)
+    assert doc["extract_claimed_at"] and sys.modules["store"].extract_in_progress(doc)
+
+
+def test_a_local_run_past_the_timeout_is_killed_with_its_children(client, monkeypatch, tmp_path):
+    import os
+    import time
+
+    app, _ = client
+    store = app.get_store()
+    monkeypatch.setattr(sys.modules["store"], "EXTRACT_TIMEOUT", timedelta(seconds=1))
+    child_pid = tmp_path / "child.pid"
+    worker = ("import subprocess, sys, time; "
+              "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+              f"open({str(child_pid)!r}, 'w').write(str(c.pid)); time.sleep(60)")
+    monkeypatch.setattr(store, "job_command", lambda id: [sys.executable, "-c", worker])
+    id = _dataset(store)
+    store.start_extract(id)
+    deadline = time.time() + 10
+    while time.time() < deadline and store.get(id)["status"] != "failed":
+        time.sleep(0.1)
+    doc = store.get(id)
+    assert doc["status"] == "failed" and "timed out" in doc["error"]
+    pid = int(child_pid.read_text())
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    else:
+        pytest.fail("the worker's child survived the timeout")

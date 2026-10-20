@@ -106,9 +106,13 @@ error; lower it to save cost if only exports are uploaded.
 Starting an extraction claims the dataset first (a Firestore transaction),
 so while it is `queued` or `running` a second request gets 409 instead of
 launching a second job. A job killed outright, by running out of memory or
-by the 2-hour timeout, cannot record `failed`; its hold lapses after 2.5
-hours (`EXTRACT_STALE_AFTER_SECONDS` on the service), and the owner can run
-the extraction again. Keep that value above `--task-timeout`.
+by the 2-hour timeout, cannot record `failed`; its hold lapses 2.5 hours
+after the claim, or after the job's start once it is running
+(`EXTRACT_STALE_AFTER_SECONDS` on the service), and the owner can run the
+extraction again. Other edits, such as sharing, do not extend it. Keep that
+value above `--task-timeout`. The local backend enforces the same limit
+itself (`EXTRACT_TIMEOUT_SECONDS`, default 7200): it kills a run that goes
+past it, with every process the run started, and marks it `failed`.
 
 ## 4. Verify
 
