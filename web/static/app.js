@@ -61,7 +61,7 @@ async function loadList() {
       '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
       '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
       '<td class="actions">' +
-        (d.status === 'ready' ? '<a href="/d/' + d.id + '/" target="_blank" rel="noopener"><button><span class="mi" aria-hidden="true">open_in_new</span>Open</button></a> ' : '') +
+        (d.status === 'ready' ? '<a href="/d/' + d.id + '/"><button><span class="mi" aria-hidden="true">arrow_forward</span>Open</button></a> ' : '') +
         (d.mine ? '<button data-act="share"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
         (d.mine && !d.extract_held && ['failed', 'uploaded', 'ready', 'uploading', 'queued', 'running'].includes(d.status) ? '<button data-act="extract" title="' + (d.status === 'uploading' ? 'Start the extraction (if the upload completed)' : 'Run the extraction again') + '"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
         (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
