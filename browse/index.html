@@ -388,9 +388,11 @@ async function boot() {
     indexHeavy();
     buildHeader();
     try { TAB = localStorage.getItem('tab') || 'overview'; } catch (e) {}
-    const h = (location.hash || '').slice(1);
-    if (['overview','patrols','map','observations','datamodel','profiles','schema'].includes(h)) TAB = h;
+    const st = history.state && TABS.includes(history.state.tab) ? history.state : viewFromHash();
+    if (st.tab) TAB = st.tab;
+    history.replaceState({ ...st, tab: TAB, dr: st.dr || null }, '', viewHash(TAB, st.dr));
     render();
+    if (st.dr) showDrawer(st.dr, st.scroll);
   } catch (e) {
     $('#view').innerHTML = '<div class="panel">Could not load data: ' + esc(e.message) + '</div>';
   }
@@ -583,14 +585,13 @@ function buildHeader() {
   for (const [id, label, icon] of tabs) {
     const b = el('button'); b.id = 'tab-' + id;
     b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span>' + esc(label);
-    b.onclick = () => { TAB = id; try { localStorage.setItem('tab', id); } catch (e) {}
-      history.replaceState(null, '', '#' + id); closeDrawer(); render(); };
+    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); };
     nav.appendChild(b);
   }
   const sel = $('#caSel'); sel.innerHTML = '';
   sel.appendChild(new Option('All conservation areas', 'all'));
   for (const c of D.meta.cas) if (c.id !== 'CCAA') sel.appendChild(new Option(c.n, c.id));
-  sel.onchange = () => { CA = sel.value; closeDrawer(); render(); };
+  sel.onchange = () => { CA = sel.value; if (curView().dr) go(null); render(); };
 }
 
 function render() {
@@ -744,7 +745,7 @@ function rPatrols(v) {
     const all = D.patrols.filter(p => caOk(p.ca)).length;
     wrap.innerHTML = '<p class="tiny">' + fmt(list.length) + (list.length !== all ? ' of ' + fmt(all) : '') + ' patrols</p>' + h;
     moreB.hidden = list.length <= patrolShown;
-    wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => patrolDrawer(tr.dataset.p));
+    wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p }));
   }
   drawRows();
 }
@@ -757,7 +758,8 @@ async function ensureTracks() {
 
 async function patrolDrawer(pu) {
   const p = D.patrolBy.get(pu);
-  const d = openDrawer();
+  if (!p) return closeDrawer();
+  const d = openDrawer(), gen = d.dataset.gen;
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
   const kv = [['Conservation area', (D.caById.get(p.ca) || {}).n || p.ca],
     ['Dates', p.sd + ' → ' + p.ed], ['Type', p.ty], ['Armed', p.armed ? 'yes' : 'no'],
@@ -776,6 +778,7 @@ async function patrolDrawer(pu) {
   const wps = (D.wpsByPatrol.get(pu) || []);
   let lines = [];
   try { await ensureTracks(); lines = (D.tracks.get(pu) || []).flatMap(geomLines); } catch (e) {}
+  if (d.dataset.gen !== gen) return; // the drawer moved on while the tracks loaded
   miniMap(d, wps, lines);
   d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track (<a href="quirks.html#tracks" target="_blank" rel="noopener">about tracks</a>). ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
   // observations at each waypoint
@@ -790,7 +793,7 @@ async function patrolDrawer(pu) {
       os.map(obsHtml).join('');
     const ph = photoStrip(D.attBy.wp.get(w.u));
     if (ph) row.appendChild(ph);
-    const open = () => { const top = d.scrollTop; wpDrawer(w, { patrol: pu, scroll: top }); };
+    const open = () => go({ k: 'wp', id: w.u, from: { patrol: pu } });
     row.onclick = e => { if (!e.target.closest('.photos')) open(); }; // photos open the preview instead
     row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
     list.appendChild(row);
@@ -919,16 +922,17 @@ function rMap(v) {
   });
   cv.addEventListener('click', e => {
     const w = mm.hit(e); if (!w) return;
-    if (w._ent) entityDrawer(w._i); else wpDrawer(w);
+    go(w._ent ? { k: 'entity', id: w._i } : { k: 'wp', id: w.u });
   });
 }
 
-// from: { patrol: uuid, scroll: px } when opened from a patrol's waypoint list
+// from: { patrol: uuid } when opened from a patrol's waypoint list
 function wpDrawer(w, from) {
+  if (!w) return closeDrawer();
   const d = openDrawer();
   if (from && from.patrol) {
     const p = D.patrolBy.get(from.patrol);
-    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), () => patrolDrawer(from.patrol), from.scroll);
+    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), { k: 'patrol', id: from.patrol });
   }
   d.insertAdjacentHTML('beforeend', '<h3>Waypoint</h3><div class="kv">' +
     '<div>Time</div><div class="mono">' + w.t + '</div>' +
@@ -938,7 +942,7 @@ function wpDrawer(w, from) {
     const p = D.patrolBy.get(w.p);
     if (p) {
       const b = el('button', 'ghost', 'Open patrol ' + esc(p.id));
-      b.onclick = () => { patrolDrawer(w.p); };
+      b.onclick = () => go({ k: 'patrol', id: w.p });
       d.appendChild(b);
     }
   }
@@ -946,29 +950,27 @@ function wpDrawer(w, from) {
   d.insertAdjacentHTML('beforeend', '<h2>Observations</h2>');
   const os = D.obsByWp.get(w.u) || [];
   if (!os.length) d.insertAdjacentHTML('beforeend', '<p class="muted">None recorded at this waypoint.</p>');
-  for (const o of os) {
+  os.forEach((o, i) => {
     const row = el('div', 'wprow obsrow');
     row.tabIndex = 0; row.setAttribute('role', 'button');
     row.innerHTML = '<div class="rowbody">' + obsHtml(o) + '</div><span class="mi go" aria-hidden="true">chevron_right</span>';
-    const open = () => obsDrawer(o, { wp: w, wpFrom: from, scroll: d.scrollTop });
+    const open = () => go({ k: 'obs', id: w.u + '.' + i, from: { wp: w.u, wpFrom: from } });
     row.onclick = open;
     row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
     d.appendChild(row);
-  }
+  });
   const ph = photoStrip(D.attBy.wp.get(w.u));
   if (ph) { d.insertAdjacentHTML('beforeend', '<h2>Photos</h2>'); d.appendChild(ph); }
 }
 
-// Observation detail. from: { wp, wpFrom, scroll } when opened from a waypoint's detail view
+// Observation detail. from: { wp: uuid, wpFrom } when opened from a waypoint's detail view
 function obsDrawer(o, from) {
+  if (!o) return closeDrawer();
   const d = openDrawer();
   const w = D.wpBy.get(o.w);
   if (from && from.wp) {
-    const back = el('button', 'ghost');
-    back.style.marginTop = '0';
-    back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>Back to waypoint ' + esc(from.wp.t);
-    back.onclick = () => { wpDrawer(from.wp, from.wpFrom); $('#drawer').scrollTop = from.scroll || 0; };
-    d.appendChild(back);
+    const fw = D.wpBy.get(from.wp);
+    backButton(d, 'Back to waypoint ' + esc(fw ? fw.t : ''), { k: 'wp', id: from.wp, from: from.wpFrom });
   }
   const c = D.catBy.get(o.c);
   const root = ROOT_META[rootOf(o.c)] || {};
@@ -1489,7 +1491,7 @@ function rObs(v) {
         h.style.cssText = 'border-top:1px solid var(--line);padding:8px 0';
         h.innerHTML = '<span class="mono">' + (w ? w.t : '?') + '</span> ' +
           (w ? '<span class="tiny num">' + w.y.toFixed(4) + ', ' + w.x.toFixed(4) + '</span>' : '') + obsHtml(o);
-        if (w) { h.classList.add('click'); h.style.cursor = 'pointer'; h.onclick = () => wpDrawer(w); }
+        if (w) { h.classList.add('click'); h.style.cursor = 'pointer'; h.onclick = () => go({ k: 'wp', id: w.u }); }
         host.appendChild(h);
       }
       if (list.length > obsShown) {
@@ -1542,7 +1544,7 @@ function rProfiles(v) {
   hdr.appendChild(el('h2', null, profs.length ? profs.map(p => esc(p.menu)).join(' · ') : 'Profile'));
   const helpB = el('button', 'ghost'); helpB.style.marginTop = '0';
   helpB.innerHTML = '<span class="mi" aria-hidden="true">help</span>How to read this';
-  helpB.onclick = () => helpDrawer('flow');
+  helpB.onclick = () => go({ k: 'help', id: 'flow' });
   hdr.appendChild(helpB);
   const nTypes = new Set(ents0.map(e => keyOf(e))).size;
   flowP.insertAdjacentHTML('beforeend', '<p class="tiny">' + (profs.length === 1 ? 'SMART Profile "' + esc(profs[0].l) + '"' : fmt(profs.length) + ' SMART Profiles') +
@@ -1608,7 +1610,7 @@ function rProfiles(v) {
         const b = el('button', 'more', 'Show more'); b.onclick = () => { entShown += 100; drawEnts(); };
         host.appendChild(b);
       }
-      host.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => entityDrawer(+tr.dataset.i));
+      host.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'entity', id: +tr.dataset.i }));
     };
     drawEnts();
   }
@@ -1742,12 +1744,13 @@ function entText(e) {
   return e._s;
 }
 
-function entityDrawer(i, from) {   // from: {record, scroll} when opened from a record drawer
+function entityDrawer(i, from) {   // from: {record} when opened from a record drawer
   const e = D.profiles.entities[i];
+  if (!e) return closeDrawer();
   const d = openDrawer();
   if (from && from.record) {
     const r = D.recBy.get(from.record);
-    backButton(d, 'Back to record ' + esc(r ? r.title || '(untitled)' : ''), () => recordDrawer(from.record), from.scroll);
+    backButton(d, 'Back to record ' + esc(r ? r.title || '(untitled)' : ''), { k: 'record', id: from.record });
   }
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(e.n) + '</h3><p class="tiny">' +
     esc((D.ptypeBy.get(e.ty) || {}).l || '') + ' · ' + esc((D.caById.get(e.ca) || {}).n || e.ca || '') +
@@ -1767,7 +1770,7 @@ function entityDrawer(i, from) {   // from: {record, scroll} when opened from a 
       (r.status ? ' <span class="pill">' + esc(r.status) + '</span>' : '') + ' <span class="tiny num">' + (r.d || '') + '</span>' +
       (r.descr ? '<div class="tiny">' + esc(r.descr.length > 200 ? r.descr.slice(0, 200) + '…' : r.descr) + '</div>' : '');
     row.title = 'Open this record';
-    row.onclick = () => recordDrawer(r.u, { entity: i, scroll: d.scrollTop });
+    row.onclick = () => go({ k: 'record', id: r.u, from: { entity: i } });
     d.appendChild(row);
   }
   if (!recs.length) d.insertAdjacentHTML('beforeend', '<p class="muted">No linked records.</p>');
@@ -1775,13 +1778,13 @@ function entityDrawer(i, from) {   // from: {record, scroll} when opened from a 
 
 // A Profiles record: a dated event with its record-source attributes, text,
 // photos, and the entities it is linked to (many-to-many).
-function recordDrawer(u, from) {   // from: {entity, scroll} when opened from an entity drawer
+function recordDrawer(u, from) {   // from: {entity} when opened from an entity drawer
   const r = D.recBy.get(u);
-  if (!r) return;
+  if (!r) return closeDrawer();
   const d = openDrawer();
   if (from && from.entity != null) {
     const e = D.profiles.entities[from.entity];
-    backButton(d, 'Back to ' + esc(e ? e.n : 'entity'), () => entityDrawer(from.entity), from.scroll);
+    backButton(d, 'Back to ' + esc(e ? e.n : 'entity'), { k: 'entity', id: from.entity });
   }
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(r.title || '(untitled)') + '</h3><p class="tiny">' +
     [r.src, r.status, r.d, (D.caById.get(r.ca) || {}).n || r.ca].filter(Boolean).map(esc).join(' · ') + '</p>');
@@ -1799,7 +1802,7 @@ function recordDrawer(u, from) {   // from: {entity, scroll} when opened from an
     row.style.cssText = 'border-top:1px solid var(--line);padding:8px 0';
     row.innerHTML = '<b>' + esc(e.n) + '</b> <span class="pill">' + esc((D.ptypeBy.get(e.ty) || {}).l || '') + '</span>';
     row.title = 'Open this entity';
-    row.onclick = () => entityDrawer(i, { record: r.u, scroll: d.scrollTop });
+    row.onclick = () => go({ k: 'entity', id: i, from: { record: r.u } });
     d.appendChild(row);
   }
   if (!ents.length) d.insertAdjacentHTML('beforeend', '<p class="muted">Not linked to any entity.</p>');
@@ -1870,7 +1873,7 @@ function rDataModel(v) {
   bar.insertAdjacentHTML('beforeend', '<div class="hdr"><h2>' + esc(dm.ca_name) + ' <span class="tiny">' + nCats + ' categories · ' +
     Object.keys(dm.attributes).length + ' attributes · ' + dm.configurable_models.length + ' configurable models</span></h2>' +
     '<button class="ghost" id="dmHelp"><span class="mi" aria-hidden="true">help</span>How to read this</button></div>');
-  $('#dmHelp', bar).onclick = () => helpDrawer('datamodel');
+  $('#dmHelp', bar).onclick = () => go({ k: 'help', id: 'datamodel' });
   const langSel = el('select'); langSel.id = 'dmLang'; langSel.setAttribute('aria-label', 'Label language');
   for (const l of dm.languages) langSel.appendChild(new Option(l.code + (l.default ? ' (default)' : '') + (l.missing ? ' · ' + l.missing + ' missing' : ''), l.code));
   langSel.value = dmLang; langSel.onchange = () => { dmLang = langSel.value; render(); };
@@ -1943,30 +1946,90 @@ function rDataModel(v) {
 }
 
 /* ---------------- drawer ---------------- */
+let drawerGen = 0; // bumped on every open, so a drawer still loading can tell it was replaced
 function openDrawer() {
   const d = $('#drawer'); d.innerHTML = '';
+  d.dataset.gen = String(++drawerGen);
   const x = el('button', 'x'); x.innerHTML = '<span class="mi" aria-hidden="true">close</span>Close';
-  x.onclick = closeDrawer;
+  x.onclick = () => go(null);
   d.appendChild(x); d.hidden = false;
   d.scrollTop = 0;
   return d;
 }
-function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; }
+function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; ++drawerGen; }
 // help text from a <template id="help-…"> shown in the drawer
 function helpDrawer(id) {
-  const t = $('#help-' + id); if (!t) return;
+  const t = $('#help-' + id); if (!t) return closeDrawer();
   const d = openDrawer();
   d.appendChild(t.content.cloneNode(true));
 }
-// "Back to …" button at the top of a drawer opened from another drawer;
-// reopen() rebuilds the previous one, which is then restored to its scroll position
-function backButton(d, label, reopen, scroll) {
+// "Back to …" button at the top of a drawer opened from another drawer. When
+// the previous history entry is that drawer it steps back to it, as the
+// browser's Back would; otherwise (a reload, a link) it opens it afresh.
+function backButton(d, label, dr) {
   const back = el('button', 'ghost');
   back.style.marginTop = '0';
   back.innerHTML = '<span class="mi" aria-hidden="true">arrow_back</span>' + label;
-  back.onclick = async () => { await reopen(); $('#drawer').scrollTop = scroll || 0; };
+  back.onclick = () => { if (curView().parent === viewKey(dr)) history.back(); else go(dr); };
   d.appendChild(back);
 }
+
+/* ---------------- history ----------------
+   Each view is a history entry, so the browser's Back and Forward move through
+   tabs and drawers. An entry holds { tab, dr, parent, scroll }: dr names the
+   open drawer as { k: kind, id, from } (from: the drawer it was opened from,
+   for its "Back to …" button), parent is the key of the entry it was pushed
+   from, and scroll is where the drawer was when the view was left. The hash
+   carries tab and drawer too (#patrols/patrol/<uuid>), so a link reopens it. */
+const TABS = ['overview','patrols','map','observations','datamodel','profiles','schema'];
+const viewKey = dr => dr ? dr.k + '/' + dr.id : '';
+const viewHash = (tab, dr) => '#' + tab + (dr ? '/' + viewKey(dr) : '');
+const curView = () => history.state || { tab: TAB, dr: null };
+function viewFromHash() {
+  const [tab, k, ...rest] = decodeURIComponent((location.hash || '').slice(1)).split('/');
+  const id = rest.join('/');
+  if (!TABS.includes(tab)) return {};
+  if (!k || !id) return { tab };
+  return { tab, dr: { k, id: k === 'entity' ? +id : id } };
+}
+// Rebuild a drawer from its entry, then put it back where it was scrolled to
+async function showDrawer(dr, scroll) {
+  const f = dr.from;
+  let done;
+  if (dr.k === 'patrol') done = patrolDrawer(dr.id);
+  else if (dr.k === 'wp') wpDrawer(D.wpBy.get(dr.id), f);
+  else if (dr.k === 'obs') { const [wu, i] = String(dr.id).split('.'); obsDrawer((D.obsByWp.get(wu) || [])[+i], f); }
+  else if (dr.k === 'entity') entityDrawer(+dr.id, f);
+  else if (dr.k === 'record') recordDrawer(dr.id, f);
+  else if (dr.k === 'help') helpDrawer(dr.id);
+  else closeDrawer();
+  const gen = drawerGen;
+  await done;
+  if (scroll && gen === drawerGen) $('#drawer').scrollTop = scroll;
+}
+// Show the view from a history entry: the tab first, then its drawer (or none)
+async function showView(st) {
+  if (st.tab !== TAB) {
+    TAB = st.tab; try { localStorage.setItem('tab', TAB); } catch (e) {}
+    closeDrawer(); render();
+  }
+  if (st.dr) await showDrawer(st.dr, st.scroll); else closeDrawer();
+}
+// Navigate: open drawer dr (null closes it) over tab, as a new history entry
+function go(dr, tab = TAB) {
+  const cur = curView();
+  if (!$('#drawer').hidden) history.replaceState({ ...cur, scroll: $('#drawer').scrollTop }, '');
+  const st = { tab, dr, parent: viewKey(cur.dr) };
+  history.pushState(st, '', viewHash(tab, dr));
+  return showView(st);
+}
+window.addEventListener('popstate', e => {
+  if (!D.wpBy) return; // still loading
+  // a hand-edited hash arrives with no state of its own
+  const st = e.state && TABS.includes(e.state.tab) ? e.state : { tab: TAB, ...viewFromHash() };
+  if (!e.state) history.replaceState({ ...st, dr: st.dr || null }, '');
+  showView({ ...st, dr: st.dr || null });
+});
 document.addEventListener('keydown', e => {
   if (modalState) {
     if (e.key === 'Escape') closeModal();
@@ -1974,7 +2037,7 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'ArrowRight' && modalState.idx < modalState.paths.length - 1) { modalState.idx++; drawModal(); }
     return;
   }
-  if (e.key === 'Escape') closeDrawer();
+  if (e.key === 'Escape' && !$('#drawer').hidden) go(null);
 });
 
 boot();
