@@ -7,15 +7,16 @@
 -- it owns entity types and record sources and carries the main-menu label a
 -- SMART user sees (i_config_option 'mainmenu', per CA).
 COPY (
+  -- list() over no rows is NULL; coalesce so the page always gets an array
   SELECT
-    (SELECT list(struct_pack(u := p.uuid, k := p.keyid, ca := pca.id,
+    coalesce((SELECT list(struct_pack(u := p.uuid, k := p.keyid, ca := pca.id,
                              l := coalesce(lp.label, p.keyid),
                              menu := coalesce(co.value, lp.label, p.keyid)))
      FROM 'parquet/i_profile_config.parquet' p
      LEFT JOIN 'parquet/conservation_area.parquet' pca ON pca.uuid = p.ca_uuid
      LEFT JOIN lbl lp ON lp.element_uuid = p.uuid
-     LEFT JOIN 'parquet/i_config_option.parquet' co ON co.ca_uuid = p.ca_uuid AND co.keyid = 'mainmenu') AS profiles,
-    (SELECT list(struct_pack(u := t.uuid, k := t.keyid, ca := tca.id,
+     LEFT JOIN 'parquet/i_config_option.parquet' co ON co.ca_uuid = p.ca_uuid AND co.keyid = 'mainmenu'), []) AS profiles,
+    coalesce((SELECT list(struct_pack(u := t.uuid, k := t.keyid, ca := tca.id,
                              l := coalesce(lt.label, t.keyid),
                              ida := t.id_attribute_uuid,
                              pr := (SELECT first(pe.profile_uuid) FROM 'parquet/i_profile_entity_type.parquet' pe
@@ -29,8 +30,8 @@ COPY (
                                       WHERE ta.entity_type_uuid = t.uuid)))
      FROM 'parquet/i_entity_type.parquet' t
      LEFT JOIN 'parquet/conservation_area.parquet' tca ON tca.uuid = t.ca_uuid
-     LEFT JOIN lbl lt ON lt.element_uuid = t.uuid) AS types,
-    (SELECT list(struct_pack(
+     LEFT JOIN lbl lt ON lt.element_uuid = t.uuid), []) AS types,
+    coalesce((SELECT list(struct_pack(
         u := en.uuid, ty := en.entity_type_uuid, ca := eca.id, pr := en.profile_uuid,
         n := coalesce(nm.v, '(unnamed)'),
         -- local time through SMART 7.x, UTC from 8.0 (the browser converts)
@@ -77,11 +78,11 @@ COPY (
                 FROM 'parquet/i_entity_location.parquet' el
                 JOIN 'parquet/i_location.parquet' l ON l.uuid = el.location_uuid
                 WHERE l.geometry IS NOT NULL
-                GROUP BY el.entity_uuid) loc ON loc.entity_uuid = en.uuid) AS entities,
+                GROUP BY el.entity_uuid) loc ON loc.entity_uuid = en.uuid), []) AS entities,
     -- A record's attributes are defined per record source
     -- (i_recordsource_attribute -> i_attribute); values are text, number,
     -- or list items (i_record_attribute_value_list, several for is_multi).
-    (SELECT list(struct_pack(
+    coalesce((SELECT list(struct_pack(
         u := r.uuid, ca := rca.id, title := coalesce(r.title, ''),
         d := strftime(r.primary_date, '%Y-%m-%d'),
         src := coalesce(ls.label, ''), status := coalesce(r.status, ''),
@@ -108,7 +109,7 @@ COPY (
      FROM 'parquet/i_record.parquet' r
      LEFT JOIN 'parquet/conservation_area.parquet' rca ON rca.uuid = r.ca_uuid
      LEFT JOIN lbl ls ON ls.element_uuid = r.source_uuid
-     LEFT JOIN emp ec ON ec.uuid = r.created_by) AS records
+     LEFT JOIN emp ec ON ec.uuid = r.created_by), []) AS records
 ) TO 'site/data/profiles.json' (FORMAT json, ARRAY true);
 
 -- ------------------------------------------------ profile_attachments.json

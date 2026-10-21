@@ -372,12 +372,18 @@ async function boot() {
     const [meta, cats, patrols, bounds, emps, atts] = await Promise.all(
       ['meta','categories','patrols','boundaries','employees','attachments'].map(getJSON));
     D.meta = meta[0]; D.cats = cats; D.patrols = patrols; D.bounds = bounds;
+    D.meta.cas = D.meta.cas || []; // null in data built before the SQL coalesced it, for a database with no CAs
     checkDataFormat();
     D.emps = emps; D.atts = atts;
     // optional: Profiles exists only when the backup has the i2 plugin's tables
-    try { D.profiles = (await getJSON('profiles'))[0]; D.atts = D.atts.concat(await getJSON('profile_attachments')); }
-    catch (e) { D.profiles = null; }
-    if (!D.profiles) D.profiles = { types: [], entities: [], records: [] };
+    try { D.profiles = (await getJSON('profiles'))[0]; } catch (e) { D.profiles = null; }
+    if (D.profiles) { // written alongside profiles.json, so absent without it
+      try { D.atts = D.atts.concat(await getJSON('profile_attachments')); }
+      catch (e) { console.warn('Profile photos will not show: ' + e.message); }
+    }
+    // every list the page reads; data built before build_profiles.sql coalesced them has null for an empty one
+    D.profiles = D.profiles || {};
+    for (const k of ['profiles', 'types', 'entities', 'records']) D.profiles[k] = D.profiles[k] || [];
     try { D.tz = await getJSON('timezones'); } catch (e) { D.tz = null; } // optional (infer_timezones.py)
     try { D.dm = await getJSON('datamodel'); } catch (e) { D.dm = null; } // optional (./smart-able export)
     $('#dbver').textContent = D.meta.db_version ? '· SMART database ' + D.meta.db_version : '';
@@ -424,7 +430,7 @@ function index() {
   }
   D.recBy = new Map(D.profiles.records.map(r => [r.u, r]));
   D.ptypeBy = new Map(D.profiles.types.map(t => [t.u, t]));
-  D.profBy = new Map((D.profiles.profiles || []).map(p => [p.u, p]));
+  D.profBy = new Map(D.profiles.profiles.map(p => [p.u, p]));
   // entities double as map points: t/ep feed the time filter (creation time;
   // local wall-clock through SMART 7.x, UTC from 8.0), _i/_ent identify them on hit
   D.profiles.entities.forEach((e, i) => {
@@ -1508,7 +1514,7 @@ function rProfiles(v) {
     '<b>entity types</b>, each with its own attributes, and a set of record sources. An <b>entity</b> is one tracked item of a type, named by the type\'s ID attribute; ' +
     'a <b>record</b> is a dated event linked to one or more entities. What a site tracks is up to it — people, vehicles, places, or, as here, individual threat sightings.</p>');
   if (!D.profiles.entities.length) {
-    v.insertAdjacentHTML('beforeend', '<div class="panel"><p class="muted">This backup has no Profiles data.</p></div>');
+    v.insertAdjacentHTML('beforeend', '<div class="panel"><p class="muted">This backup has no Profiles entities.</p></div>');
     return;
   }
   // respect the conservation-area selector
