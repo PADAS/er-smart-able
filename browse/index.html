@@ -378,6 +378,8 @@ async function boot() {
     try { D.profiles = (await getJSON('profiles'))[0]; D.atts = D.atts.concat(await getJSON('profile_attachments')); }
     catch (e) { D.profiles = null; }
     if (!D.profiles) D.profiles = { types: [], entities: [], records: [] };
+    // data built before build_profiles.sql coalesced its lists has null for an empty one
+    for (const k of ['profiles', 'types', 'entities', 'records']) D.profiles[k] = D.profiles[k] || [];
     try { D.tz = await getJSON('timezones'); } catch (e) { D.tz = null; } // optional (infer_timezones.py)
     try { D.dm = await getJSON('datamodel'); } catch (e) { D.dm = null; } // optional (./smart-able export)
     $('#dbver').textContent = D.meta.db_version ? '· SMART database ' + D.meta.db_version : '';
