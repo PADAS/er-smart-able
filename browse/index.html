@@ -372,11 +372,13 @@ async function boot() {
     const [meta, cats, patrols, bounds, emps, atts] = await Promise.all(
       ['meta','categories','patrols','boundaries','employees','attachments'].map(getJSON));
     D.meta = meta[0]; D.cats = cats; D.patrols = patrols; D.bounds = bounds;
+    D.meta.cas = D.meta.cas || []; // null in data built before the SQL coalesced it, for a database with no CAs
     checkDataFormat();
     D.emps = emps; D.atts = atts;
     // optional: Profiles exists only when the backup has the i2 plugin's tables
     try { D.profiles = (await getJSON('profiles'))[0]; } catch (e) { D.profiles = null; }
-    try { D.atts = D.atts.concat(await getJSON('profile_attachments')); } catch (e) {}
+    try { D.atts = D.atts.concat(await getJSON('profile_attachments')); }
+    catch (e) { if (D.profiles) console.warn('Profile photos will not show: ' + e.message); }
     // every list the page reads; data built before build_profiles.sql coalesced them has null for an empty one
     D.profiles = D.profiles || {};
     for (const k of ['profiles', 'types', 'entities', 'records']) D.profiles[k] = D.profiles[k] || [];

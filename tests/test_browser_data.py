@@ -40,7 +40,8 @@ def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]]) -> Path
     except duckdb.Error as e:  # offline with no cached extension
         pytest.skip(f"DuckDB spatial extension unavailable: {e}")
     for table, cols in _schema().items():
-        con.execute(f'CREATE TABLE "t_{table}" ({", ".join(f'"{c}" {t}' for c, t in cols)})')
+        columns = ", ".join(f'"{c}" {t}' for c, t in cols)
+        con.execute(f'CREATE TABLE "t_{table}" ({columns})')
         if table == "conservation_area":
             for u, i, n in cas:
                 con.execute('INSERT INTO "t_conservation_area" (uuid, id, name) VALUES (?, ?, ?)', [u, i, n])
