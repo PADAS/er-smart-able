@@ -387,9 +387,10 @@ async function boot() {
     D.wps = wps; D.obs = obs;
     indexHeavy();
     buildHeader();
-    try { TAB = localStorage.getItem('tab') || 'overview'; } catch (e) {}
+    try { const saved = localStorage.getItem('tab'); if (TABS.includes(saved)) TAB = saved; } catch (e) {}
     const st = history.state && TABS.includes(history.state.tab) ? history.state : viewFromHash();
     if (st.tab) TAB = st.tab;
+    try { localStorage.setItem('tab', TAB); } catch (e) {}
     history.replaceState({ ...st, tab: TAB, dr: st.dr || null }, '', viewHash(TAB, st.dr));
     render();
     if (st.dr) showDrawer(st.dr, st.scroll);
@@ -591,7 +592,7 @@ function buildHeader() {
   const sel = $('#caSel'); sel.innerHTML = '';
   sel.appendChild(new Option('All conservation areas', 'all'));
   for (const c of D.meta.cas) if (c.id !== 'CCAA') sel.appendChild(new Option(c.n, c.id));
-  sel.onchange = () => { CA = sel.value; if (curView().dr) go(null); render(); };
+  sel.onchange = () => { CA = sel.value; if (curView().dr) closeView(); render(); };
 }
 
 function render() {
@@ -759,7 +760,7 @@ async function ensureTracks() {
 async function patrolDrawer(pu) {
   const p = D.patrolBy.get(pu);
   if (!p) return closeDrawer();
-  const d = openDrawer(), gen = d.dataset.gen;
+  const d = openDrawer(), gen = drawerGen;
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
   const kv = [['Conservation area', (D.caById.get(p.ca) || {}).n || p.ca],
     ['Dates', p.sd + ' → ' + p.ed], ['Type', p.ty], ['Armed', p.armed ? 'yes' : 'no'],
@@ -778,7 +779,7 @@ async function patrolDrawer(pu) {
   const wps = (D.wpsByPatrol.get(pu) || []);
   let lines = [];
   try { await ensureTracks(); lines = (D.tracks.get(pu) || []).flatMap(geomLines); } catch (e) {}
-  if (d.dataset.gen !== gen) return; // the drawer moved on while the tracks loaded
+  if (gen !== drawerGen) return; // the drawer was closed or replaced while the tracks loaded
   miniMap(d, wps, lines);
   d.insertAdjacentHTML('beforeend', '<p class="tiny">Waypoints colored by observation group; orange line is the recorded GPS track (<a href="quirks.html#tracks" target="_blank" rel="noopener">about tracks</a>). ' + esc(BASEMAPS[BASEMAP].attr) + '</p>');
   // observations at each waypoint
@@ -1946,12 +1947,12 @@ function rDataModel(v) {
 }
 
 /* ---------------- drawer ---------------- */
-let drawerGen = 0; // bumped on every open, so a drawer still loading can tell it was replaced
+let drawerGen = 0; // bumped on every open and close, so a drawer still loading can tell it was replaced
 function openDrawer() {
   const d = $('#drawer'); d.innerHTML = '';
-  d.dataset.gen = String(++drawerGen);
+  ++drawerGen;
   const x = el('button', 'x'); x.innerHTML = '<span class="mi" aria-hidden="true">close</span>Close';
-  x.onclick = () => go(null);
+  x.onclick = closeView;
   d.appendChild(x); d.hidden = false;
   d.scrollTop = 0;
   return d;
@@ -1959,7 +1960,7 @@ function openDrawer() {
 function closeDrawer() { const d = $('#drawer'); d.hidden = true; d.innerHTML = ''; ++drawerGen; }
 // help text from a <template id="help-…"> shown in the drawer
 function helpDrawer(id) {
-  const t = $('#help-' + id); if (!t) return closeDrawer();
+  const t = document.getElementById('help-' + id); if (!t) return closeDrawer(); // id may come from the hash
   const d = openDrawer();
   d.appendChild(t.content.cloneNode(true));
 }
@@ -1986,7 +1987,9 @@ const viewKey = dr => dr ? dr.k + '/' + dr.id : '';
 const viewHash = (tab, dr) => '#' + tab + (dr ? '/' + viewKey(dr) : '');
 const curView = () => history.state || { tab: TAB, dr: null };
 function viewFromHash() {
-  const [tab, k, ...rest] = decodeURIComponent((location.hash || '').slice(1)).split('/');
+  let h;
+  try { h = decodeURIComponent((location.hash || '').slice(1)); } catch (e) { return {}; } // a malformed link
+  const [tab, k, ...rest] = h.split('/');
   const id = rest.join('/');
   if (!TABS.includes(tab)) return {};
   if (!k || !id) return { tab };
@@ -2018,11 +2021,31 @@ async function showView(st) {
 // Navigate: open drawer dr (null closes it) over tab, as a new history entry
 function go(dr, tab = TAB) {
   const cur = curView();
+  // the scroll listener may not have run yet when a click follows a scroll at once
   if (!$('#drawer').hidden) history.replaceState({ ...cur, scroll: $('#drawer').scrollTop }, '');
   const st = { tab, dr, parent: viewKey(cur.dr) };
   history.pushState(st, '', viewHash(tab, dr));
   return showView(st);
 }
+// Close the drawer. Opening then closing is the common case, and stepping back
+// to the entry before (this tab, no drawer) keeps closes from piling up entries;
+// after a chain of drawers, or a link, the closed view is a new entry.
+function closeView() {
+  const cur = curView();
+  if (cur.dr && cur.parent === '') history.back(); else go(null);
+}
+// The drawer's scroll goes into its entry as it scrolls, so it comes back
+// however the entry is left (a new drawer, Back, Forward, a "Back to …" button)
+let scrollQueued = false;
+$('#drawer').addEventListener('scroll', () => {
+  if (scrollQueued) return;
+  scrollQueued = true;
+  requestAnimationFrame(() => {
+    scrollQueued = false;
+    const d = $('#drawer');
+    if (!d.hidden && history.state && history.state.dr) history.replaceState({ ...history.state, scroll: d.scrollTop }, '');
+  });
+});
 window.addEventListener('popstate', e => {
   if (!D.wpBy) return; // still loading
   // a hand-edited hash arrives with no state of its own
@@ -2037,7 +2060,7 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'ArrowRight' && modalState.idx < modalState.paths.length - 1) { modalState.idx++; drawModal(); }
     return;
   }
-  if (e.key === 'Escape' && !$('#drawer').hidden) go(null);
+  if (e.key === 'Escape' && !$('#drawer').hidden) closeView();
 });
 
 boot();
