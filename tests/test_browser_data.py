@@ -34,21 +34,20 @@ def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]]) -> Path
     parquet = tmp_path / "parquet"
     parquet.mkdir()
     (tmp_path / "site" / "data").mkdir(parents=True)
-    con = duckdb.connect()
-    try:
-        con.execute("INSTALL spatial; LOAD spatial;")
-    except duckdb.Error as e:  # offline with no cached extension
-        pytest.skip(f"DuckDB spatial extension unavailable: {e}")
-    for table, cols in _schema().items():
-        columns = ", ".join(f'"{c}" {t}' for c, t in cols)
-        con.execute(f'CREATE TABLE "t_{table}" ({columns})')
-        if table == "conservation_area":
-            for u, i, n in cas:
-                con.execute('INSERT INTO "t_conservation_area" (uuid, id, name) VALUES (?, ?, ?)', [u, i, n])
-        con.execute(f"COPY \"t_{table}\" TO '{parquet / table}.parquet' (FORMAT PARQUET)")
-    monkeypatch.chdir(tmp_path)  # the SQL reads parquet/ and writes site/data/ relative to the work dir
-    con.execute("\n".join(p.read_text() for p in SQL))
-    con.close()
+    with duckdb.connect() as con:
+        try:
+            con.execute("INSTALL spatial; LOAD spatial;")
+        except duckdb.Error as e:  # offline with no cached extension
+            pytest.skip(f"DuckDB spatial extension unavailable: {e}")
+        for table, cols in _schema().items():
+            columns = ", ".join(f'"{c}" {t}' for c, t in cols)
+            con.execute(f'CREATE TABLE "t_{table}" ({columns})')
+            if table == "conservation_area":
+                for u, i, n in cas:
+                    con.execute('INSERT INTO "t_conservation_area" (uuid, id, name) VALUES (?, ?, ?)', [u, i, n])
+            con.execute(f"COPY \"t_{table}\" TO '{parquet / table}.parquet' (FORMAT PARQUET)")
+        monkeypatch.chdir(tmp_path)  # the SQL reads parquet/ and writes site/data/ relative to the work dir
+        con.execute("\n".join(p.read_text() for p in SQL))
     return tmp_path / "site" / "data"
 
 
