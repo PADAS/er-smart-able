@@ -54,8 +54,7 @@ def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]]) -> Path
 def test_empty_profiles_tables_give_empty_lists(tmp_path, monkeypatch):
     data = _build(tmp_path, monkeypatch, [("a" * 32, "ALPHA", "Alpha")])
     profiles = json.loads((data / "profiles.json").read_text())
-    assert len(profiles) == 1 and profiles[0]  # one row, with every top-level list in it
-    assert {k: v for k, v in profiles[0].items() if v != []} == {}
+    assert profiles == [{"profiles": [], "types": [], "entities": [], "records": []}]
     meta = json.loads((data / "meta.json").read_text())[0]
     assert [c["id"] for c in meta["cas"]] == ["ALPHA"]
 
