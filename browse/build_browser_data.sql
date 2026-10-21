@@ -53,8 +53,8 @@ COPY (
     strftime(now(), '%Y-%m-%d') AS generated,
     (SELECT max(version) FROM 'parquet/db_version.parquet'
       WHERE plugin_id = 'org.wcs.smart') AS db_version,
-    (SELECT list(struct_pack(u := uuid, id := id, n := name))
-       FROM 'parquet/conservation_area.parquet') AS cas,
+    coalesce((SELECT list(struct_pack(u := uuid, id := id, n := name))
+       FROM 'parquet/conservation_area.parquet'), []) AS cas,   -- list() over no rows is NULL
     (SELECT count(*) FROM 'parquet/patrol.parquet') AS patrols,
     (SELECT count(*) FROM 'parquet/waypoint.parquet') AS waypoints,
     (SELECT count(*) FROM 'parquet/wp_observation.parquet') AS observations,
