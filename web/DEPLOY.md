@@ -14,7 +14,7 @@ GitHub Actions.
 | Service | `web/app.py`: sign-in, dataset list, upload URLs, share, serves the browser | Cloud Run service `smart-able`, image `web/Dockerfile` |
 | Job | `web/job.py`: fetch the upload, run `./smart-able all`, publish the site | Cloud Run Job `smart-able-extract`, image `web/Dockerfile.job` (Java, DuckDB, OpenSSL, uv) |
 | Index | one Firestore document per dataset: owner, `shared_with`, status, counts | Firestore `(default)`, collection `datasets` |
-| Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos) | a private GCS bucket |
+| Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos), `datasets/<id>/loads/<load id>/...` (a load's plan and results) | a private GCS bucket |
 
 A dataset is owned by whoever uploaded it. The owner can share it with
 other allowed addresses, re-run the extraction, or delete it; people it is

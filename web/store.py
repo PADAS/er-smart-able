@@ -58,6 +58,27 @@ def extract_in_progress(doc: dict) -> bool:
     return datetime.now(timezone.utc) - since < EXTRACT_STALE_AFTER
 
 
+LOAD_FIELDS = ("dataset_id", "ca_id", "site_id", "owner_uid", "owner_email", "options", "status", "stage",
+               "created_at", "updated_at", "execution", "continuations", "plan", "findings", "progress",
+               "log_tail", "error", "started_at", "claimed_at")
+LOAD_ACTIVE = ("planning", "queued", "running", "continuing")
+LOAD_STALE_AFTER = timedelta(seconds=int(os.environ.get("LOAD_STALE_AFTER_SECONDS", 90000)))
+
+
+def load_in_progress(doc: dict) -> bool:
+    """A load holds its slot while an execution is planning, queued, running
+    or continuing, until the hold goes stale (a job killed outright cannot
+    release it)."""
+    if doc.get("status") not in LOAD_ACTIVE:
+        return False
+    since = doc.get("started_at") if doc.get("status") == "running" else doc.get("claimed_at")
+    try:
+        since = datetime.fromisoformat(since or doc["updated_at"])
+    except (KeyError, TypeError, ValueError):
+        return True
+    return datetime.now(timezone.utc) - since < LOAD_STALE_AFTER
+
+
 def is_owner(doc: dict, user: dict) -> bool:
     return doc.get("owner_uid") == user["uid"]
 
@@ -121,6 +142,7 @@ class LocalStore:
                 data[id].update(fields); data[id]["updated_at"] = now(); self._write(data)
 
     def delete(self, id: str):
+        self.delete_dataset_loads(id)
         with self.lock:
             data = self._read(); data.pop(id, None); self._write(data)
 
@@ -257,6 +279,94 @@ class LocalStore:
         threading.Thread(target=run, daemon=True).start()
         return "local-thread"
 
+    # ---- loads
+    def _loads_path(self) -> Path:
+        return self.dir / "loads.json"
+
+    def list_loads(self, dataset_id: str) -> list:
+        return [dict(id=k, **v) for k, v in self._read_file(self._loads_path()).items() if v.get("dataset_id") == dataset_id]
+
+    def get_load(self, id: str):
+        d = self._read_file(self._loads_path()).get(id)
+        return dict(id=id, **d) if d else None
+
+    def create_load(self, doc: dict) -> str:
+        id = uuid.uuid4().hex[:12]
+        with self.lock:
+            data = self._read_file(self._loads_path()); data[id] = doc; self._write_file(self._loads_path(), data)
+        return id
+
+    def update_load(self, id: str, **fields):
+        with self.lock:
+            data = self._read_file(self._loads_path())
+            if id in data:
+                data[id].update(fields); data[id]["updated_at"] = now(); self._write_file(self._loads_path(), data)
+
+    def delete_load(self, id: str):
+        with self.lock:
+            data = self._read_file(self._loads_path())
+            doc = data.pop(id, None)
+            self._write_file(self._loads_path(), data)
+        if doc:
+            shutil.rmtree(self._p(doc["dataset_id"]) / "loads" / id, ignore_errors=True)
+
+    def delete_dataset_loads(self, dataset_id: str):
+        for l in self.list_loads(dataset_id):
+            self.delete_load(l["id"])
+
+    def claim_load(self, id: str, status: str) -> bool:
+        with self.lock:
+            data = self._read_file(self._loads_path())
+            doc = data.get(id)
+            if doc is None or load_in_progress(doc):
+                return False
+            doc.update(status=status, error=None, claimed_at=now(), updated_at=now())
+            self._write_file(self._loads_path(), data)
+            return True
+
+    def _load_dir(self, dataset_id: str, load_id: str) -> Path:
+        return self._p(dataset_id) / "loads" / load_id
+
+    def put_load_file(self, dataset_id: str, load_id: str, name: str, path: Path):
+        dest = self._load_dir(dataset_id, load_id) / safe_relpath(name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, dest)
+
+    def get_load_file(self, dataset_id: str, load_id: str, name: str):
+        f = self._load_dir(dataset_id, load_id) / safe_relpath(name)
+        if not f.is_file():
+            return None
+        size = f.stat().st_size
+        def chunks():
+            with open(f, "rb") as fh:
+                while True:
+                    b = fh.read(1 << 20)
+                    if not b:
+                        break
+                    yield b
+        return chunks(), size, site_content_type(name)
+
+    def fetch_load_dir(self, dataset_id: str, load_id: str, dest: Path) -> Path:
+        src = self._load_dir(dataset_id, load_id)
+        dest = Path(dest)
+        if src.is_dir():
+            shutil.copytree(src, dest, dirs_exist_ok=True)
+        else:
+            dest.mkdir(parents=True, exist_ok=True)
+        return dest
+
+    def load_job_command(self, id: str, mode: str) -> list:
+        return [os.environ.get("LOAD_PYTHON", sys.executable), str(ROOT / "web" / "load_job.py"), id, mode]
+
+    def start_load(self, id: str, mode: str) -> str:
+        def run():
+            proc = subprocess.Popen(self.load_job_command(id, mode),
+                                    env={**os.environ, "BACKEND": "local", "LOAD_ID": id, "MODE": mode},
+                                    start_new_session=True)
+            proc.wait()
+        threading.Thread(target=run, daemon=True).start()
+        return "local-thread"
+
 
 class GcpStore:
     def __init__(self):
@@ -290,6 +400,7 @@ class GcpStore:
         self._col().document(id).update(fields)
 
     def delete(self, id: str):
+        self.delete_dataset_loads(id)
         self._col().document(id).delete()
 
     def claim_extract(self, id: str) -> bool:
@@ -456,6 +567,90 @@ class GcpStore:
         req = run_v2.RunJobRequest(name=name, overrides=run_v2.RunJobRequest.Overrides(
             container_overrides=[run_v2.RunJobRequest.Overrides.ContainerOverride(
                 env=[run_v2.EnvVar(name="DATASET_ID", value=id)])]))
+        op = client.run_job(request=req)
+        return getattr(op.metadata, "name", "") or "started"
+
+    # ---- loads
+    def _loads(self):
+        return self.db.collection("loads")
+
+    def list_loads(self, dataset_id: str) -> list:
+        return [dict(id=d.id, **d.to_dict()) for d in self._loads().where("dataset_id", "==", dataset_id).stream()]
+
+    def get_load(self, id: str):
+        d = self._loads().document(id).get()
+        return dict(id=d.id, **d.to_dict()) if d.exists else None
+
+    def create_load(self, doc: dict) -> str:
+        ref = self._loads().document()
+        ref.set(doc)
+        return ref.id
+
+    def update_load(self, id: str, **fields):
+        fields["updated_at"] = now()
+        self._loads().document(id).update(fields)
+
+    def delete_load(self, id: str):
+        doc = self.get_load(id)
+        self._loads().document(id).delete()
+        if doc:
+            for b in self.bucket.list_blobs(prefix=f"datasets/{doc['dataset_id']}/loads/{id}/"):
+                b.delete()
+
+    def delete_dataset_loads(self, dataset_id: str):
+        for l in self.list_loads(dataset_id):
+            self._loads().document(l["id"]).delete()   # the files go with delete_storage(dataset_id)
+
+    def claim_load(self, id: str, status: str) -> bool:
+        from google.cloud import firestore
+        ref = self._loads().document(id)
+
+        @firestore.transactional
+        def claim(tx) -> bool:
+            snap = ref.get(transaction=tx)
+            if not snap.exists or load_in_progress(snap.to_dict()):
+                return False
+            tx.update(ref, {"status": status, "error": None, "claimed_at": now(), "updated_at": now()})
+            return True
+
+        return claim(self.db.transaction())
+
+    def put_load_file(self, dataset_id: str, load_id: str, name: str, path: Path):
+        rel = safe_relpath(name)
+        self.bucket.blob(f"datasets/{dataset_id}/loads/{load_id}/{rel}").upload_from_filename(
+            str(path), content_type=site_content_type(rel))
+
+    def get_load_file(self, dataset_id: str, load_id: str, name: str):
+        blob = self.bucket.blob(f"datasets/{dataset_id}/loads/{load_id}/{safe_relpath(name)}")
+        if not blob.exists():
+            return None
+        blob.reload()
+        def chunks():
+            with blob.open("rb") as fh:
+                while True:
+                    b = fh.read(1 << 20)
+                    if not b:
+                        break
+                    yield b
+        return chunks(), blob.size, blob.content_type or site_content_type(name)
+
+    def fetch_load_dir(self, dataset_id: str, load_id: str, dest: Path) -> Path:
+        prefix = f"datasets/{dataset_id}/loads/{load_id}/"
+        dest = Path(dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        for blob in self.bucket.list_blobs(prefix=prefix):
+            target = dest / blob.name[len(prefix):]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            blob.download_to_filename(str(target))
+        return dest
+
+    def start_load(self, id: str, mode: str) -> str:
+        from google.cloud import run_v2
+        client = run_v2.JobsClient()
+        name = f"projects/{self.project}/locations/{self.region}/jobs/{os.environ.get('LOAD_JOB', 'smart-able-load')}"
+        req = run_v2.RunJobRequest(name=name, overrides=run_v2.RunJobRequest.Overrides(
+            container_overrides=[run_v2.RunJobRequest.Overrides.ContainerOverride(
+                env=[run_v2.EnvVar(name="LOAD_ID", value=id), run_v2.EnvVar(name="MODE", value=mode)])]))
         op = client.run_job(request=req)
         return getattr(op.metadata, "name", "") or "started"
 
