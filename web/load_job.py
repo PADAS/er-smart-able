@@ -29,14 +29,12 @@ from store import get_store, now  # noqa: E402
 
 STAGES = ("datamodel", "patrol_datamodel", "preflight", "import")
 LOG_TAIL = 60
+TAIL_LINE = 500   # characters per tail line: the tail lives on the load doc (Firestore: 1 MiB a document)
 FILE_BASED_CA_UUID = "smart-ca-import"
 QUIET_LOGGERS = ("httpx", "httpcore", "urllib3")
 
 
-def ca_identifier(ca_id: str) -> str:
-    """The ER event-category identifier: smart-<ca id>, made safe (2-30 chars of [A-Za-z0-9_-])."""
-    s = re.sub(r"[^a-z0-9_-]+", "-", f"smart-{ca_id or 'ca'}".lower()).strip("-")
-    return (s if len(s) >= 2 else "smart-ca")[:30]
+ca_identifier = F.ca_identifier   # the default event category of a load; findings.py holds it for the service too
 
 
 class _RunLogHandler(logging.Handler):
@@ -86,7 +84,7 @@ class Runner:
                     f.write(line + "\n")
 
     def _tail(self) -> str:
-        return "\n".join(self.log_lines[-LOG_TAIL:])
+        return "\n".join(F.clip(line, TAIL_LINE) for line in self.log_lines[-LOG_TAIL:])
 
     def _push_files(self):
         """Everything in the load's folder goes back to the store: ledger,
@@ -107,7 +105,18 @@ class Runner:
             self._push_files()
         except Exception as e:  # noqa: BLE001
             self._log(f"pushing the load's files failed: {type(e).__name__}: {e}")
-        self._update(status=status, log_tail=self._tail(), **fields)
+        try:
+            self._update(status=status, log_tail=self._tail(), **fields)
+        except Exception as e:  # noqa: BLE001  e.g. a document over Firestore's limit: the status must still land
+            self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, findings and plan")
+            small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at")}
+            self._update(status=status, error=(fields.get("error") or "The full outcome could not be recorded; see log.txt")[:2000],
+                         log_tail=None, findings=None, plan=None, **small)
+            self._log(f"load {self.load_id}: {status} recorded without the tail, findings and plan")
+            try:   # so log.txt has both attempts
+                self._push_files()
+            except Exception as e2:  # noqa: BLE001
+                self._log(f"pushing the load's files failed: {type(e2).__name__}: {e2}")
 
     # ---- the run
     def run(self) -> int:
@@ -150,7 +159,7 @@ class Runner:
             dry = self.mode == "plan"
             m = self.migration_factory(bundle_dir=Path(export_dir) / "bundle", load_dir=self.load_dir, host=site["url"],
                                        token=token, options=load["options"], dry_run=dry,
-                                       ca_identifier=ca_identifier(entry.get("ca_id")))
+                                       ca_identifier=load["options"].get("event_category") or ca_identifier(entry.get("ca_id")))
             del token
 
             stage = "datamodel"
@@ -171,7 +180,9 @@ class Runner:
             stage = "preflight"
             self._update(stage=stage, findings=findings)
             report = m.preflight()
-            findings += F.from_preflight(report)
+            pre = F.from_preflight(report)
+            # a plan wrote nothing, so what stages 1-2 create is reported missing; the run preflights again
+            findings += F.plan_mode_adjust(pre) if dry else pre
             self._log(f"preflight: {len(report.get('blocking') or [])} blocking, {len(report.get('warnings') or [])} warning(s)")
             if not dry and F.has_blocking(findings):
                 self._finish("needs_attention", stage=stage, findings=findings)
@@ -204,7 +215,7 @@ class Runner:
     def _import(self, m, load, findings, patrols) -> int:
         counts = m.counts()
         total = len(patrols)
-        stop = threading.Event()
+        stop, deleted = threading.Event(), threading.Event()
         last_push = {"t": self.clock(), "n": 0}
         last: dict = {}
 
@@ -216,12 +227,21 @@ class Runner:
                     stop.set()
             except Exception as e:  # noqa: BLE001
                 self._log(f"progress update failed: {type(e).__name__}: {e}")
+            if deleted.is_set():
+                return
             try:
                 last.update(p)
+                periodic = p["done"] - last_push["n"] >= 10 or self.clock() - last_push["t"] >= 30
+                if periodic and self.store.get_load(self.load_id) is None:
+                    # the load (or its dataset) was deleted: stop writing to the site; there is nothing to record to
+                    deleted.set()
+                    stop.set()
+                    self._log("load deleted; stopping")
+                    return
                 self._update(progress={"patrols_total": total, "done": p["done"], "failed": p["failed"],
                                        "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
                                        "track_points": counts.get("track_points", 0)})
-                if p["done"] - last_push["n"] >= 10 or self.clock() - last_push["t"] >= 30:
+                if periodic:
                     self._push_files()  # the ledger above all: what a continuation resumes from
                     last_push.update(t=self.clock(), n=p["done"])
             except Exception as e:  # noqa: BLE001
@@ -233,8 +253,13 @@ class Runner:
             result = m.import_patrols(progress, stop)
         finally:
             stop.set()
+        if deleted.is_set():
+            self._log(f"import: {len(result.get('imported') or [])} imported before the load was deleted")
+            return 0
         ids = {p["uuid"]: p.get("id") or p["uuid"] for p in patrols}
         failed = result.get("failed") or {}
+        for u, err in failed.items():
+            self._log(f"failed {ids.get(u, u)}: {err}")
         findings = self.findings = findings + F.from_failed_patrols(failed, ids)
         self._update(progress={"patrols_total": total, "done": len(result.get("imported") or []) + len(failed),
                                "failed": len(failed), "skipped": last.get("already_imported", 0),

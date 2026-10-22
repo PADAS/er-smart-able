@@ -2,11 +2,30 @@
 the job stopped and what a human does about it; the plan is what a run
 would write. Pure functions, no er-smart-sync or Google imports, so the
 service and the job both use them."""
+import re
+
 MAX_PATROLS = 50
 LIST_CAP = 200
+DETAIL_LINES = 200   # a finding's detail on the load doc; the full list is in findings.json and log.txt
+# Preflight codes (er-smart-sync preflight.py) for what a run's stages 1-2
+# create: event types (datamodel), patrol types, the segment schema (the
+# universal patrol fields), subjects and choices (patrol-datamodel). A plan
+# writes nothing, so its preflight reports these as missing; the run writes
+# them and preflights again. Teams, the roster group, the preview feature,
+# permissions, the timezone and the collection type are not created by a run.
+CREATED_BY_RUN = frozenset({"event_types", "patrol_types", "segment_schema", "subjects", "choices"})
+CREATED_PREFIX = "Will be created by this load: "
 BLOCKING_CHECKLIST = ("enable_patrol_schemas", "permission_patrol_types", "permission_segment_schema",
                       "permission_subjects", "permission_patrol_config", "permission_subject_group", "team",
                       "roster_group")
+
+EVENT_CATEGORY = re.compile(r"[A-Za-z0-9_-]{2,30}")
+
+
+def ca_identifier(ca_id: str) -> str:
+    """A load's default ER event-category identifier: smart-<ca id>, made safe (2-30 chars of [A-Za-z0-9_-])."""
+    s = re.sub(r"[^a-z0-9_-]+", "-", f"smart-{ca_id or 'ca'}".lower()).strip("-")
+    return (s if len(s) >= 2 else "smart-ca")[:30]
 
 
 def finding(stage, code, severity, title, detail="", fix="", patrols=()) -> dict:
@@ -28,11 +47,38 @@ def from_preflight(report: dict) -> list:
     return out
 
 
+def _created_by_run(f: dict) -> bool:
+    if f.get("stage") != "preflight" or f.get("code") not in CREATED_BY_RUN:
+        return False
+    # of the event_types findings only "no active event type" is what the
+    # datamodel push creates; ambiguous matches and configurable-model
+    # variants stay as they are
+    return f["code"] != "event_types" or "have no active event type" in (f.get("title") or "")
+
+
+def plan_mode_adjust(findings: list) -> list:
+    """A plan's preflight findings for what the run itself will create become
+    info, titled so; every other finding is returned unchanged."""
+    out = []
+    for f in findings:
+        if _created_by_run(f):
+            f = {**f, "severity": "info", "title": CREATED_PREFIX + (f.get("title") or "")}
+        out.append(f)
+    return out
+
+
+def clip(line: str, n: int = 500) -> str:
+    return line if len(line) <= n else line[:n - 1] + "…"
+
+
 def from_failed_patrols(failed: dict, ids: dict) -> list:
     if not failed:
         return []
     n = len(failed)
-    detail = "\n".join(f"{ids.get(u, u)}: {err}" for u, err in failed.items())
+    lines = [clip(f"{ids.get(u, u)}: {err}") for u, err in failed.items()]
+    if len(lines) > DETAIL_LINES:
+        lines = lines[:DETAIL_LINES] + [f"… and {len(lines) - DETAIL_LINES} more; see log.txt"]
+    detail = "\n".join(lines)
     return [finding("import", "patrols_failed", "blocking", f"{n} patrol{'s' if n != 1 else ''} failed to import",
                     detail=detail, fix="Read each error; fix the site if it names a missing team, subject or event type, "
                     "then press Continue. Only these patrols are retried.", patrols=list(failed))]

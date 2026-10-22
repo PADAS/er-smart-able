@@ -87,3 +87,39 @@ def test_build_plan_caps_long_lists(findings):
                                patrols=[], ledger_done=set(), counts={})
     assert len(plan["event_types"]["create"]) == 200 and plan["event_types"]["more"] == 50
     assert plan["patrols"]["first"] is None
+
+
+def test_failed_patrol_detail_is_capped(findings):
+    failed = {f"u{i}": "x" * 2000 for i in range(250)}
+    out = findings.from_failed_patrols(failed, {})
+    lines = out[0]["detail"].split("\n")
+    assert len(lines) == 201 and lines[-1] == "… and 50 more; see log.txt"
+    assert all(len(line) <= 500 for line in lines)
+    assert out[0]["affected"]["count"] == 250 and out[0]["title"] == "250 patrols failed to import"
+
+
+def _pre(code, level="blocking", message="m"):
+    return {"stage": "preflight", "code": code, "severity": level, "title": message}
+
+
+def test_plan_mode_adjust_marks_what_the_run_creates(findings):
+    given = [_pre("patrol_types", message="1 patrol type(s) the legs need are missing or inactive"),
+             _pre("segment_schema"), _pre("subjects"), _pre("choices", "warning"),
+             _pre("event_types", message="2 observed SMART categor(ies) have no active event type on the site"),
+             _pre("event_types", message="3 categor(ies) match more than one event type (several data model pushes)"),
+             _pre("event_types", message="1 observed categor(ies) exist only as configurable model variants"),
+             _pre("teams"), _pre("permissions"), _pre("feature_flag"), _pre("timezone"), _pre("collection_type", "warning"),
+             {"stage": "patrol_datamodel", "code": "team", "severity": "blocking", "title": "Create the patrol team A"}]
+    out = findings.plan_mode_adjust(given)
+    assert findings.CREATED_BY_RUN == {"event_types", "patrol_types", "segment_schema", "subjects", "choices"}
+    assert [f["severity"] for f in out[:5]] == ["info"] * 5
+    assert out[0]["title"] == "Will be created by this load: 1 patrol type(s) the legs need are missing or inactive"
+    assert out[5:] == given[5:]          # ambiguous, variants and what a run cannot create stay
+    assert given[0]["severity"] == "blocking"   # the input is not changed
+    assert findings.has_blocking(out) and not findings.has_blocking(out[:5])
+
+
+def test_ca_identifier_is_a_valid_event_category(findings):
+    assert findings.ca_identifier("050500") == "smart-050500"
+    assert findings.ca_identifier("A B/c") == "smart-a-b-c"
+    assert findings.EVENT_CATEGORY.fullmatch(findings.ca_identifier("x" * 80))

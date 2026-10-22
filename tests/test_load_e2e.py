@@ -101,4 +101,12 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert sorted(e["label"] for e in plan["subjects"]["create"]) == ["Ana Cruz", "Ben Reyes"]
     codes = {f["code"] for f in load["findings"]}
     assert "team" in codes   # Team One is not on the fake site
+    # the empty site lacks the data model the run will write, so those preflight findings are info;
+    # only the missing team blocks (nothing a load creates)
+    blocking_preflight = {f["code"] for f in load["findings"] if f["stage"] == "preflight" and f["severity"] == "blocking"}
+    assert blocking_preflight <= {"teams"}, blocking_preflight
+    created = {f["code"] for f in load["findings"] if f["title"].startswith("Will be created by this load: ")}
+    assert {"patrol_types", "segment_schema", "subjects", "event_types"} <= created
+    team = [f for f in load["findings"] if f["code"] == "team"]
+    assert team and all(f["severity"] == "blocking" for f in team)
     assert store.get_load_file(ds, load_id, "plan.json") and store.get_load_file(ds, load_id, "checklist.md")

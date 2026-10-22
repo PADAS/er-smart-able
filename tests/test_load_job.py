@@ -110,9 +110,9 @@ def _load(store, ds, site, status, **extra):
                               "continuations": 0, "findings": [], **OWNER, **extra})
 
 
-def _run(env, mode, migration, status, clock=None, env_vars=None, check_token=lambda host, token: "ops"):
+def _run(env, mode, migration, status, clock=None, env_vars=None, check_token=lambda host, token: "ops", **load_extra):
     store, load_job, ds, site, tmp = env
-    id = _load(store, ds, site, status)
+    id = _load(store, ds, site, status, **load_extra)
     seen = {}
     factory = lambda **kw: seen.update(kw) or migration
     runner = load_job.Runner(store, id, mode, work=tmp / "work", migration_factory=factory, check_token=check_token,
@@ -334,3 +334,109 @@ def test_an_exception_after_the_import_keeps_the_failed_patrol_findings(env, mon
     rc, load, _ = _run(env, "run", FakeMigration(checklist=[ICONS], failed={"u2": "500 on the track"}), "queued")
     assert load["status"] == "failed" and "store down" in load["error"]
     assert [f["code"] for f in load["findings"]] == ["patrol_type_icons", "patrols_failed"]
+
+
+UNPUSHED = {"blocking": [{"code": "patrol_types", "level": "blocking", "message": "1 patrol type(s) the legs need are missing",
+                          "fix": "f", "count": 1, "examples": [], "affected_patrols": ["u1"]},
+                         {"code": "teams", "level": "blocking", "message": "1 patrol team(s) are missing or inactive",
+                          "fix": "f", "count": 1, "examples": [], "affected_patrols": ["u1"]}], "warnings": []}
+
+
+def test_a_plan_marks_what_the_run_will_create(env):
+    rc, load, _ = _run(env, "plan", FakeMigration(preflight=UNPUSHED), "planning")
+    by_code = {f["code"]: f for f in load["findings"]}
+    assert load["status"] == "planned"
+    assert by_code["patrol_types"]["severity"] == "info"
+    assert by_code["patrol_types"]["title"].startswith("Will be created by this load: ")
+    assert by_code["teams"]["severity"] == "blocking"
+
+
+def test_a_run_keeps_preflight_findings_blocking(env):
+    rc, load, _ = _run(env, "run", FakeMigration(preflight=UNPUSHED), "queued")
+    assert load["status"] == "needs_attention" and load["stage"] == "preflight"
+    assert {f["code"]: f["severity"] for f in load["findings"]} == {"patrol_types": "blocking", "teams": "blocking"}
+
+
+def test_the_event_category_option_reaches_the_migration(env):
+    options = {"language": "en", "configurable_model": None, "roster_group": None, "event_category": "lawin050500"}
+    rc, load, seen = _run(env, "plan", FakeMigration(), "planning", options=options)
+    assert seen["ca_identifier"] == "lawin050500"
+
+
+def test_a_load_without_the_event_category_option_uses_the_default(env):
+    options = {"language": "en", "configurable_model": None, "roster_group": None}   # made before the option existed
+    rc, load, seen = _run(env, "plan", FakeMigration(), "planning", options=options)
+    assert seen["ca_identifier"] == "smart-050500"
+
+
+def test_the_log_tail_is_capped(env):
+    import logging
+
+    class Loud(FakeMigration):
+        def preflight(self):
+            for i in range(100):
+                logging.getLogger("er_smart_sync.preflight").info("payload %d %s", i, "y" * 5000)
+            return super().preflight()
+
+    rc, load, _ = _run(env, "run", Loud(), "queued")
+    lines = load["log_tail"].split("\n")
+    assert len(lines) == 60 and all(len(line) <= 500 for line in lines)
+    assert "y" * 5000 in _stored_log(env[0], load)   # log.txt keeps every line whole
+
+
+def test_an_outcome_too_big_to_record_still_records_the_status(env, monkeypatch):
+    store = env[0]
+    real_update = store.update_load
+    refused = []
+
+    def limited(load_id, **fields):
+        if fields.get("status") == "needs_attention" and fields.get("findings") and not refused:
+            refused.append(fields)
+            raise RuntimeError("400 Document exceeds the maximum size")
+        real_update(load_id, **fields)
+
+    monkeypatch.setattr(store, "update_load", limited)
+    rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "500 on the track"}), "queued")
+    assert refused and rc == 0
+    assert load["status"] == "needs_attention" and load["stage"] == "import"
+    assert load["findings"] is None and load["log_tail"] is None and "see log.txt" in load["error"]
+    log = _stored_log(store, load)
+    assert "recording the outcome failed: RuntimeError: 400 Document exceeds the maximum size" in log
+    assert "needs_attention recorded without the tail, findings and plan" in log
+
+
+def test_a_failed_run_keeps_its_error_when_the_outcome_is_too_big(env, monkeypatch):
+    store = env[0]
+    real_update = store.update_load
+
+    def limited(load_id, **fields):
+        if fields.get("status") == "failed" and fields.get("log_tail"):
+            raise RuntimeError("too big")
+        real_update(load_id, **fields)
+
+    monkeypatch.setattr(store, "update_load", limited)
+    rc, load, _ = _run(env, "run", FakeMigration(raise_in="preflight"), "queued")
+    assert rc == 0 and load["status"] == "failed" and "boom in preflight" in load["error"]
+
+
+def test_a_deleted_load_stops_the_import(env):
+    store, load_job, ds, site, tmp = env
+    id = _load(store, ds, site, "queued")
+    clock = Clock()
+
+    class Deleting(FakeMigration):
+        def import_patrols(self, progress, stop):
+            def wrapped(p):
+                if p["done"] == 2:
+                    store.delete_load(id)
+                progress(p)
+            return super().import_patrols(wrapped, stop)
+
+    m = Deleting(per_patrol_seconds=31, clock=clock)   # each patrol crosses the 30 s push cycle
+    runner = load_job.Runner(store, id, "run", work=tmp / "work", migration_factory=lambda **kw: m,
+                             check_token=lambda h, t: "ops", clock=clock, env={"LOAD_SOFT_DEADLINE_SECONDS": "1000"})
+    assert runner.run() == 0
+    assert m.done == {"u1", "u2"}             # stopped before the third patrol
+    assert store.get_load(id) is None and store.get_load_file(ds, id, "log.txt") is None
+    assert "load deleted; stopping" in runner.log_lines
+    assert not any(line.startswith("error:") for line in runner.log_lines)
