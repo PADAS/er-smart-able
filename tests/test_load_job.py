@@ -290,3 +290,47 @@ def test_library_log_output_reaches_the_log(env):
     chunks, _, _ = store.get_load_file(load["dataset_id"], load["id"], "log.txt")
     assert "checked 3 patrols" in b"".join(chunks).decode()
     assert not any(type(h).__name__ == "_RunLogHandler" for h in logging.getLogger().handlers)
+
+
+def _stored_log(store, load):
+    chunks, _, _ = store.get_load_file(load["dataset_id"], load["id"], "log.txt")
+    return b"".join(chunks).decode()
+
+
+def test_the_outcome_line_reaches_the_tail_and_the_log(env):
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued")
+    line = f"load {load['id']}: done"
+    assert line in load["log_tail"] and line in _stored_log(env[0], load)
+
+
+def test_the_token_never_reaches_the_log(env):
+    store, load_job, ds, _, tmp = env
+    site = store.create_site({"name": "s2", "url": "y.pamdas.org", "created_at": "2026-10-21T00:00:00+00:00", **OWNER},
+                             "SECRET-TOKEN-xyz")
+    id = _load(store, ds, site, "queued")
+    seen = {}
+    m = FakeMigration(failed={"u2": "500 on the track"})
+    load_job.Runner(store, id, "run", work=tmp / "work", migration_factory=lambda **kw: seen.update(kw) or m,
+                    check_token=lambda h, t: "ops", clock=Clock(), env={}).run()
+    load = store.get_load(id)
+    assert seen["token"] == "SECRET-TOKEN-xyz"
+    assert "SECRET-TOKEN-xyz" not in load["log_tail"] and "SECRET-TOKEN-xyz" not in _stored_log(store, load)
+    assert "SECRET-TOKEN-xyz" not in json.dumps(load)
+
+
+def test_an_exception_after_the_import_keeps_the_failed_patrol_findings(env, monkeypatch):
+    store = env[0]
+    real_update = store.update_load
+    n = {"progress": 0}
+
+    def flaky(load_id, **fields):
+        if "progress" in fields:
+            n["progress"] += 1
+            if n["progress"] == 4:  # the final count, after the three callbacks
+                raise RuntimeError("store down")
+        real_update(load_id, **fields)
+
+    monkeypatch.setattr(store, "update_load", flaky)
+    rc, load, _ = _run(env, "run", FakeMigration(checklist=[ICONS], failed={"u2": "500 on the track"}), "queued")
+    assert load["status"] == "failed" and "store down" in load["error"]
+    assert [f["code"] for f in load["findings"]] == ["patrol_type_icons", "patrols_failed"]

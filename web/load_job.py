@@ -69,6 +69,7 @@ class Runner:
         self.log_lines: list = []
         self.load_dir: Path | None = None
         self.dataset_id = None
+        self.findings: list = []  # the latest findings, for whichever exit records them
         self._log_lock = threading.Lock()
         self.started = self.clock()
 
@@ -97,15 +98,16 @@ class Runner:
                 self.store.put_load_file(self.dataset_id, self.load_id, p.name, p)
 
     def _finish(self, status: str, **fields):
-        """Record an outcome. The files go first, so a status that ends the
-        execution never points at files the store does not have yet; a
-        failure to push them is logged and does not stop the status."""
+        """Record an outcome. The outcome line is logged first, so it reaches
+        log.txt and the tail; the files go before the status, so a status that
+        ends the execution never points at files the store does not have yet;
+        a failure to push them is logged and does not stop the status."""
+        self._log(f"load {self.load_id}: {status}")
         try:
             self._push_files()
         except Exception as e:  # noqa: BLE001
             self._log(f"pushing the load's files failed: {type(e).__name__}: {e}")
         self._update(status=status, log_tail=self._tail(), **fields)
-        self._log(f"load {self.load_id}: {status}")
 
     # ---- the run
     def run(self) -> int:
@@ -116,7 +118,7 @@ class Runner:
         self.dataset_id = load["dataset_id"]
         self._update(status="running", error=None, started_at=now())
         self.work.mkdir(parents=True, exist_ok=True)
-        findings: list = []
+        findings = self.findings
         stage = None
         root = logging.getLogger()
         handler, old_level = None, root.level
@@ -190,7 +192,7 @@ class Runner:
         except Exception as e:  # noqa: BLE001
             logging.exception("load %s failed", self.load_id)
             self._log(f"error: {type(e).__name__}: {e}")
-            self._finish("failed", stage=stage, error=f"{type(e).__name__}: {e}", findings=findings)
+            self._finish("failed", stage=stage, error=f"{type(e).__name__}: {e}", findings=self.findings)
             return 0
         finally:
             if handler is not None:
@@ -233,7 +235,7 @@ class Runner:
             stop.set()
         ids = {p["uuid"]: p.get("id") or p["uuid"] for p in patrols}
         failed = result.get("failed") or {}
-        findings = findings + F.from_failed_patrols(failed, ids)
+        findings = self.findings = findings + F.from_failed_patrols(failed, ids)
         self._update(progress={"patrols_total": total, "done": len(result.get("imported") or []) + len(failed),
                                "failed": len(failed), "skipped": last.get("already_imported", 0),
                                "events": counts.get("observations", 0), "track_points": counts.get("track_points", 0)})
@@ -247,7 +249,10 @@ class Runner:
                 return 0
             self._finish("continuing", stage="import", findings=findings, continuations=n, claimed_at=now())
             execution = self.store.start_load(self.load_id, "run")
-            self._update(execution=execution)
+            try:
+                self._update(execution=execution)
+            except Exception as e:  # noqa: BLE001  the continuation may already be running
+                self._log(f"recording the continuation's execution failed: {type(e).__name__}: {e}")
             return 0
         if F.has_blocking(findings):
             self._finish("needs_attention", stage="import", findings=findings)

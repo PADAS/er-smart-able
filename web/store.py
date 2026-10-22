@@ -359,12 +359,13 @@ class LocalStore:
         return [os.environ.get("LOAD_PYTHON", sys.executable), str(ROOT / "web" / "load_job.py"), id, mode]
 
     def start_load(self, id: str, mode: str) -> str:
-        def run():
-            proc = subprocess.Popen(self.load_job_command(id, mode),
-                                    env={**os.environ, "BACKEND": "local", "LOAD_ID": id, "MODE": mode},
-                                    start_new_session=True)
-            proc.wait()
-        threading.Thread(target=run, daemon=True).start()
+        """Launch now, reap in the background: the load job calls this for its
+        own continuation and exits right after, and a daemon thread may never
+        run before the interpreter shuts down."""
+        proc = subprocess.Popen(self.load_job_command(id, mode),
+                                env={**os.environ, "BACKEND": "local", "LOAD_ID": id, "MODE": mode},
+                                start_new_session=True)
+        threading.Thread(target=proc.wait, daemon=True).start()
         return "local-thread"
 
 
