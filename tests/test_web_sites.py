@@ -49,6 +49,20 @@ def test_delete_site_removes_the_secret(client):
         store.read_site_token(id)
 
 
+def test_a_failed_index_write_leaves_no_secret_behind(client, tmp_path, monkeypatch):
+    app, _ = client
+    store = app.get_store()
+
+    def boom(path, data):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(store, "_write_file", boom)
+    with pytest.raises(OSError):
+        store.create_site({"name": "x", "url": "x.pamdas.org", **OWNER}, "tok-orphan")
+    secrets = tmp_path / "data" / "secrets"
+    assert not secrets.exists() or list(secrets.iterdir()) == []
+
+
 @pytest.fixture
 def er(monkeypatch):
     """Stand in for the EarthRanger site: records calls, answers as told."""

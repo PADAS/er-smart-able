@@ -15,6 +15,7 @@ Two backends, chosen by BACKEND:
 Both expose the same methods, so app.py and job.py do not care which.
 """
 import json
+import logging
 import mimetypes
 import os
 import shutil
@@ -169,10 +170,14 @@ class LocalStore:
         id = uuid.uuid4().hex[:12]
         secret = f"smart-able-site-{id}"
         self._write_secret(secret, token)
-        with self.lock:
-            data = self._read_file(self.dir / "sites.json")
-            data[id] = {**doc, "secret_name": secret}
-            self._write_file(self.dir / "sites.json", data)
+        try:
+            with self.lock:
+                data = self._read_file(self.dir / "sites.json")
+                data[id] = {**doc, "secret_name": secret}
+                self._write_file(self.dir / "sites.json", data)
+        except BaseException:
+            (self.dir / "secrets" / secret).unlink(missing_ok=True)   # no orphan token behind a failed registration
+            raise
         return id
 
     def update_site(self, id: str, **fields):
@@ -434,8 +439,15 @@ class GcpStore:
     def create_site(self, doc: dict, token: str) -> str:
         ref = self._sites().document()
         secret = f"smart-able-site-{ref.id}"
-        self._secret_create(secret, token)
-        ref.set({**doc, "secret_name": secret})
+        try:
+            self._secret_create(secret, token)
+            ref.set({**doc, "secret_name": secret})
+        except BaseException:
+            try:   # no orphan token behind a failed registration
+                self._secret_delete(secret)
+            except Exception:  # noqa: BLE001
+                logging.exception("could not delete secret %s after a failed site registration", secret)
+            raise
         return ref.id
 
     def update_site(self, id: str, **fields):
