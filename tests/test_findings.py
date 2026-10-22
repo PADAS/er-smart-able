@@ -58,9 +58,12 @@ def test_build_plan_groups_dry_run_writes(findings):
              ("patch_event_type", ({"value": "smart-ca-import_threats", "display": "Threats"},), {}),
              ("get_event_types", (), {})]
     changes = [{"kind": "patrol_type", "action": "created", "value": "patrol_foot"},
-               {"kind": "choice", "action": "updated", "value": "law", "id": "c1", "before": {}},
+               {"kind": "choice", "action": "updated", "value": "law", "id": "c1", "field": "smart_threat", "before": {}},
+               {"kind": "choice", "action": "updated", "value": "old", "id": "c2", "field": "smart_threat", "before": {"is_active": True}},
+               {"kind": "choice", "action": "created", "value": "foot"},
                {"kind": "subject", "action": "created", "id": "dry-run", "name": "Ana Cruz"},   # a plan's creates have no id
                {"kind": "subject", "action": "updated", "id": "s3", "name": "Carla Diaz", "before": {"name": "C. Diaz"}},
+               {"kind": "subject", "action": "updated", "id": "s4", "name": None, "before": {"is_active": True}},
                {"kind": "subject", "action": "updated", "id": "s2", "name": "Old Login", "before": {"is_active": True}},
                {"kind": "universal_patrol_fields", "action": "written", "before_file": None}]
     plan = findings.build_plan(datamodel_stats={"event_types_unchanged": 5, "categories_existing": 1},
@@ -74,9 +77,11 @@ def test_build_plan_groups_dry_run_writes(findings):
     assert plan["event_types"]["update"] == [{"value": "smart-ca-import_threats", "label": "Threats"}]
     assert plan["event_types"]["unchanged"] == 5
     assert plan["patrol_types"] == {"create": [{"value": "patrol_foot", "label": "patrol_foot"}], "update": []}
-    assert plan["choices"]["update"] == [{"value": "law", "label": "law"}]
+    assert plan["choices"] == {"create": [{"value": "foot", "label": "foot"}], "update": [{"value": "smart_threat.law", "label": "law"}],
+                               "deactivate": [{"value": "smart_threat.old", "label": "old"}]}   # switching a choice off is shown
     assert plan["subjects"] == {"create": [{"value": None, "label": "Ana Cruz"}], "update": [{"value": "s3", "label": "Carla Diaz"}],
-                                "deactivate": [{"value": "s2", "label": "Old Login"}]}
+                                "deactivate": [{"value": "s2", "label": "Old Login"},
+                                               {"value": "s4", "label": "s4"}]}   # a nameless subject is labelled by its id
     assert plan["universal_patrol_fields"] == "write" and plan["roster"] == {"group": "Rangers", "add": 2}
     assert plan["patrols"] == {"total": 2, "first": "2019-03-04", "last": "2024-11-30", "already_done": 1,
                                "events": 10, "track_points": 400}

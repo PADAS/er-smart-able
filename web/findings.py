@@ -165,7 +165,7 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
             types["create"].append(e)
         elif name == "patch_event_type":
             types["update"].append(e)
-    by_kind = {"patrol_type": {"create": [], "update": []}, "choice": {"create": [], "update": []},
+    by_kind = {"patrol_type": {"create": [], "update": []}, "choice": {"create": [], "update": [], "deactivate": []},
                "subject": {"create": [], "update": [], "deactivate": []}}
     action_key = {"created": "create", "updated": "update", "deactivated": "deactivate"}
     for c in pd_changes:
@@ -176,8 +176,10 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
             if c.get("kind") == "subject":
                 # a plan writes nothing, so a subject it would create has no id yet (er-smart-sync
                 # records a placeholder there); an update or deactivation names the existing one
-                name = c.get("name") or c.get("value")
-                by_kind["subject"][k].append({"value": None if k == "create" else c.get("id"), "label": name})
+                by_kind["subject"][k].append(_entry(None if k == "create" else c.get("id"), c.get("name") or c.get("id")))
+            elif c.get("kind") == "choice" and c.get("field"):
+                # the same value can exist under several fields: the field qualifies it
+                by_kind["choice"][k].append(_entry(f"{c['field']}.{c.get('value')}", c.get("value")))
             else:
                 by_kind[c["kind"]][k].append(_entry(c.get("value")))
     dates = sorted(p["start_date"] for p in patrols if p.get("start_date"))

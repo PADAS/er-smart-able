@@ -473,7 +473,8 @@ function renderPlan(plan) {
     if (!g) return '';
     const parts = [];
     for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length)
-      parts.push('<details><summary>' + k + ' ' + g[k].length + (g.more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (e.value && e.value !== e.label ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (g.more ? '<li class="tiny">and ' + esc(g.more) + ' more</li>' : '') + '</ul></details>');
+      // a subject to be created has no id (plans saved before this rule carried a placeholder there)
+      parts.push('<details><summary>' + k + ' ' + g[k].length + (g.more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (e.value && e.value !== e.label && !(title === 'Subjects' && k === 'create') ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (g.more ? '<li class="tiny">and ' + esc(g.more) + ' more</li>' : '') + '</ul></details>');
     if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
     return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
   };
