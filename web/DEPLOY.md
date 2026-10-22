@@ -85,8 +85,9 @@ tofu output
 
 This creates the Artifact Registry repository, the deploy and runtime
 service accounts with their roles (including Secret Manager access limited
-by an IAM condition to secrets named `smart-able-site-*`; the condition
-cannot restrict creating secrets, only reading and deleting them), the WIF pool and provider for GitHub
+by an IAM condition to secrets named `smart-able-site-*`, plus a custom
+role that only creates secrets, because creation is checked against the
+project and a name condition would deny it), the WIF pool and provider for GitHub
 Actions, the Firestore database (or adopts it), and the bucket with CORS
 for browser uploads and a 30-day lifecycle rule on uploaded backups.
 
@@ -217,4 +218,4 @@ you would a backup.
 
 An EarthRanger site's API token is stored in Secret Manager as
 `smart-able-site-<id>`, never in Firestore, and is deleted with the site.
-The runtime account can read and delete only secrets with that prefix.
+The runtime account can create secrets (a custom role holding only that permission) but read, add versions to, and delete only secrets with that prefix.

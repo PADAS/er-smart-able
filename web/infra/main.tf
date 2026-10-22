@@ -88,10 +88,26 @@ resource "google_project_iam_member" "runtime" {
 data "google_project" "current" {}
 
 # the service creates, reads and deletes one secret per registered
-# EarthRanger site (smart-able-site-<id>). The condition gates access and
-# delete to those names; create is checked at project scope, not against a
-# resource name, so it cannot be gated: the runtime account can create any
-# secret but read or delete only smart-able-site-* ones.
+# EarthRanger site (smart-able-site-<id>). Creating a secret is checked
+# against the project (projects/<n>), not a secret name, so a name condition
+# would deny it; creation gets its own unconditioned custom role below.
+# Reading, adding versions and deleting are limited to smart-able-site-* by
+# the condition on the admin binding (a new secret's resource name is
+# projects/<n>/secrets/smart-able-site-<id>, so adding its first version is
+# covered).
+resource "google_project_iam_custom_role" "secret_creator" {
+  role_id     = "smartAbleSecretCreator"
+  title       = "smart-able secret creator"
+  description = "Create secrets only; access and delete are granted separately with a name condition"
+  permissions = ["secretmanager.secrets.create"]
+}
+
+resource "google_project_iam_member" "runtime_secret_creator" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.secret_creator.id
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
 resource "google_project_iam_member" "runtime_site_secrets" {
   project = var.project_id
   role    = "roles/secretmanager.admin"
