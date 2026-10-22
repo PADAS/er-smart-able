@@ -60,6 +60,7 @@ def test_build_plan_groups_dry_run_writes(findings):
     changes = [{"kind": "patrol_type", "action": "created", "value": "patrol_foot"},
                {"kind": "choice", "action": "updated", "value": "law", "id": "c1", "before": {}},
                {"kind": "subject", "action": "created", "id": "s1", "value": "Ana Cruz"},
+               {"kind": "subject", "action": "created", "id": "dry-run", "name": "Ben Reyes"},
                {"kind": "subject", "action": "updated", "id": "s2", "name": "Old Login", "before": {"is_active": True}},
                {"kind": "universal_patrol_fields", "action": "written", "before_file": None}]
     plan = findings.build_plan(datamodel_stats={"event_types_unchanged": 5, "categories_existing": 1},
@@ -74,7 +75,7 @@ def test_build_plan_groups_dry_run_writes(findings):
     assert plan["event_types"]["unchanged"] == 5
     assert plan["patrol_types"] == {"create": [{"value": "patrol_foot", "label": "patrol_foot"}], "update": []}
     assert plan["choices"]["update"] == [{"value": "law", "label": "law"}]
-    assert plan["subjects"] == {"create": [{"value": "s1", "label": "Ana Cruz"}], "update": [],
+    assert plan["subjects"] == {"create": [{"value": "s1", "label": "Ana Cruz"}, {"value": "Ben Reyes", "label": "Ben Reyes"}], "update": [],
                                 "deactivate": [{"value": "s2", "label": "Old Login"}]}
     assert plan["universal_patrol_fields"] == "write" and plan["roster"] == {"group": "Rangers", "add": 2}
     assert plan["patrols"] == {"total": 2, "first": "2019-03-04", "last": "2024-11-30", "already_done": 1,
