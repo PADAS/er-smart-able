@@ -23,11 +23,11 @@
 
 ## Review Focus
 
-1. A site URL pasted with a scheme, path or trailing slash (`https://phinney.staging.pamdas.org/api/v1.0/`) must normalize to the bare host, and two registrations of the same host by one user must be allowed (different tokens). Test in Task B3.
-2. Creating a load for a conservation area whose bundle has zero patrols, or whose `ca_id` is not in `export`, must be refused with 400 before any execution starts. Test in Task B5.
-3. The load job must never leave a load in `running` when it exits by exception from the plan builder or the token fetch: every exit path writes `failed` or `needs_attention`. Test in Task B7.
-4. A `needs_attention` load whose site was deleted: `run` and `replan` return 409 and the load doc is unchanged. Test in Task B5.
-5. Deleting a dataset with an active load: the load's folder and doc go with it and no orphan execution can claim it later (the job finds no doc and exits 2). Test in Task B4 and B7.
+1. A site URL pasted with a scheme, path or trailing slash (`https://phinney.staging.pamdas.org/api/v1.0/`) must normalize to the bare host, and two registrations of the same host by one user must be allowed (different tokens). Test in Task 7.
+2. Creating a load for a conservation area whose bundle has zero patrols, or whose `ca_id` is not in `export`, must be refused with 400 before any execution starts. Test in Task 9.
+3. The load job must never leave a load in `running` when it exits by exception from the plan builder or the token fetch: every exit path writes `failed` or `needs_attention`. Test in Task 11.
+4. A `needs_attention` load whose site was deleted: `run` and `replan` return 409 and the load doc is unchanged. Test in Task 9.
+5. Deleting a dataset with an active load: the load's folder and doc go with it and no orphan execution can claim it later (the job finds no doc and exits 2). Test in Task 8 and B7.
 
 ---
 
@@ -35,7 +35,7 @@
 
 Repository: `~/padas/earthranger-smart-utils`. Run tests with `uv run pytest`. These land as one release (`v0.9.0`) that Part B pins.
 
-### Task A1: Checklist items as data
+### Task 1: Checklist items as data
 
 **Files:**
 - Modify: `src/er_smart_sync/patrol_datamodel.py:72-78` (ChecklistItem)
@@ -102,7 +102,7 @@ git add src/er_smart_sync/patrol_datamodel.py tests/test_patrol_datamodel.py
 git commit -m "patrol-datamodel: expose the checklist as dicts"
 ```
 
-### Task A2: Progress callback and stop event on run_import
+### Task 2: Progress callback and stop event on run_import
 
 **Files:**
 - Modify: `src/er_smart_sync/patrol_import.py:367-476` (run_import) and `cli.py:1099-1205` (unchanged behaviour, no edit needed)
@@ -239,7 +239,7 @@ git add src/er_smart_sync/patrol_import.py tests/test_patrol_import.py docs/cli-
 git commit -m "import-patrols: progress callback and stop event for library callers"
 ```
 
-### Task A3: The from-file datamodel push as a function
+### Task 3: The from-file datamodel push as a function
 
 **Files:**
 - Create: `src/er_smart_sync/datamodel_push.py`
@@ -436,7 +436,7 @@ git add src/er_smart_sync/datamodel_push.py src/er_smart_sync/cli.py tests/test_
 git commit -m "datamodel: from-file push callable as a function"
 ```
 
-### Task A4: Release
+### Task 4: Release
 
 **Files:**
 - Modify: `docs/changelog.md`
@@ -476,7 +476,7 @@ Repository: `/Users/chrisdo/padas/er-smart-able`. Run tests with `uv run pytest`
 | `web/Dockerfile.job`, `.github/workflows/deploy.yml`, `web/infra/main.tf`, `web/DEPLOY.md` | the load job, Secret Manager |
 | `tests/test_web_sites.py`, `tests/test_web_loads.py`, `tests/test_findings.py`, `tests/test_load_job.py`, `tests/test_web_extract.py` | tests |
 
-### Task B1: The extraction job publishes the bundle and describes it
+### Task 5: The extraction job publishes the bundle and describes it
 
 **Files:**
 - Modify: `web/store.py` (LocalStore and GcpStore: `put_export`, `fetch_export`, `delete_storage` already covers it by prefix)
@@ -626,7 +626,7 @@ git add web/store.py web/job.py web/app.py tests/test_web_extract.py
 git commit -m "Extraction publishes the migration bundle and lists it on the dataset"
 ```
 
-### Task B2: Sites and secrets in the store
+### Task 6: Sites and secrets in the store
 
 **Files:**
 - Modify: `web/store.py`
@@ -841,7 +841,7 @@ git add web/store.py pyproject.toml uv.lock tests/test_web_sites.py
 git commit -m "Store: EarthRanger sites with tokens in the secret store"
 ```
 
-### Task B3: The sites API and the token check
+### Task 7: The sites API and the token check
 
 **Files:**
 - Create: `web/er_site.py`
@@ -1104,7 +1104,7 @@ git add web/er_site.py web/app.py tests/test_web_sites.py
 git commit -m "API: register, share and remove EarthRanger sites"
 ```
 
-### Task B4: Loads in the store: documents, claims, storage, cascade
+### Task 8: Loads in the store: documents, claims, storage, cascade
 
 **Files:**
 - Modify: `web/store.py`
@@ -1376,7 +1376,7 @@ def load_in_progress(doc: dict) -> bool:
         return "local-thread"
 ```
 
-`LOAD_PYTHON` lets a local run point at the er-smart-sync venv's interpreter (Task B9's docker-compose sets it to `/opt/load/bin/python`). The local backend does not enforce a timeout on loads: continuation (Task B7) handles the clock from inside the job. Change `delete(self, id)` for datasets to call `self.delete_dataset_loads(id)` first.
+`LOAD_PYTHON` lets a local run point at the er-smart-sync venv's interpreter (Task 13's docker-compose sets it to `/opt/load/bin/python`). The local backend does not enforce a timeout on loads: continuation (Task 11) handles the clock from inside the job. Change `delete(self, id)` for datasets to call `self.delete_dataset_loads(id)` first.
 
 - [ ] **Step 5: Implement GcpStore**
 
@@ -1480,14 +1480,14 @@ git add web/store.py web/DEPLOY.md tests/test_web_loads.py
 git commit -m "Store: loads with claims, files and the job launcher; deleted with their dataset"
 ```
 
-### Task B5: The loads API
+### Task 9: The loads API
 
 **Files:**
 - Modify: `web/app.py`
 - Test: `tests/test_web_loads.py`
 
 **Interfaces:**
-- Consumes: store methods from Task B4, `_load_site` from Task B3.
+- Consumes: store methods from Task 8, `_load_site` from Task 7.
 - Produces: the routes in the spec. `_load_public(doc, user)` returns every `LOAD_FIELDS` key plus `id`, `mine`, `held` (`load_in_progress`), and `site` (`{id, name, url}` or `null` when the site is gone). `POST /api/datasets/{id}/loads` body is `LoadCreate(ca_id: str, site_id: str, options: dict = {})`; `options` is normalized to exactly `{language, configurable_model, roster_group}`, `language` defaulting to the export entry's `default_language`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1758,7 +1758,7 @@ git add web/app.py tests/test_web_loads.py
 git commit -m "API: create, plan, run, continue, delete loads and read their files"
 ```
 
-### Task B6: Findings and the plan, as pure functions
+### Task 10: Findings and the plan, as pure functions
 
 **Files:**
 - Create: `web/findings.py`
@@ -2007,14 +2007,14 @@ git add web/findings.py tests/test_findings.py
 git commit -m "Findings and plan builders for hosted loads"
 ```
 
-### Task B7: The load job
+### Task 11: The load job
 
 **Files:**
 - Create: `web/load_job.py`
 - Test: `tests/test_load_job.py`
 
 **Interfaces:**
-- Consumes: store methods (Task B4), `findings` (Task B6), `er_site.check_token` (Task B3), er-smart-sync 0.9.0 (Part A).
+- Consumes: store methods (Task 8), `findings` (Task 10), `er_site.check_token` (Task 7), er-smart-sync 0.9.0 (Part A).
 - Produces: `main(load_id: str, mode: str) -> int` and `Runner`. The job talks to er-smart-sync only through a `Migration` object so tests can substitute one:
 
 ```python
@@ -2642,7 +2642,7 @@ git add web/load_job.py tests/test_load_job.py
 git commit -m "Load job: plan and run the migration, stop on findings, continue past the soft deadline"
 ```
 
-### Task B8: The UI
+### Task 12: The UI
 
 **Files:**
 - Modify: `web/templates/index.html`, `web/static/app.js`, `web/static/app.css`
@@ -2889,7 +2889,7 @@ uv sync --extra web --extra dev
 cd web && BACKEND=local AUTH_DISABLED=true LOAD_PYTHON=$PWD/../.venv-load/bin/python uv run uvicorn app:app --reload --port 8080
 ```
 
-(`.venv-load` is the er-smart-sync venv from Task B9's local setup; without it, use the fake path: `LOAD_PYTHON` unset and expect the job to fail with `ModuleNotFoundError`, which the page shows as a `failed` load.) Register a site with a real staging token, upload the small Conservation Area export from `~/projects/smart-migration-artifacts`, press Load, read the plan, confirm, watch progress. Check: the Sites table hides the token, the load line appears on the card, the load page polls while held and stops when done, Plan again works on a done load.
+(`.venv-load` is the er-smart-sync venv from Task 13's local setup; without it, use the fake path: `LOAD_PYTHON` unset and expect the job to fail with `ModuleNotFoundError`, which the page shows as a `failed` load.) Register a site with a real staging token, upload the small Conservation Area export from `~/projects/smart-migration-artifacts`, press Load, read the plan, confirm, watch progress. Check: the Sites table hides the token, the load line appears on the card, the load page polls while held and stops when done, Plan again works on a done load.
 
 - [ ] **Step 7: Commit**
 
@@ -2898,7 +2898,7 @@ git add web/templates/index.html web/static/app.js web/static/app.css
 git commit -m "UI: sites, the load form, loads on the dataset card, and the load page"
 ```
 
-### Task B9: Image, deployment, infrastructure, docs
+### Task 13: Image, deployment, infrastructure, docs
 
 **Files:**
 - Modify: `web/Dockerfile.job`, `web/docker-compose.yml`, `.github/workflows/deploy.yml`, `web/infra/main.tf`, `web/DEPLOY.md`, `README.md`
@@ -2999,7 +2999,7 @@ git add web/Dockerfile.job web/requirements-load.txt web/docker-compose.yml .git
 git commit -m "Deploy the load job with its own er-smart-sync venv; Secret Manager for site tokens"
 ```
 
-### Task B10: End-to-end plan on the local backend
+### Task 14: End-to-end plan on the local backend
 
 **Files:**
 - Test: `tests/test_load_e2e.py`
@@ -3102,7 +3102,7 @@ git add tests/test_load_e2e.py
 git commit -m "End-to-end plan test through er-smart-sync's dry-run client"
 ```
 
-### Task B11: Manual check against phinney staging and release
+### Task 15: Manual check against phinney staging and release
 
 - [ ] **Step 1: Seed and compare**
 
