@@ -238,3 +238,34 @@ def test_delete_and_files(client, tmp_path):
     assert c.get(f"/api/loads/{id}/files/..%2Fsecret").status_code in (400, 404)
     assert c.delete(f"/api/loads/{id}").status_code == 200
     assert store.get_load(id) is None
+
+
+def _ago(hours=26):
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(timespec="seconds")
+
+
+def test_a_stale_running_load_can_be_continued(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site, status="running", started_at=_ago())
+    assert c.post(f"/api/loads/{id}/run").status_code == 200
+    assert store.get_load(id)["status"] == "queued" and launches[-1] == (id, "run")
+
+
+def test_a_stale_queued_load_can_be_replanned(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site, status="queued", claimed_at=_ago())
+    assert c.post(f"/api/loads/{id}/replan").status_code == 200
+    assert store.get_load(id)["status"] == "planning" and launches[-1] == (id, "plan")
+
+
+def test_a_fresh_running_load_still_refuses_run(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site, status="running", started_at=_ago(0))
+    assert c.post(f"/api/loads/{id}/run").status_code == 409
+    assert launches == []

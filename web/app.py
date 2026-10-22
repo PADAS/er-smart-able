@@ -40,7 +40,7 @@ from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
 from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
-from store import (LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
+from store import (LOAD_ACTIVE, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
                    load_in_progress, now)
 
 logging.basicConfig(level=logging.INFO)
@@ -381,6 +381,11 @@ async def get_load(id: str, user=Depends(current_user)):
     return _load_public(_load_load(id, user), user)
 
 
+def _stale(doc: dict) -> bool:
+    """Its job was killed outright and the hold has lapsed."""
+    return doc.get("status") in LOAD_ACTIVE and not load_in_progress(doc)
+
+
 def _needs_site(doc: dict):
     if not get_store().get_site(doc.get("site_id", "")):
         raise HTTPException(status_code=409, detail="The site was removed; register it again and start a new load")
@@ -389,7 +394,7 @@ def _needs_site(doc: dict):
 @app.post("/api/loads/{id}/run")
 async def run_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
-    if doc.get("status") not in ("planned", "needs_attention"):
+    if not (doc.get("status") in ("planned", "needs_attention") or _stale(doc)):
         raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be run; plan it again first")
     _needs_site(doc)
     _start(id, "run", "queued")
@@ -399,7 +404,7 @@ async def run_load(id: str, user=Depends(current_user)):
 @app.post("/api/loads/{id}/replan")
 async def replan_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
-    if doc.get("status") not in ("planned", "needs_attention", "failed", "done") or load_in_progress(doc):
+    if not (doc.get("status") in ("planned", "needs_attention", "failed", "done") or _stale(doc)) or load_in_progress(doc):
         raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be planned again now")
     _needs_site(doc)
     _start(id, "plan", "planning")
