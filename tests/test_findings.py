@@ -58,8 +58,14 @@ def test_build_plan_groups_dry_run_writes(findings):
              ("patch_event_type", ({"value": "smart-ca-import_threats", "display": "Threats"},), {}),
              ("get_event_types", (), {})]
     changes = [{"kind": "patrol_type", "action": "created", "value": "patrol_foot"},
-               {"kind": "choice", "action": "updated", "value": "law", "id": "c1", "before": {}},
-               {"kind": "subject", "action": "created", "id": "s1", "value": "Ana Cruz"},
+               {"kind": "choice", "action": "updated", "value": "law", "id": "c1", "field": "smart_threat", "before": {}},
+               {"kind": "choice", "action": "updated", "value": "old", "id": "c2", "field": "smart_threat", "before": {"is_active": True}},
+               {"kind": "choice", "action": "created", "value": "foot", "field": "smart_threat", "id": None},
+               {"kind": "patrol_type", "action": "updated", "value": "patrol_boat", "before": {"is_active": True}},
+               {"kind": "subject", "action": "created", "id": "dry-run", "name": ""},
+               {"kind": "subject", "action": "created", "id": "dry-run", "name": "Ana Cruz"},   # a plan's creates have no id
+               {"kind": "subject", "action": "updated", "id": "s3", "name": "Carla Diaz", "before": {"name": "C. Diaz"}},
+               {"kind": "subject", "action": "updated", "id": "s4", "name": None, "before": {"is_active": True}},
                {"kind": "subject", "action": "updated", "id": "s2", "name": "Old Login", "before": {"is_active": True}},
                {"kind": "universal_patrol_fields", "action": "written", "before_file": None}]
     plan = findings.build_plan(datamodel_stats={"event_types_unchanged": 5, "categories_existing": 1},
@@ -72,10 +78,14 @@ def test_build_plan_groups_dry_run_writes(findings):
     assert plan["event_types"]["create"] == [{"value": "smart-ca-import_animals", "label": "Animals"}]
     assert plan["event_types"]["update"] == [{"value": "smart-ca-import_threats", "label": "Threats"}]
     assert plan["event_types"]["unchanged"] == 5
-    assert plan["patrol_types"] == {"create": [{"value": "patrol_foot", "label": "patrol_foot"}], "update": []}
-    assert plan["choices"]["update"] == [{"value": "law", "label": "law"}]
-    assert plan["subjects"] == {"create": [{"value": "s1", "label": "Ana Cruz"}], "update": [],
-                                "deactivate": [{"value": "s2", "label": "Old Login"}]}
+    assert plan["patrol_types"] == {"create": [{"value": "patrol_foot", "label": "patrol_foot"}], "update": [],
+                                    "deactivate": [{"value": "patrol_boat", "label": "patrol_boat"}]}
+    assert plan["choices"] == {"create": [{"value": "smart_threat.foot", "label": "foot"}], "update": [{"value": "smart_threat.law", "label": "law"}],
+                               "deactivate": [{"value": "smart_threat.old", "label": "old"}]}   # switching a choice off is shown
+    assert plan["subjects"] == {"create": [{"value": None, "label": "(unnamed)"}, {"value": None, "label": "Ana Cruz"}],
+                                "update": [{"value": "s3", "label": "Carla Diaz"}],
+                                "deactivate": [{"value": "s4", "label": "s4"},   # a nameless subject is labelled by its id
+                                               {"value": "s2", "label": "Old Login"}]}
     assert plan["universal_patrol_fields"] == "write" and plan["roster"] == {"group": "Rangers", "add": 2}
     assert plan["patrols"] == {"total": 2, "first": "2019-03-04", "last": "2024-11-30", "already_done": 1,
                                "events": 10, "track_points": 400}
@@ -85,7 +95,7 @@ def test_build_plan_caps_long_lists(findings):
     calls = [("post_event_type", ({"value": f"t{i}", "display": f"T{i}"},), {}) for i in range(250)]
     plan = findings.build_plan(datamodel_stats={}, dry_calls=calls, pd_changes=[], pd_stats={}, roster_group=None,
                                patrols=[], ledger_done=set(), counts={})
-    assert len(plan["event_types"]["create"]) == 200 and plan["event_types"]["more"] == 50
+    assert len(plan["event_types"]["create"]) == 200 and plan["event_types"]["more"] == {"create": 50}   # per list
     assert plan["patrols"]["first"] is None
 
 

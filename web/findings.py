@@ -140,11 +140,13 @@ def _entry(value, label=None) -> dict:
 
 
 def _group(**lists) -> dict:
-    out, more = {}, 0
+    """Each list capped, with `more` saying per list how many were cut."""
+    out, more = {}, {}
     for k, v in lists.items():
         if isinstance(v, list):
             out[k], cut = _cap(v)
-            more += cut
+            if cut:
+                more[k] = cut
         else:
             out[k] = v
     if more:
@@ -165,16 +167,25 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
             types["create"].append(e)
         elif name == "patch_event_type":
             types["update"].append(e)
-    by_kind = {"patrol_type": {"create": [], "update": []}, "choice": {"create": [], "update": []},
-               "subject": {"create": [], "update": [], "deactivate": []}}
+    by_kind = {kind: {"create": [], "update": [], "deactivate": []} for kind in ("patrol_type", "choice", "subject")}
     action_key = {"created": "create", "updated": "update", "deactivated": "deactivate"}
     for c in pd_changes:
+        kind, value, ident = c.get("kind"), c.get("value"), c.get("id")
         # er-smart-sync records a deactivation as an update whose before-state was active
         deactivation = c.get("action") == "updated" and (c.get("before") or {}).get("is_active") is True
         k = "deactivate" if deactivation else action_key.get(c.get("action"))
-        if c.get("kind") in by_kind and k in by_kind[c["kind"]]:
-            ident = c.get("id") if c.get("kind") == "subject" else c.get("value")
-            by_kind[c["kind"]][k].append(_entry(ident or c.get("value"), (c.get("name") or c.get("value")) if c.get("kind") == "subject" else None))
+        if kind not in by_kind or k not in by_kind[kind]:
+            continue
+        if kind == "subject":
+            # a plan writes nothing, so a subject it would create has no id yet (er-smart-sync records a
+            # placeholder there, never shown); an update or deactivation names the existing one
+            name = c.get("name") or ("(unnamed)" if k == "create" else ident)
+            entry = _entry(None if k == "create" else ident, name)
+        elif kind == "choice" and c.get("field") and value:
+            entry = _entry(f"{c['field']}.{value}", value)   # the same value can exist under several fields
+        else:
+            entry = _entry(value or ident)
+        by_kind[kind][k].append(entry)
     dates = sorted(p["start_date"] for p in patrols if p.get("start_date"))
     return {
         "event_categories": _group(**cats, unchanged=datamodel_stats.get("categories_existing", 0)),
