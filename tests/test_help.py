@@ -41,6 +41,7 @@ def _er_smart_sync_source(name: str):
 
 
 def _finding_codes(monkeypatch):
+    """The codes smart-able itself puts on a load, plus the listed er-smart-sync ones."""
     import re
     monkeypatch.syspath_prepend(str(ROOT / "web"))
     sys.modules.pop("findings", None)
@@ -48,26 +49,38 @@ def _finding_codes(monkeypatch):
     checklist = set(findings.BLOCKING_CHECKLIST) | set(findings.VALUE_LABEL) | {"patrol_type_icons", "station_names"}
     job = set(re.findall(r'finding\("(?:import|datamodel)", "([a-z_]+)"', (ROOT / "web" / "findings.py").read_text()))
     assert "patrols_failed" in job and "site_token_rejected" in job
-    preflight = set(PREFLIGHT_CODES)
-    src = _er_smart_sync_source("preflight")
-    if src:
-        preflight |= set(re.findall(r'Finding(?:\.of)?\(\s*"([a-z_]+)"', src))
-    src = _er_smart_sync_source("patrol_datamodel")
-    if src:
-        checklist |= set(re.findall(r'(?:ChecklistItem|_permission_item)\(\s*"([a-z_]+)"', src))
-    return sorted(checklist | job | preflight)
+    return sorted(checklist | job | set(PREFLIGHT_CODES))
+
+
+def _er_smart_sync_codes():
+    """Every code er-smart-sync's source can emit; skips when the source is not around."""
+    import re
+    preflight, checklist = _er_smart_sync_source("preflight"), _er_smart_sync_source("patrol_datamodel")
+    if not (preflight and checklist):
+        pytest.skip("er-smart-sync's source is not available here: install it, check it out beside this repo, or build .venv-load")
+    return sorted(set(re.findall(r'Finding(?:\.of)?\(\s*"([a-z_]+)"', preflight))
+                  | set(re.findall(r'(?:ChecklistItem|_permission_item)\(\s*"([a-z_]+)"', checklist)))
 
 
 def test_the_sections_come_in_order_with_ids_and_html(help_mod):
     sections = help_mod.sections()
     assert [s["id"] for s in sections] == ["overview", "sites", "loading", "statuses", "stops", "quirks"]
     assert all(s["title"] and "<p>" in s["html"] for s in sections)
-    assert sections[-1]["title"] == "SMART data quirks" and 'id="timezones"' in sections[-1]["html"]
+    assert sections[-1]["title"] == "SMART data quirks" and 'id="quirks-timezones"' in sections[-1]["html"]
+    assert 'id="timezones"' not in sections[-1]["html"]   # prefixed: the doc's headings cannot collide with the app's ids
 
 
 def test_every_finding_code_has_an_entry(help_mod, monkeypatch):
     stops = next(s for s in help_mod.sections() if s["id"] == "stops")["html"]
     missing = [c for c in _finding_codes(monkeypatch) if f'id="finding-{c}"' not in stops]
+    assert missing == []
+
+
+def test_every_er_smart_sync_code_has_an_entry(help_mod):
+    stops = next(s for s in help_mod.sections() if s["id"] == "stops")["html"]
+    codes = _er_smart_sync_codes()
+    assert len(codes) >= 20
+    missing = [c for c in codes if f'id="finding-{c}"' not in stops]
     assert missing == []
 
 

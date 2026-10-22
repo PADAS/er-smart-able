@@ -60,7 +60,8 @@ td.actions { white-space: nowrap; text-align: right; }
 .help-body table { font-size: 13px; margin: 8px 0; }
 .help-body .target { background: #fff6d6; border-radius: 6px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .help-body .target { background: #3a3414; } }
-button.help { padding: 0 4px; border: 0; color: var(--ink-3); }
+button.help { background: none; border: 0; border-radius: 4px; padding: 0 4px; gap: 0; color: var(--ink-3); }
+button.help:hover { color: var(--brand); }
 button.help .mi { font-size: 16px; }
 .modal { position: fixed; inset: 0; background: rgba(10,14,12,0.55); display: flex; align-items: center; justify-content: center; z-index: 50; }
 [hidden] { display: none !important; } /* display:flex above would otherwise defeat the hidden attribute */

@@ -108,9 +108,12 @@ EXTENSIONS = ["toc", "tables", "fenced_code"]
 TOC = {"toc_depth": "2-3"}
 
 
-def convert(md_text: str, extensions=None) -> tuple[str, str]:
-    """(html, toc). The help drawer renders its pages through this too."""
-    m = markdown.Markdown(extensions=extensions or EXTENSIONS, extension_configs={"toc": TOC})
+def convert(md_text: str, extensions=None, id_prefix: str = "") -> tuple[str, str]:
+    """(html, toc). The help drawer renders its pages through this too, with a
+    prefix on the heading ids so they stay apart from the app's own."""
+    from markdown.extensions.toc import slugify
+    toc = {**TOC, "slugify": lambda value, sep: id_prefix + slugify(value, sep)} if id_prefix else TOC
+    m = markdown.Markdown(extensions=extensions or EXTENSIONS, extension_configs={"toc": toc})
     html = m.convert(md_text)
     return html, getattr(m, "toc", "")
 

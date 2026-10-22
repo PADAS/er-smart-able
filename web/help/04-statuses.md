@@ -11,7 +11,7 @@
 | <code>continuing</code> | The run reached the 22-hour limit and handed over to a new execution of itself. See *Long runs and continuation*. |
 | <code>needs_attention</code> | The run stopped at a blocking finding, or finished with patrols that failed. Read the findings, fix the site, press **Continue**. |
 | <code>done</code> | Every patrol is on the site. |
-| <code>failed</code> | The job hit an error it could not recover from. The error and the log are on the page; **Plan again** or **Continue** after fixing the cause. |
+| <code>failed</code> | The job hit an error it could not recover from. The error and the log are on the page. After fixing the cause, press **Plan again**; the new plan shows what is left and offers Confirm. (Continue is only for a load that stopped on findings or whose job was killed.) |
 
 ## A stage
 

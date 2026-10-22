@@ -32,6 +32,8 @@ async function boot() {
   $('#signInBtn').onclick = signIn;
   $('#helpBtn').onclick = () => openHelp();
   $('#helpClose').onclick = closeHelp;
+  $('#helpBody').onscroll = helpScrolled;
+  $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
   $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
@@ -321,11 +323,14 @@ async function copyValue(btn) {
 let HELP = null, helpLoading = null, helpOpener = null;
 async function openHelp(anchor) {
   const drawer = $('#help'), body = $('#helpBody');
-  helpOpener = document.activeElement;   // focus goes back there on close
+  // the opener is remembered by its help id: the load page re-renders its buttons on every poll
+  const a = document.activeElement;
+  helpOpener = a && a.dataset && a.dataset.help ? { help: a.dataset.help } : { node: a };
   if (!HELP) {
-    helpLoading = helpLoading || api('/api/help');   // one fetch, however many clicks arrive while it is pending
-    let sections;
-    try { sections = (await helpLoading).sections; } catch (e) { helpLoading = null; alert(e.message); return; }
+    // one fetch, however many clicks arrive while it is pending; a failure alerts once and resolves null for all
+    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { helpLoading = null; alert(e.message); return null; });
+    const sections = await helpLoading;
+    if (!sections) return;
     if (!HELP) {
       HELP = sections;
       body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
@@ -333,27 +338,13 @@ async function openHelp(anchor) {
       $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
       body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
     }
-    body.onscroll = () => {
-      const top = body.scrollTop + 40;
-      let current = null;
-      body.querySelectorAll('section').forEach(s => { if (s.offsetTop <= top) current = s.id; });
-      $('#helpToc').querySelectorAll('button').forEach(b => b.classList.toggle('current', b.dataset.goto === current));
-    };
-    drawer.onkeydown = e => {   // a dialog keeps Tab inside it
-      if (e.key !== 'Tab') return;
-      const f = Array.from(drawer.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')).filter(x => x.offsetParent !== null);
-      if (!f.length) return;
-      const first = f[0], last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
   }
   drawer.hidden = false; $('#helpBackdrop').hidden = false;
   if (anchor) gotoHelp(anchor);
   else {
     $('#helpNote').hidden = true;
     let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {}
-    body.scrollTo({ top: saved, behavior: 'instant' }); body.onscroll();
+    body.scrollTo({ top: saved, behavior: 'instant' }); helpScrolled();
   }
   $('#helpClose').focus();
 }
@@ -371,7 +362,7 @@ function gotoHelp(id) {
   body.querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   if (/^finding-/.test(id)) { el.classList.add('target'); }
   body.scrollTo({ top: el.offsetTop - 8, behavior: 'instant' });   // a jump, so the highlight below reads the new position
-  body.onscroll();
+  helpScrolled();
 }
 
 function closeHelp() {
@@ -379,7 +370,25 @@ function closeHelp() {
   $('#helpNote').hidden = true;
   $('#helpBody').querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   $('#help').hidden = true; $('#helpBackdrop').hidden = true;
-  if (helpOpener && helpOpener.focus && document.contains(helpOpener)) helpOpener.focus();
+  const back = helpOpener && (helpOpener.help ? $('[data-help="' + CSS.escape(helpOpener.help) + '"]') : helpOpener.node);
+  if (back && back.focus && document.contains(back)) back.focus();
+}
+
+function helpScrolled() {
+  const body = $('#helpBody'), top = body.scrollTop + 40;
+  let current = null;
+  body.querySelectorAll('section').forEach(s => { if (s.offsetTop <= top) current = s.id; });
+  $('#helpToc').querySelectorAll('button').forEach(b => b.classList.toggle('current', b.dataset.goto === current));
+}
+
+function helpKeydown(e) {   // a dialog keeps Tab inside it
+  if (e.key !== 'Tab') return;
+  const drawer = $('#help');
+  const f = Array.from(drawer.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')).filter(x => x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 // ---- the stage table: one row per stage, what it did, and how long it took
