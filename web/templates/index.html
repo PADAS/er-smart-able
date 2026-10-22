@@ -12,7 +12,7 @@
 <body>
   <header>
     <div class="brand"><h1>smart-able</h1><span class="tiny" id="version">{{ version }}</span></div>
-    <div id="who" class="who" hidden><span id="whoEmail"></span><button class="ghost" id="signOut">Sign out</button></div>
+    <div id="who" class="who" hidden><span id="whoEmail"></span><button class="ghost" id="helpBtn" title="Help"><span class="mi" aria-hidden="true">help</span>Help</button><button class="ghost" id="signOut">Sign out</button></div>
   </header>
 
   <main class="wrap">
@@ -64,6 +64,14 @@
       </section>
     </section>
   </main>
+
+  <div id="helpBackdrop" class="backdrop" hidden></div>
+  <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help">
+    <div class="drawer-head"><h2>Help</h2><button class="ghost" id="helpClose" title="Close"><span class="mi" aria-hidden="true">close</span></button></div>
+    <nav id="helpToc" class="help-toc"></nav>
+    <p id="helpNote" class="tiny help-note" hidden></p>
+    <div id="helpBody" class="help-body"></div>
+  </aside>
 
   <div id="modal" class="modal" hidden>
     <div class="dialog">

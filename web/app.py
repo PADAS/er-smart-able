@@ -6,6 +6,7 @@ Routes:
   GET  /api/config            Firebase web config for the sign-in
   POST /api/session           id token -> session cookie;  POST /api/signout
   GET  /api/me
+  GET  /api/help              the help drawer's sections (web/help/*.md and the quirks doc)
   GET  /api/datasets          datasets the user owns or is shared on
   POST /api/datasets          create one; returns where to PUT the file
   PUT  /api/datasets/{id}/upload    (local backend only; GCS takes signed PUTs)
@@ -124,6 +125,12 @@ async def signout(response: Response):
 @app.get("/api/me")
 async def me(user=Depends(current_user)):
     return user
+
+
+@app.get("/api/help")
+def help_sections(user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
+    import help_pages
+    return {"sections": help_pages.sections()}
 
 
 # ---------------------------------------------------------------- datasets

@@ -103,11 +103,25 @@ def app_theme(app_html: str) -> tuple[str, str]:
     return tokens.group(1), acorn.group(0)
 
 
+# one Markdown configuration for the doc, shared with the web app's help drawer
+EXTENSIONS = ["toc", "tables", "fenced_code"]
+TOC = {"toc_depth": "2-3"}
+
+
+def convert(md_text: str, extensions=None, id_prefix: str = "") -> tuple[str, str]:
+    """(html, toc). The help drawer renders its pages through this too, with a
+    prefix on the heading ids so they stay apart from the app's own."""
+    from markdown.extensions.toc import slugify
+    toc = {**TOC, "slugify": lambda value, sep: id_prefix + slugify(value, sep)} if id_prefix else TOC
+    m = markdown.Markdown(extensions=extensions or EXTENSIONS, extension_configs={"toc": toc})
+    html = m.convert(md_text)
+    return html, getattr(m, "toc", "")
+
+
 def render(md_text: str) -> str:
-    m = markdown.Markdown(extensions=["toc", "tables", "fenced_code"], extension_configs={"toc": {"toc_depth": "2-3"}})
-    body = m.convert(md_text)
+    body, toc = convert(md_text)
     tokens, acorn = app_theme(APP.read_text(encoding="utf-8"))
-    toc = m.toc.replace('<div class="toc">', '<nav class="toc" aria-label="On this page">', 1)
+    toc = toc.replace('<div class="toc">', '<nav class="toc" aria-label="On this page">', 1)
     toc = toc[: toc.rfind("</div>")] + "</nav>" if toc.rstrip().endswith("</div>") else toc
     return PAGE.format(tokens=tokens, css=CSS, acorn=acorn, toc=toc, body=body)
 

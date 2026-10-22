@@ -118,6 +118,12 @@ cloud, open the result, and share it with colleagues. The code is under
 `web/`; [web/DEPLOY.md](web/DEPLOY.md) covers Cloud Run deployment and running
 it locally with `BACKEND=local AUTH_DISABLED=true`.
 
+The app's **Help** drawer explains the process, the load statuses and what to
+do when a load stops; its pages are the Markdown files under `web/help/`,
+plus [docs/smart-data-quirks.md](docs/smart-data-quirks.md). A finding on
+the load page opens the drawer at its own entry (`finding-<code>`), so a new
+finding code needs an entry there; `tests/test_help.py` checks the list.
+
 To run loads locally, give the service a separate virtualenv with
 er-smart-sync (it pins pydantic 1, the web service needs pydantic 2):
 

@@ -30,6 +30,12 @@ async function boot() {
     if (CONFIG.authEmulatorUrl) firebase.auth().useEmulator(CONFIG.authEmulatorUrl);
   }
   $('#signInBtn').onclick = signIn;
+  $('#helpBtn').onclick = () => openHelp();
+  $('#helpClose').onclick = closeHelp;
+  $('#helpBody').onscroll = helpScrolled;
+  $('#help').onkeydown = helpKeydown;
+  $('#helpBackdrop').onclick = closeHelp;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
   $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
   $('#modalClose').onclick = () => { $('#modal').hidden = true; };
   $('#uploadForm').onsubmit = upload;
@@ -256,7 +262,9 @@ async function renderLoad() {
   const active = !!l.held;
   const stale = !active && ACTIVE.includes(l.status);
   $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
-    ' <span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>';
+    ' <span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>' +
+    ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
+  $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
   $('#loadStages').innerHTML = renderStages(l, active);
   const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
   let actions = '';
@@ -278,11 +286,12 @@ async function renderLoad() {
   const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets(); } catch (e) { alert(e.message); } };
   const RANK = { blocking: 0, warning: 1, info: 2 };
   const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
-  $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
+  $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
     ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="Copy to clipboard"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
     (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
     (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
   $('#loadFindings').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
+  $('#loadFindings').querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
   // the page re-renders on every poll: what the reader opened stays open, and the log keeps its place
   const planOpen = openState($('#loadPlan'));
   $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
@@ -308,6 +317,78 @@ async function copyValue(btn) {
   try { await navigator.clipboard.writeText(btn.dataset.copy); icon.textContent = 'check'; }
   catch (e) { window.prompt('Copy this value:', btn.dataset.copy); return; }
   setTimeout(() => { icon.textContent = 'content_copy'; }, 1500);
+}
+
+// ---- help: a drawer of sections, deep-linked by heading id (a finding opens finding-<code>)
+let HELP = null, helpLoading = null, helpOpener = null;
+async function openHelp(anchor) {
+  const drawer = $('#help'), body = $('#helpBody');
+  // the opener is remembered by its help id: the load page re-renders its buttons on every poll
+  const a = document.activeElement;
+  helpOpener = a && a.dataset && a.dataset.help ? { help: a.dataset.help } : { node: a };
+  if (!HELP) {
+    // one fetch, however many clicks arrive while it is pending; a failure alerts once and resolves null for all
+    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { helpLoading = null; alert(e.message); return null; });
+    const sections = await helpLoading;
+    if (!sections) return;
+    if (!HELP) {
+      HELP = sections;
+      body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
+      $('#helpToc').innerHTML = HELP.map(s => '<button class="link" data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</button>').join('');
+      $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
+      body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
+    }
+  }
+  drawer.hidden = false; $('#helpBackdrop').hidden = false;
+  if (anchor) gotoHelp(anchor);
+  else {
+    $('#helpNote').hidden = true;
+    let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {}
+    body.scrollTo({ top: saved, behavior: 'instant' }); helpScrolled();
+  }
+  $('#helpClose').focus();
+}
+
+function gotoHelp(id) {
+  const body = $('#helpBody'), note = $('#helpNote');
+  let el = body.querySelector('#' + CSS.escape(id));
+  note.hidden = true;
+  if (!el && /^finding-/.test(id)) {   // a finding without an entry yet: say so rather than land silently
+    el = body.querySelector('#help-stops');
+    note.textContent = 'No help entry yet for the finding "' + id.slice(8) + '". The finding\'s own fix text is the guidance.';
+    note.hidden = false;
+  }
+  if (!el) return;
+  body.querySelectorAll('.target').forEach(t => t.classList.remove('target'));
+  if (/^finding-/.test(id)) { el.classList.add('target'); }
+  body.scrollTo({ top: el.offsetTop - 8, behavior: 'instant' });   // a jump, so the highlight below reads the new position
+  helpScrolled();
+}
+
+function closeHelp() {
+  try { localStorage.setItem('help.scroll', String($('#helpBody').scrollTop)); } catch (e) {}
+  $('#helpNote').hidden = true;
+  $('#helpBody').querySelectorAll('.target').forEach(t => t.classList.remove('target'));
+  $('#help').hidden = true; $('#helpBackdrop').hidden = true;
+  const back = helpOpener && (helpOpener.help ? $('[data-help="' + CSS.escape(helpOpener.help) + '"]') : helpOpener.node);
+  if (back && back.focus && document.contains(back)) back.focus();
+}
+
+function helpScrolled() {
+  const body = $('#helpBody'), top = body.scrollTop + 40;
+  let current = null;
+  body.querySelectorAll('section').forEach(s => { if (s.offsetTop <= top) current = s.id; });
+  $('#helpToc').querySelectorAll('button').forEach(b => b.classList.toggle('current', b.dataset.goto === current));
+}
+
+function helpKeydown(e) {   // a dialog keeps Tab inside it
+  if (e.key !== 'Tab') return;
+  const drawer = $('#help');
+  const f = Array.from(drawer.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')).filter(x => x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 // ---- the stage table: one row per stage, what it did, and how long it took
