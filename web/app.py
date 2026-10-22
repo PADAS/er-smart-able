@@ -40,6 +40,7 @@ from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
 from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
+from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
                    load_in_progress, now)
 
@@ -195,6 +196,8 @@ async def get_dataset(id: str, user=Depends(current_user)):
 async def delete_dataset(id: str, user=Depends(current_user)):
     _load(id, user, owner=True)
     store = get_store()
+    if any(load_in_progress(l) for l in store.list_loads(id)):
+        raise HTTPException(status_code=409, detail="Wait for the running load to stop (or delete it) first")
     store.delete_storage(id)
     store.delete(id)
     return {"ok": True}
@@ -250,7 +253,7 @@ async def list_sites(user=Depends(current_user)):
 
 
 @app.post("/api/sites", status_code=201)
-async def create_site(req: SiteCreate, user=Depends(current_user)):
+def create_site(req: SiteCreate, user=Depends(current_user)):
     try:
         host = normalize_host(req.url)
     except ValueError as e:
@@ -273,7 +276,7 @@ async def create_site(req: SiteCreate, user=Depends(current_user)):
 
 
 @app.delete("/api/sites/{id}")
-async def delete_site(id: str, user=Depends(current_user)):
+def delete_site(id: str, user=Depends(current_user)):
     _load_site(id, user, owner=True)
     get_store().delete_site(id)
     return {"ok": True}
@@ -307,7 +310,10 @@ class LoadCreate(BaseModel):
 
 def _load_public(doc: dict, user: dict) -> dict:
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
-    return {k: doc.get(k) for k in LOAD_FIELDS} | {
+    out = {k: doc.get(k) for k in LOAD_FIELDS}
+    # loads made before event_category existed run with the default (load_job's fallback)
+    out["options"] = {"event_category": None, **(out.get("options") or {})}
+    return out | {
         "id": doc["id"], "mine": is_owner(doc, user), "held": load_in_progress(doc),
         "site": {"id": site["id"], "name": site.get("name"), "url": site.get("url")} if site else None}
 
@@ -339,7 +345,7 @@ def _start(load_id: str, mode: str, claim_status: str):
 
 
 @app.post("/api/datasets/{id}/loads", status_code=201)
-async def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
+def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     doc = _load(id, user)
     site = _load_site(req.site_id, user)
     entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
@@ -353,6 +359,12 @@ async def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     cm = req.options.get("configurable_model") or None
     if cm and cm not in [c["uuid"] for c in entry.get("configurable_models", [])]:
         raise HTTPException(status_code=400, detail="Unknown configurable model")
+    category = req.options.get("event_category")
+    if category is None or (isinstance(category, str) and not category.strip()):
+        category = ca_identifier(entry.get("ca_id"))
+    elif not isinstance(category, str) or not EVENT_CATEGORY.fullmatch(category.strip()):
+        raise HTTPException(status_code=400, detail="The event category must be 2-30 letters, digits, '-' or '_'")
+    category = category.strip()
     store = get_store()
     for other in store.list_loads(id):
         if other.get("ca_id") == req.ca_id and other.get("site_id") == req.site_id and load_in_progress(other):
@@ -360,7 +372,8 @@ async def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     load_id = store.create_load({
         "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
         "options": {"language": language, "configurable_model": cm,
-                    "roster_group": (req.options.get("roster_group") or "").strip() or None},
+                    "roster_group": (req.options.get("roster_group") or "").strip() or None,
+                    "event_category": category},
         "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race
         "created_at": now(), "updated_at": now(), "continuations": 0,
         "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})
@@ -386,27 +399,32 @@ def _stale(doc: dict) -> bool:
     return doc.get("status") in LOAD_ACTIVE and not load_in_progress(doc)
 
 
-def _needs_site(doc: dict):
-    if not get_store().get_site(doc.get("site_id", "")):
+def _needs_site(doc: dict, user: dict):
+    """Run and replan write (or plan writing) with the site owner's token, so
+    the site's sharing applies as well as the dataset's."""
+    site = get_store().get_site(doc.get("site_id", ""))
+    if not site:
         raise HTTPException(status_code=409, detail="The site was removed; register it again and start a new load")
+    if not can_read(site, user):
+        raise HTTPException(status_code=403, detail="You do not have access to that site")
 
 
 @app.post("/api/loads/{id}/run")
-async def run_load(id: str, user=Depends(current_user)):
+def run_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
     if not (doc.get("status") in ("planned", "needs_attention") or _stale(doc)):
         raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be run; plan it again first")
-    _needs_site(doc)
+    _needs_site(doc, user)
     _start(id, "run", "queued")
     return _load_public(get_store().get_load(id), user)
 
 
 @app.post("/api/loads/{id}/replan")
-async def replan_load(id: str, user=Depends(current_user)):
+def replan_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
     if not (doc.get("status") in ("planned", "needs_attention", "failed", "done") or _stale(doc)) or load_in_progress(doc):
         raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be planned again now")
-    _needs_site(doc)
+    _needs_site(doc, user)
     _start(id, "plan", "planning")
     return _load_public(get_store().get_load(id), user)
 
