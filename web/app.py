@@ -13,6 +13,10 @@ Routes:
   GET  /api/datasets/{id}     status, counts, log tail
   DELETE /api/datasets/{id}   owner only
   POST /api/datasets/{id}/share {email};  DELETE /api/datasets/{id}/share/{email}
+  GET  /api/sites             sites (EarthRanger targets) the user owns or is shared on
+  POST /api/sites             {name, url, token}; checks the token, stores it as a secret
+  DELETE /api/sites/{id}      owner only
+  POST /api/sites/{id}/share {email};  DELETE /api/sites/{id}/share/{email}
   GET  /d/{id}/               the browser for that dataset (index.html from this
                               checkout, data and photos from the dataset's store)
 """
@@ -29,6 +33,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
+from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
 from store import ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner, now
 
 logging.basicConfig(level=logging.INFO)
@@ -197,6 +202,85 @@ async def unshare(id: str, email: str, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     shared = [e for e in doc.get("shared_with", []) if e.lower() != email.strip().lower()]
     get_store().update(id, shared_with=shared)
+    return {"shared_with": shared}
+
+
+# ---------------------------------------------------------------- sites
+
+
+class SiteCreate(BaseModel):
+    name: str
+    url: str
+    token: str
+
+
+def _site_public(doc: dict, user: dict) -> dict:
+    return {k: doc.get(k) for k in ("id", "name", "url", "owner_email", "shared_with", "token_hint", "checked_at",
+                                    "checked_as", "created_at")} | {"mine": is_owner(doc, user)}
+
+
+def _load_site(id: str, user: dict, owner: bool = False) -> dict:
+    doc = get_store().get_site(id)
+    if not doc or not can_read(doc, user):
+        raise HTTPException(status_code=404, detail="Site not found")
+    if owner and not is_owner(doc, user):
+        raise HTTPException(status_code=403, detail="Only the owner can do that")
+    return doc
+
+
+@app.get("/api/sites")
+async def list_sites(user=Depends(current_user)):
+    docs = [d for d in get_store().list_sites() if can_read(d, user)]
+    docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
+    return [_site_public(d, user) for d in docs]
+
+
+@app.post("/api/sites", status_code=201)
+async def create_site(req: SiteCreate, user=Depends(current_user)):
+    try:
+        host = normalize_host(req.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    token = req.token.strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="A token is required")
+    try:
+        checked_as = check_token(host, token)
+    except TokenRejected as e:
+        raise HTTPException(status_code=400, detail=f"The token was rejected: {e}")
+    except SiteUnreachable as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    store = get_store()
+    id = store.create_site({"name": req.name.strip() or host, "url": host, "owner_uid": user["uid"],
+                            "owner_email": user["email"], "shared_with": [], "token_hint": token[-4:],
+                            "checked_at": now(), "checked_as": checked_as, "created_at": now(), "updated_at": now()},
+                           token)
+    return _site_public(store.get_site(id), user)
+
+
+@app.delete("/api/sites/{id}")
+async def delete_site(id: str, user=Depends(current_user)):
+    _load_site(id, user, owner=True)
+    get_store().delete_site(id)
+    return {"ok": True}
+
+
+@app.post("/api/sites/{id}/share")
+async def share_site(id: str, req: ShareRequest, user=Depends(current_user)):
+    doc = _load_site(id, user, owner=True)
+    email = req.email.strip().lower()
+    if not email_allowed(email):
+        raise HTTPException(status_code=400, detail="Can only share with allowed addresses")
+    shared = sorted(set(doc.get("shared_with", [])) | {email})
+    get_store().update_site(id, shared_with=shared)
+    return {"shared_with": shared}
+
+
+@app.delete("/api/sites/{id}/share/{email}")
+async def unshare_site(id: str, email: str, user=Depends(current_user)):
+    doc = _load_site(id, user, owner=True)
+    shared = [e for e in doc.get("shared_with", []) if e.lower() != email.strip().lower()]
+    get_store().update_site(id, shared_with=shared)
     return {"shared_with": shared}
 
 
