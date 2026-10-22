@@ -126,6 +126,12 @@ async def me(user=Depends(current_user)):
     return user
 
 
+@app.get("/api/help")
+async def help_sections(user=Depends(current_user)):
+    import help_pages
+    return {"sections": help_pages.sections()}
+
+
 # ---------------------------------------------------------------- datasets
 @app.get("/api/datasets")
 async def list_datasets(user=Depends(current_user)):
