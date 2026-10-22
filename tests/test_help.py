@@ -33,8 +33,8 @@ def _er_smart_sync_source(name: str):
         return Path(mod.__file__).read_text()
     except ImportError:
         pass
-    for p in [ROOT.parent / "earthranger-smart-utils" / "src" / "er_smart_sync" / f"{name}.py",
-              *ROOT.glob(f".venv-load/lib/python*/site-packages/er_smart_sync/{name}.py")]:
+    siblings = [a / "earthranger-smart-utils" / "src" / "er_smart_sync" / f"{name}.py" for a in ROOT.parents[:4]]
+    for p in [*siblings, *ROOT.glob(f".venv-load/lib/python*/site-packages/er_smart_sync/{name}.py")]:
         if p.is_file():
             return p.read_text()
     return None
