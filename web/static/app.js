@@ -282,14 +282,25 @@ async function renderLoad() {
     (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
     (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
   $('#loadFindings').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
+  // the page re-renders on every poll: what the reader opened stays open, and the log keeps its place
+  const planOpen = openState($('#loadPlan'));
   $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
+  restoreOpen($('#loadPlan'), planOpen);
   const p = l.progress;
+  const prevLog = $('#loadProgress details'), prevPre = prevLog && prevLog.querySelector('pre');
+  const logOpen = prevLog ? prevLog.open : active;
+  const atBottom = !prevPre || prevPre.scrollHeight - prevPre.scrollTop - prevPre.clientHeight < 12, scrollTop = prevPre ? prevPre.scrollTop : 0;
   $('#loadProgress').innerHTML = (p && p.patrols_total ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
     (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
-    (l.log_tail ? '<details' + (active ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
+    (l.log_tail ? '<details' + (logOpen ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
     '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
+  const pre = $('#loadProgress pre.log');
+  if (pre) pre.scrollTop = atBottom ? pre.scrollHeight : scrollTop;
   if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
 }
+
+const openState = host => Array.from(host.querySelectorAll('details')).map(d => d.open);
+const restoreOpen = (host, state) => host.querySelectorAll('details').forEach((d, i) => { if (state[i] !== undefined) d.open = state[i]; });
 
 async function copyValue(btn) {
   const icon = btn.querySelector('.mi');
