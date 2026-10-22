@@ -96,8 +96,11 @@ a { color: var(--brand); }
 .pill.needs_attention { background: #f6e3c4; color: #6b4b00; }
 .pill.done { background: var(--accent); color: var(--accent-ink); }
 .pill.planned { background: #dde8f6; color: #1d3f6e; }
-.loads { margin-top: 6px; font-size: 12.5px; }
-.loads a { cursor: pointer; text-decoration: underline; }
+td.loads { min-width: 220px; }
+.loadlink { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; text-align: left; margin: 2px 0; padding: 6px 10px; font-weight: 500; }
+.loadlink:hover { border-color: var(--brand); }
+.loadlink .mi { color: var(--brand); }
+.loadlink-what { flex: 1 1 auto; }
 .col { display: flex; flex-direction: column; gap: 8px; }
 .col label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
 .col select, .col input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }

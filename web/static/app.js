@@ -61,12 +61,13 @@ async function loadList() {
   const list = await api('/api/datasets');
   const host = $('#list');
   if (!list.length) { host.innerHTML = '<p class="muted">No datasets yet. Upload one above.</p>'; return; }
-  host.innerHTML = '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
+  host.innerHTML = '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
     list.map(d => '<tr data-id="' + d.id + '">' +
       '<td><b>' + esc(d.name) + '</b><div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + esc((d.created_at || '').slice(0, 10)) + '</div></td>' +
       '<td>' + ((d.cas || []).map(c => esc(c.n || c.id)).join('<br>') || '<span class="tiny">—</span>') + (d.db_version ? '<div class="tiny">SMART ' + esc(d.db_version) + '</div>' : '') + '</td>' +
       '<td><span class="pill ' + esc(d.status) + '">' + esc(d.status) + '</span>' + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
         (d.counts && d.counts.patrols != null ? '<div class="tiny">' + d.counts.patrols + ' patrols · ' + d.counts.waypoints + ' waypoints</div>' : '') + '</td>' +
+      '<td class="loads"><span class="tiny">' + (d.status === 'ready' && (d.export || []).length ? '…' : '—') + '</span></td>' +
       '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
       '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
       '<td class="actions">' +
@@ -85,14 +86,19 @@ async function loadList() {
   list.filter(d => d.status === 'ready').forEach(d => renderLoads(d.id, d.export || []).catch(() => {}));
 }
 
+// the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
 async function renderLoads(id, exp) {
   const loads = await api('/api/datasets/' + id + '/loads');
-  const td = $('tr[data-id="' + id + '"] td:nth-child(3)');
-  if (!td || !loads.length) return;
-  td.insertAdjacentHTML('beforeend', '<div class="loads">' + loads.map(l =>
-    '<div><a data-load="' + esc(l.id) + '">' + esc(l.site ? l.site.url : 'removed site') + ' · ' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</a> <span class="pill ' + esc(l.status) + '">' + esc(l.status) + '</span>' +
-    (l.progress && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status) ? ' <span class="tiny">' + esc(l.progress.done) + ' of ' + esc(l.progress.patrols_total) + ' patrols</span>' : '') + '</div>').join('') + '</div>');
-  td.querySelectorAll('a[data-load]').forEach(a => a.onclick = () => showLoad(a.dataset.load));
+  const td = $('tr[data-id="' + id + '"] td.loads');
+  if (!td) return;
+  if (!loads.length) { td.innerHTML = '<span class="tiny">none yet</span>'; return; }
+  td.innerHTML = loads.map(l =>
+    '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
+    '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
+    '<span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>' +
+    (l.progress && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status) ? '<span class="tiny">' + esc(l.progress.done.toLocaleString()) + ' of ' + esc(l.progress.patrols_total.toLocaleString()) + ' patrols</span>' : '') +
+    '</button>').join('');
+  td.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
   if (loads.some(l => l.held)) { clearTimeout(pollTimer); pollTimer = setTimeout(loadList, 5000); }
 }
 
