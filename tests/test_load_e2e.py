@@ -97,6 +97,8 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert plan["patrols"]["total"] == 2 and plan["patrols"]["already_done"] == 0
     assert plan["event_types"]["create"], "the dry run should plan event types for the synthetic data model"
     assert any(e["value"] == "patrol_foot" for e in plan["patrol_types"]["create"])
+    # both rangers patrol, so both become subjects, named (a dry run's ids are all "dry-run")
+    assert sorted(e["label"] for e in plan["subjects"]["create"]) == ["Ana Cruz", "Ben Reyes"]
     codes = {f["code"] for f in load["findings"]}
     assert "team" in codes   # Team One is not on the fake site
     assert store.get_load_file(ds, load_id, "plan.json") and store.get_load_file(ds, load_id, "checklist.md")
