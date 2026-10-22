@@ -62,6 +62,10 @@ a { color: var(--brand); }
 .finding.blocking { border-color: var(--danger); }
 .finding.warning { border-color: #c99a2e; }
 .finding pre { white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
+.values { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0; }
+.value { display: inline-flex; align-items: center; gap: 6px; }
+.value code { background: var(--chip); padding: 3px 9px; border-radius: 6px; font-size: 13px; user-select: all; }
+.value button { padding: 2px 4px; }
 .plan details { margin: 4px 0; }
 .plan summary { cursor: pointer; }
 .pill.needs_attention { background: #f6e3c4; color: #6b4b00; }

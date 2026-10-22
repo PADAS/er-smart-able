@@ -139,6 +139,7 @@ The reusable stop-and-report unit:
 
 ```json
 {"stage": "patrol_datamodel", "code": "teams_missing", "severity": "blocking",
+ "values": [{"label": "Team name", "value": "SMART team 3865d90c"}],
  "title": "7 teams need to be created",
  "detail": "...", "fix": "In EarthRanger, create these teams ...",
  "affected": {"count": 11, "patrols": ["e3f1...", "..."]}}
@@ -146,7 +147,11 @@ The reusable stop-and-report unit:
 
 `severity` is `blocking`, `warning` or `info`. `fix` is what a human does on
 the site, in the words er-smart-sync already uses in `checklist.md` and the
-preflight report. `affected.patrols` holds at most 50 SMART uuids; the count
+preflight report. `values` lists the exact strings the fix asks the admin to
+type (a team name, a subject group, a permission, a station name), each with
+a label; the page shows them as copyable values beside the finding. They
+come from the backticked strings in the checklist steps and from the
+preflight team examples. `affected.patrols` holds at most 50 SMART uuids; the count
 is exact. Checklist items map to findings with `stage: patrol_datamodel`;
 preflight findings with `stage: preflight`; failed patrols at the end of an
 import become one finding with `stage: import`, code `patrols_failed`, and

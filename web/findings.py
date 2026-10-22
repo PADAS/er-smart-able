@@ -28,22 +28,56 @@ def ca_identifier(ca_id: str) -> str:
     return (s if len(s) >= 2 else "smart-ca")[:30]
 
 
-def finding(stage, code, severity, title, detail="", fix="", patrols=()) -> dict:
+def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=()) -> dict:
     patrols = list(patrols)
     return {"stage": stage, "code": code, "severity": severity, "title": title, "detail": detail, "fix": fix,
-            "affected": {"count": len(patrols), "patrols": patrols[:MAX_PATROLS]}}
+            "affected": {"count": len(patrols), "patrols": patrols[:MAX_PATROLS]}, "values": list(values)}
+
+
+# The exact strings a finding asks the admin to type, shown as copyable
+# values. The checklist quotes them in backticks; commands and placeholders
+# are quoted the same way and are left out.
+_QUOTED = re.compile(r"`([^`]+)`")
+_NOT_A_VALUE = ("er-smart-sync", "--", "<")
+VALUE_LABEL = {"team": "Team name", "roster_group": "Subject group", "station_names": "Station name",
+               "enable_patrol_schemas": "Feature"}
+_TEAM_EXAMPLE = re.compile(r"^(.*) \((?:missing|inactive), \d+ patrols?\)$")
+
+
+def checklist_values(item: dict) -> list:
+    code = item.get("code") or ""
+    label = "Permission" if code.startswith("permission_") else VALUE_LABEL.get(code)
+    if not label:
+        return []
+    out, seen = [], set()
+    for text in [item.get("title") or ""] + list(item.get("steps") or []):
+        for v in _QUOTED.findall(text):
+            if v in seen or any(x in v for x in _NOT_A_VALUE):
+                continue
+            if code == "station_names" and not v.startswith("Unnamed station"):
+                continue   # the `patrol_station` field name is quoted beside the station names
+            seen.add(v)
+            out.append({"label": label, "value": v})
+    return out
+
+
+def preflight_values(f: dict) -> list:
+    if f.get("code") != "teams":
+        return []
+    names = [m.group(1) for m in map(_TEAM_EXAMPLE.match, f.get("examples") or []) if m]
+    return [{"label": "Team name", "value": n} for n in names]
 
 
 def from_checklist(items: list) -> list:
     return [finding("patrol_datamodel", i["code"], "blocking" if i["code"] in BLOCKING_CHECKLIST else "warning",
-                    i["title"], fix="\n".join(i.get("steps") or [])) for i in items]
+                    i["title"], fix="\n".join(i.get("steps") or []), values=checklist_values(i)) for i in items]
 
 
 def from_preflight(report: dict) -> list:
     out = []
     for f in list(report.get("blocking") or []) + list(report.get("warnings") or []):
         out.append(finding("preflight", f["code"], f["level"], f["message"], detail="\n".join(f.get("examples") or []),
-                           fix=f.get("fix") or "", patrols=f.get("affected_patrols") or []))
+                           fix=f.get("fix") or "", patrols=f.get("affected_patrols") or [], values=preflight_values(f)))
     return out
 
 

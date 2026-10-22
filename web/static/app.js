@@ -278,8 +278,10 @@ async function renderLoad() {
   const RANK = { blocking: 0, warning: 1, info: 2 };
   const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
   $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
+    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="Copy to clipboard"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
     (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
     (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
+  $('#loadFindings').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
   $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
   const p = l.progress;
   $('#loadProgress').innerHTML = (p && p.patrols_total ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
@@ -287,6 +289,13 @@ async function renderLoad() {
     (l.log_tail ? '<details' + (active ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
     '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
   if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+}
+
+async function copyValue(btn) {
+  const icon = btn.querySelector('.mi');
+  try { await navigator.clipboard.writeText(btn.dataset.copy); icon.textContent = 'check'; }
+  catch (e) { window.prompt('Copy this value:', btn.dataset.copy); return; }
+  setTimeout(() => { icon.textContent = 'content_copy'; }, 1500);
 }
 
 // ---- the stage table: one row per stage, what it did, and how long it took

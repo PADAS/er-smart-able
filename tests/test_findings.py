@@ -23,7 +23,7 @@ def test_checklist_items_become_findings_with_their_severity(findings):
         {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]}])
     assert out[0] == {"stage": "patrol_datamodel", "code": "team", "severity": "blocking",
                       "title": "Create the patrol team Alpha", "detail": "",
-                      "fix": "Django admin > Teams.\nRe-run.", "affected": {"count": 0, "patrols": []}}
+                      "fix": "Django admin > Teams.\nRe-run.", "affected": {"count": 0, "patrols": []}, "values": []}
     assert out[1]["severity"] == "warning"
     assert findings.has_blocking(out) and not findings.has_blocking(out[1:])
 
@@ -123,3 +123,31 @@ def test_ca_identifier_is_a_valid_event_category(findings):
     assert findings.ca_identifier("050500") == "smart-050500"
     assert findings.ca_identifier("A B/c") == "smart-a-b-c"
     assert findings.EVENT_CATEGORY.fullmatch(findings.ca_identifier("x" * 80))
+
+
+def test_checklist_findings_carry_the_exact_values_to_type(findings):
+    out = findings.from_checklist([
+        {"code": "team", "title": "Create the patrol team SMART team 7097b461",
+         "steps": ["Django admin > Patrol configuration > Teams > add a team with display `SMART team 7097b461`.",
+                   "Members (from SMART): none recorded.", "Re-run `er-smart-sync patrol-datamodel`."]},
+        {"code": "roster_group", "title": "Add the subjects to the `Rangers` subject group",
+         "steps": ["Admin > Subject groups (for example `Rangers`).", "or re-run with `--roster-group <name>` to let the tool."]},
+        {"code": "permission_subjects", "title": "Grant", "steps": ["Django admin > Users > the operator > add `observations | subject | Can view/add/change subject`."]},
+        {"code": "station_names", "title": "Name the stations", "steps": ["Rename `Unnamed station 0a1b2c3d`, `Unnamed station 4e5f6a7b` in admin > Choices (field `patrol_station`)."]},
+        {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]}])
+    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}]
+    assert out[1]["values"] == [{"label": "Subject group", "value": "Rangers"}]
+    assert out[2]["values"] == [{"label": "Permission", "value": "observations | subject | Can view/add/change subject"}]
+    assert out[3]["values"] == [{"label": "Station name", "value": "Unnamed station 0a1b2c3d"},
+                                {"label": "Station name", "value": "Unnamed station 4e5f6a7b"}]
+    assert out[4]["values"] == []
+
+
+def test_preflight_team_findings_name_each_team(findings):
+    out = findings.from_preflight({"blocking": [
+        {"code": "teams", "level": "blocking", "message": "2 patrol team(s) are missing or inactive", "fix": "f", "count": 2,
+         "examples": ["SMART team 7097b461 (missing, 52 patrols)", "Night shift (inactive, 3 patrols)"], "affected_patrols": []},
+        {"code": "event_types", "level": "blocking", "message": "m", "fix": "f", "count": 1, "examples": ["x"], "affected_patrols": []}],
+        "warnings": []})
+    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}, {"label": "Team name", "value": "Night shift"}]
+    assert out[1]["values"] == []
