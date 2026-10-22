@@ -174,10 +174,10 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
         k = "deactivate" if deactivation else action_key.get(c.get("action"))
         if c.get("kind") in by_kind and k in by_kind[c["kind"]]:
             if c.get("kind") == "subject":
-                # a plan has no id for a subject it would create: er-smart-sync records "dry-run"
-                ident = c.get("id") if c.get("id") not in (None, "", "dry-run") else None
+                # a plan writes nothing, so a subject it would create has no id yet (er-smart-sync
+                # records a placeholder there); an update or deactivation names the existing one
                 name = c.get("name") or c.get("value")
-                by_kind["subject"][k].append(_entry(ident or name, name))
+                by_kind["subject"][k].append({"value": None if k == "create" else c.get("id"), "label": name})
             else:
                 by_kind[c["kind"]][k].append(_entry(c.get("value")))
     dates = sorted(p["start_date"] for p in patrols if p.get("start_date"))
