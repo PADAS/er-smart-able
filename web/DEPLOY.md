@@ -36,7 +36,9 @@ requests that cannot add a header. Scripts can still send
 
 ## Loading into EarthRanger
 
-A dataset's owner can load it into an EarthRanger site from the app.
+Anyone who can read a dataset (its owner or someone it is shared with) can
+load it from the app into an EarthRanger site they can read (one they
+registered or one shared with them).
 
 Registering a site stores its name, URL, owner and sharing in the `sites`
 collection and its API token in Secret Manager as `smart-able-site-<id>`;
@@ -61,7 +63,7 @@ limits:
 | --- | --- | --- | --- |
 | `LOAD_SOFT_DEADLINE_SECONDS` | load job | 79200 (22 h) | when the job stops and continues; keep it below the job's 24 h `--task-timeout` |
 | `LOAD_MAX_CONTINUATIONS` | load job | 10 | continuations before the load is marked failed |
-| `LOAD_STALE_AFTER_SECONDS` | service | 90000 (25 h) | how long an active load holds its dataset before the owner may continue or plan it again; keep it above the soft deadline plus startup |
+| `LOAD_STALE_AFTER_SECONDS` | service | 90000 (25 h) | how long an active load holds its slot (that conservation area into that site) before anyone who can read the dataset and the site may continue or plan it again; keep it above the soft deadline plus startup |
 
 Deleting a dataset deletes its loads, their plans and reports. It never
 deletes anything already written to EarthRanger.

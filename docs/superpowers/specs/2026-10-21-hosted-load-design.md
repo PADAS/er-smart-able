@@ -89,7 +89,7 @@ One attempt to put one conservation area of one dataset into one site.
 | --- | --- |
 | `dataset_id`, `ca_id`, `site_id` | what is loaded where |
 | `owner_uid`, `owner_email` | who created the load |
-| `options` | `{language, configurable_model, roster_group}`; `configurable_model` is a uuid or null, `roster_group` a name or null. The timezone comes from the bundle. |
+| `options` | `{language, configurable_model, roster_group, event_category}`; `configurable_model` is a uuid or null, `roster_group` a name or null, `event_category` the ER event-category identifier the data model is pushed under (2-30 characters of `[A-Za-z0-9_-]`, default `smart-<ca id>`; use the identifier an earlier CLI push used). The timezone comes from the bundle. |
 | `status` | `planning`, `planned`, `queued`, `running`, `continuing`, `needs_attention`, `done`, `failed` |
 | `stage` | `datamodel`, `patrol_datamodel`, `preflight`, `import`; the stage the job is in or stopped in |
 | `plan` | the dry run's grouped write list (below) |
@@ -193,6 +193,18 @@ Each stage sets `stage` on the load as it starts and appends to `log.txt`.
 count from the bundle and the ledger. Writes `plan.json` and `findings.json`,
 sets `status: planned`. Nothing is written to EarthRanger.
 
+Because a plan writes nothing, its preflight (stage 3) reports as missing
+whatever stages 1 and 2 would create. Those preflight findings, by code
+(`event_types` with no active event type, `patrol_types`, `segment_schema`,
+`subjects`, `choices`; `CREATED_BY_RUN` in `web/findings.py`), become
+`info` with the title prefixed "Will be created by this load: ". Every other
+finding keeps its severity: teams, the roster group, the preview feature,
+permissions, the timezone, the collection type, and ambiguous or
+variant-only event types are not created by a run. A `planned` load can be
+confirmed even with blocking findings left: the run writes what the plan
+lists, re-runs preflight for real after stages 1 and 2, and stops at what
+is still blocking.
+
 ### Run mode
 
 `MODE=run`. Runs all four stages for real. The stop rule applies after
@@ -255,8 +267,8 @@ implementation plan verifies each against the current code first.
 | `POST /api/datasets/{id}/loads` `{ca_id, site_id, options}` | read on the dataset and on the site | creates the load as `planning` and starts a plan execution. 400 if the dataset has no `export` or the `ca_id` is not in it; 409 if a load for the same dataset, conservation area and site is active. |
 | `GET /api/datasets/{id}/loads` | read on the dataset | the dataset's loads, newest first |
 | `GET /api/loads/{id}` | read on the dataset | the load with plan, findings, progress and log tail |
-| `POST /api/loads/{id}/run` | read on the dataset | `planned` or `needs_attention` → `queued`, starts a run execution. Confirm and Continue are the same call. 409 if active, or if the site is gone. |
-| `POST /api/loads/{id}/replan` | read on the dataset | `needs_attention`, `failed` or `done` → `planning`, starts a plan execution |
+| `POST /api/loads/{id}/run` | read on the dataset and on the site (403 without the site) | `planned` or `needs_attention` → `queued`, starts a run execution. Confirm and Continue are the same call. 409 if active, or if the site is gone. |
+| `POST /api/loads/{id}/replan` | read on the dataset and on the site (403 without the site) | `needs_attention`, `failed` or `done` → `planning`, starts a plan execution |
 | `DELETE /api/loads/{id}` | read on the dataset | when not active; removes the folder and the doc, never the EarthRanger data |
 | `GET /api/loads/{id}/files/{name}` | read on the dataset | `checklist.json`, `plan.json`, `findings.json`, `log.txt`, any undo record |
 
@@ -265,7 +277,9 @@ hold not yet lapsed, via the same claim transaction and stale rule as
 extraction. The log tail goes to anyone who can read the dataset: it names
 the site and the patrols, never the token.
 
-Deleting a dataset deletes its loads and their folders.
+Deleting a dataset deletes its loads and their folders; it is refused (409)
+while any of its loads is active. As a backstop, a running import checks
+every push cycle that its load still exists and stops if it does not.
 
 ## UI
 
@@ -279,7 +293,7 @@ All in the existing single page (`web/templates/index.html`,
 - **Load into EarthRanger** on each `ready` dataset card. Opens a form:
   conservation area (preselected when there is one), site, label language
   from the bundle's languages, configurable model or none, roster group
-  name (optional). A dataset without `export` shows "re-extract this dataset
+  name (optional), event category (prefilled with the default). A dataset without `export` shows "re-extract this dataset
   to enable loading" in its place.
 - **Loads on the card**, one line each: site, conservation area, status,
   and "412 of 1,527 patrols" while running. Clicking opens the load page.
@@ -288,10 +302,11 @@ All in the existing single page (`web/templates/index.html`,
   2. The plan, as grouped counts with expandable lists.
   3. Findings, blocking first, each with its title, detail and fix text, and
      the affected count. Beside the list: **Confirm and load** when
-     `planned` with no blocking findings, **Continue** when
-     `needs_attention`, **Plan again** when `needs_attention`, `failed` or
-     `done`. A `planned` load with blocking findings shows the findings and
-     only Plan again, since the run would stop at the same place.
+     `planned`, **Continue** when `needs_attention`, **Plan again** when
+     `planned`, `needs_attention`, `failed` or `done`. When a `planned` load
+     still has blocking findings the button reads "Confirm and load (stops
+     at N blocking)", with one line saying the run will write what the plan
+     lists and then stop at those findings until they are fixed.
   4. Progress, the log tail, and downloads of the files.
 - Polling every few seconds while a load is active, like the dataset list
   during extraction.

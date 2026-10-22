@@ -182,11 +182,21 @@ async function addSite(ev) {
   finally { btn.disabled = false; }
 }
 
+// mirrors findings.ca_identifier: smart-<ca id>, 2-30 chars of [A-Za-z0-9_-]
+function defaultEventCategory(caId) {
+  const s = ('smart-' + (caId || 'ca')).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
+}
+
 async function loadDialog(d) {
   const sites = await api('/api/sites');
   if (!sites.length) return alert('Register an EarthRanger site first.');
+  let lastDefault = null;
   const render = () => {
     const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
+    const def = defaultEventCategory(ca.ca_id);   // what the server defaults to
+    if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
+    lastDefault = def;
     $('#ldLang').innerHTML = ca.languages.map(l => '<option' + (l === ca.default_language ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
     $('#ldCm').innerHTML = '<option value="">none</option>' + ca.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
   };
@@ -198,13 +208,16 @@ async function loadDialog(d) {
     '<label>Label language <select id="ldLang"></select></label>' +
     '<label>Configurable model <select id="ldCm"></select></label>' +
     '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
+    '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
+    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (phinney: lawin050500).</p>' +
     '<div class="row right"><button type="submit" class="primary">Make the plan</button></div></form>');
   render(); $('#ldCa').onchange = render;
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
-        options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value } }) });
+        options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
+        event_category: $('#ldCategory').value.trim() } }) });
       $('#modal').hidden = true; showLoad(l.id);
     } catch (e) { alert(e.message); }
   };
@@ -246,21 +259,26 @@ async function renderLoad() {
   $('#loadStages').innerHTML = STAGES.map((s, i) => '<span class="stage ' +
     (i < idx || (i === idx && ['done', 'planned'].includes(l.status)) ? 'done' : i === idx && active ? 'current' : i === idx && ['needs_attention', 'failed'].includes(l.status) ? 'stopped' : '') +
     '">' + esc(STAGE_LABEL[s]) + '</span>').join('');
-  const blocking = (l.findings || []).some(f => f.severity === 'blocking');
+  const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
   let actions = '';
   if (!active && l.site) {
-    if (l.status === 'planned' && !blocking) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load</button> ';
+    // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
+    if (l.status === 'planned') actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' +
+      (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button> ';
     if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Continue</button> ';
     if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button> ';
   }
   if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';
+  if (!active && l.site && l.status === 'planned' && blocking) actions += '<div class="tiny">The run will write what the plan lists, then stop at the ' +
+    (blocking === 1 ? 'blocking finding' : blocking + ' blocking findings') + ' below until they are fixed.</div>';
   if (stale) actions += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
   if (l.error) actions += '<div class="tiny" style="color:var(--danger)">' + esc(l.error) + '</div>';
   $('#loadActions').innerHTML = actions;
   const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets(); } catch (e) { alert(e.message); } };
-  const fs = (l.findings || []).slice().sort((a, b) => (a.severity === 'blocking' ? 0 : 1) - (b.severity === 'blocking' ? 0 : 1));
+  const RANK = { blocking: 0, warning: 1, info: 2 };
+  const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
   $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
     (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
     (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
