@@ -469,18 +469,21 @@ function renderStages(l, active) {
 }
 
 function renderPlan(plan) {
-  const group = (title, g) => {
+  // opts.noIdOnCreate: the group's creates have no identifier yet (plans saved before that rule carried a placeholder there)
+  const group = (title, g, opts = {}) => {
     if (!g) return '';
     const parts = [];
-    for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length)
-      // a subject to be created has no id (plans saved before this rule carried a placeholder there)
-      parts.push('<details><summary>' + k + ' ' + g[k].length + (g.more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (e.value && e.value !== e.label && !(title === 'Subjects' && k === 'create') ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (g.more ? '<li class="tiny">and ' + esc(g.more) + ' more</li>' : '') + '</ul></details>');
+    for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length) {
+      const more = typeof g.more === 'object' && g.more ? g.more[k] || 0 : (g.more || 0);   // per list now; a number in older plans
+      const showValue = e => e.value && e.value !== e.label && !(opts.noIdOnCreate && k === 'create');
+      parts.push('<details><summary>' + k + ' ' + g[k].length + (more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (showValue(e) ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (more ? '<li class="tiny">and ' + esc(more) + ' more</li>' : '') + '</ul></details>');
+    }
     if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
     return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
   };
   const p = plan.patrols || {};
   return group('Event categories', plan.event_categories) + group('Event types', plan.event_types) + group('Patrol types', plan.patrol_types) +
-    '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects) +
+    '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects, { noIdOnCreate: true }) +
     '<div><b>Roster</b> ' + (plan.roster && plan.roster.group ? esc(plan.roster.group) + ': ' : '') + esc((plan.roster || {}).add || 0) + ' to add</div>' +
     '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>';
 }
