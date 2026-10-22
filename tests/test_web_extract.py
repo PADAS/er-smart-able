@@ -3,6 +3,7 @@ launch two jobs that write the same site."""
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import threading
 from datetime import datetime, timedelta, timezone
@@ -169,3 +170,34 @@ def test_a_local_run_past_the_timeout_is_killed_with_its_children(client, monkey
         time.sleep(0.1)
     else:
         pytest.fail("the worker's child survived the timeout")
+
+
+def _fake_export(root: Path, ca="ALPHA"):
+    ca_dir = root / ca
+    (ca_dir / "bundle").mkdir(parents=True)
+    (ca_dir / "bundle" / "manifest.json").write_text(json.dumps({
+        "conservation_area": {"id": "050500", "name": "Albay", "uuid": "0c7cbb41-1a60-485d-8513-8255206466a4"},
+        "timezone": {"name": "Asia/Manila", "source": "inferred"}, "default_language": "en",
+        "languages": [{"code": "en", "default": True}], "counts": {"patrols": 3}}))
+    (ca_dir / "datamodel.json").write_text(json.dumps({"configurable_models": [{"uuid": "abc", "label": "Mobile"}]}))
+    (ca_dir / "datamodel.xml").write_text("<DataModel/>")
+    (root / ".export-staging").mkdir()
+    return root
+
+
+def test_describe_export_reads_each_bundle_manifest(tmp_path):
+    sys.path.insert(0, str(ROOT / "web"))
+    job = importlib.import_module("job")
+    out = job.describe_export(_fake_export(tmp_path / "export"))
+    assert out == [{"ca_id": "050500", "dir": "ALPHA", "name": "Albay", "languages": ["en"], "default_language": "en",
+                    "configurable_models": [{"uuid": "abc", "label": "Mobile"}], "patrols": 3, "timezone": "Asia/Manila"}]
+
+
+def test_put_export_publishes_every_ca_and_not_the_staging_dir(client, tmp_path):
+    app, _ = client
+    store = app.get_store()
+    id = _dataset(store)
+    store.put_export(id, _fake_export(tmp_path / "export"))
+    assert store.export_exists(id, "ALPHA") and not store.export_exists(id, ".export-staging")
+    got = store.fetch_export(id, "ALPHA", tmp_path / "fetched")
+    assert (got / "bundle" / "manifest.json").is_file() and (got / "datamodel.xml").is_file()

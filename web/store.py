@@ -30,7 +30,7 @@ BACKEND = os.environ.get("BACKEND", "gcp")
 ROOT = Path(__file__).resolve().parent.parent  # the smart-able checkout
 DATASET_FIELDS = ("name", "owner_uid", "owner_email", "shared_with", "status", "created_at", "updated_at",
                   "source_name", "source_size", "cas", "db_version", "counts", "error", "execution", "log_tail",
-                  "extract_claimed_at", "started_at")
+                  "extract_claimed_at", "started_at", "export")
 
 now = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -149,6 +149,18 @@ class LocalStore:
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(site_dir, dest, symlinks=False, ignore=shutil.ignore_patterns("index.html"))
+
+    def put_export(self, id: str, export_dir: Path):
+        dest = self._p(id) / "export"
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(export_dir, dest, symlinks=False, ignore=shutil.ignore_patterns(".export-staging"))
+
+    def export_exists(self, id: str, ca_dir: str) -> bool:
+        return (self._p(id) / "export" / safe_relpath(ca_dir) / "bundle" / "manifest.json").is_file()
+
+    def fetch_export(self, id: str, ca_dir: str, dest: Path) -> Path:
+        return self._p(id) / "export" / safe_relpath(ca_dir)  # already local
 
     def open_site_file(self, id: str, relpath: str):
         f = self._p(id) / "site" / safe_relpath(relpath)
@@ -280,6 +292,31 @@ class GcpStore:
             self.bucket.blob(prefix + rel).upload_from_filename(str(p), content_type=site_content_type(rel))
         with ThreadPoolExecutor(max_workers=16) as ex:
             list(ex.map(up, files))
+
+    def put_export(self, id: str, export_dir: Path):
+        from concurrent.futures import ThreadPoolExecutor
+        export_dir = Path(export_dir)
+        prefix = f"datasets/{id}/export/"
+        for old in self.bucket.list_blobs(prefix=prefix):
+            old.delete()
+        files = [p for p in export_dir.rglob("*") if p.is_file() and ".export-staging" not in p.parts]
+        def up(p: Path):
+            rel = p.relative_to(export_dir).as_posix()
+            self.bucket.blob(prefix + rel).upload_from_filename(str(p), content_type=site_content_type(rel))
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            list(ex.map(up, files))
+
+    def export_exists(self, id: str, ca_dir: str) -> bool:
+        return self.bucket.blob(f"datasets/{id}/export/{safe_relpath(ca_dir)}/bundle/manifest.json").exists()
+
+    def fetch_export(self, id: str, ca_dir: str, dest: Path) -> Path:
+        prefix = f"datasets/{id}/export/{safe_relpath(ca_dir)}/"
+        dest = Path(dest)
+        for blob in self.bucket.list_blobs(prefix=prefix):
+            target = dest / blob.name[len(prefix):]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            blob.download_to_filename(str(target))
+        return dest
 
     def open_site_file(self, id: str, relpath: str):
         blob = self.bucket.blob(f"datasets/{id}/site/{safe_relpath(relpath)}")

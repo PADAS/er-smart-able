@@ -62,7 +62,7 @@ class SessionRequest(BaseModel):
 
 def _public(doc: dict, user: dict) -> dict:
     return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at",
-                                    "source_name", "source_size", "cas", "db_version", "counts", "error")} | {
+                                    "source_name", "source_size", "cas", "db_version", "counts", "error", "export")} | {
         "mine": is_owner(doc, user), "extract_held": extract_in_progress(doc)}
 
 
