@@ -25,3 +25,4 @@ derby.log
 web/infra/terraform.tfvars
 web/infra/.terraform/
 web/infra/*.tfstate*
+.worktrees/
