@@ -72,7 +72,7 @@ async function loadList() {
       '<td class="actions">' +
         (d.status === 'ready' ? '<a href="/d/' + d.id + '/"><button><span class="mi" aria-hidden="true">arrow_forward</span>Open</button></a> ' : '') +
         (d.mine ? '<button data-act="share"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (d.status === 'ready' && (d.export || []).length ? '<button data-act="load"><span class="mi" aria-hidden="true">cloud_upload</span>Load into EarthRanger</button> ' : '') +
+        (d.status === 'ready' && (d.export || []).length ? '<button data-act="load" title="Load a conservation area into an EarthRanger site"><span class="mi" aria-hidden="true">cloud_upload</span>Load</button> ' : '') +
         (d.status === 'ready' && !(d.export || []).length ? '<span class="tiny" title="Run the extraction again to build the migration bundle">re-extract to enable loading</span> ' : '') +
         (d.mine && !d.extract_held && ['failed', 'uploaded', 'ready', 'uploading', 'queued', 'running'].includes(d.status) ? '<button data-act="extract" title="' + (d.status === 'uploading' ? 'Start the extraction (if the upload completed)' : 'Run the extraction again') + '"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
         (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
