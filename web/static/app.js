@@ -338,12 +338,23 @@ async function openHelp(anchor) {
       let current = null;
       body.querySelectorAll('section').forEach(s => { if (s.offsetTop <= top) current = s.id; });
       $('#helpToc').querySelectorAll('button').forEach(b => b.classList.toggle('current', b.dataset.goto === current));
-      try { localStorage.setItem('help.scroll', String(body.scrollTop)); } catch (e) {}
+    };
+    drawer.onkeydown = e => {   // a dialog keeps Tab inside it
+      if (e.key !== 'Tab') return;
+      const f = Array.from(drawer.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')).filter(x => x.offsetParent !== null);
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     };
   }
   drawer.hidden = false; $('#helpBackdrop').hidden = false;
   if (anchor) gotoHelp(anchor);
-  else { let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {} body.scrollTo({ top: saved, behavior: 'instant' }); body.onscroll(); }
+  else {
+    $('#helpNote').hidden = true;
+    let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {}
+    body.scrollTo({ top: saved, behavior: 'instant' }); body.onscroll();
+  }
   $('#helpClose').focus();
 }
 
@@ -364,6 +375,9 @@ function gotoHelp(id) {
 }
 
 function closeHelp() {
+  try { localStorage.setItem('help.scroll', String($('#helpBody').scrollTop)); } catch (e) {}
+  $('#helpNote').hidden = true;
+  $('#helpBody').querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   $('#help').hidden = true; $('#helpBackdrop').hidden = true;
   if (helpOpener && helpOpener.focus && document.contains(helpOpener)) helpOpener.focus();
 }

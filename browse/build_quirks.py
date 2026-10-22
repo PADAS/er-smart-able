@@ -108,19 +108,17 @@ EXTENSIONS = ["toc", "tables", "fenced_code"]
 TOC = {"toc_depth": "2-3"}
 
 
-def convert(md_text: str, extensions=None) -> markdown.Markdown:
-    """The converted Markdown instance: `.body` is the HTML, `.toc` the contents.
-    The help drawer renders its own pages through this with extra extensions."""
+def convert(md_text: str, extensions=None) -> tuple[str, str]:
+    """(html, toc). The help drawer renders its pages through this too."""
     m = markdown.Markdown(extensions=extensions or EXTENSIONS, extension_configs={"toc": TOC})
-    m.body = m.convert(md_text)
-    return m
+    html = m.convert(md_text)
+    return html, getattr(m, "toc", "")
 
 
 def render(md_text: str) -> str:
-    m = convert(md_text)
-    body = m.body
+    body, toc = convert(md_text)
     tokens, acorn = app_theme(APP.read_text(encoding="utf-8"))
-    toc = m.toc.replace('<div class="toc">', '<nav class="toc" aria-label="On this page">', 1)
+    toc = toc.replace('<div class="toc">', '<nav class="toc" aria-label="On this page">', 1)
     toc = toc[: toc.rfind("</div>")] + "</nav>" if toc.rstrip().endswith("</div>") else toc
     return PAGE.format(tokens=tokens, css=CSS, acorn=acorn, toc=toc, body=body)
 

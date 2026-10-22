@@ -4,8 +4,8 @@ once per process; the page shows the sections in a drawer and deep-links to
 heading ids (a finding opens `finding-<code>`)."""
 from __future__ import annotations
 
+import importlib.util
 import re
-import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -13,13 +13,24 @@ ROOT = HERE.parent
 HELP_DIR = HERE / "help"
 QUIRKS = ROOT / "docs" / "smart-data-quirks.md"
 DOCS_URL = "https://github.com/PADAS/er-smart-able/blob/main/docs/"
-sys.path.insert(0, str(ROOT / "browse"))
-import build_quirks  # noqa: E402  the doc renders here exactly as in quirks.html
+
+
+def _load_module(path: Path):
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+build_quirks = _load_module(ROOT / "browse" / "build_quirks.py")   # the doc renders here exactly as in quirks.html
 QUIRKS_PREAMBLE = ("This is the reference the extraction and the browser link to. It explains what SMART stores, "
                    "what the extraction does about it, and what the warnings in a bundle's manifest mean. "
                    "It is written for whoever has to answer \"why does this patrol look like that?\".\n\n")
-EXTENSIONS = build_quirks.EXTENSIONS + ["attr_list"]   # attr_list for the help pages' own heading ids
+# the help pages carry their own heading ids (attr_list) and get no toc, which would slugify every
+# heading into the page's single DOM ("## Import" -> id="import") beside the app's and the doc's ids
+EXTENSIONS = ["attr_list", "tables", "fenced_code"]
 _MD_LINK = re.compile(r'href="(?!https?://|#|/)([^"]+?\.md)(#[^"]*)?"')
+_OUTSIDE = re.compile(r'<a\b([^>]*?)href="(https?://)')
 
 
 def _links(html: str) -> str:
@@ -27,7 +38,7 @@ def _links(html: str) -> str:
     would navigate away, so it points at the doc on GitHub, and every outside
     link opens in a new tab."""
     html = _MD_LINK.sub(lambda m: f'href="{DOCS_URL}{m.group(1)}{m.group(2) or ""}"', html)
-    return html.replace('<a href="http', '<a target="_blank" rel="noopener" href="http')
+    return _OUTSIDE.sub(r'<a target="_blank" rel="noopener"\1href="\2', html)
 
 
 def _split_title(text: str) -> tuple[str, str]:
@@ -38,7 +49,7 @@ def _split_title(text: str) -> tuple[str, str]:
 
 def _render(text: str, extensions=EXTENSIONS) -> tuple[str, str]:
     title, body = _split_title(text)
-    return title, _links(build_quirks.convert(body, extensions).body)
+    return title, _links(build_quirks.convert(body, extensions)[0])
 
 
 def _load() -> list:

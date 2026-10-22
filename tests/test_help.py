@@ -25,20 +25,36 @@ def help_mod(monkeypatch):
     return importlib.import_module("help_pages")
 
 
+def _er_smart_sync_source(name: str):
+    """er-smart-sync's module source when it can be found: the installed package,
+    the sibling checkout, or the load venv. The help must name every code it emits."""
+    try:
+        mod = importlib.import_module(f"er_smart_sync.{name}")
+        return Path(mod.__file__).read_text()
+    except ImportError:
+        pass
+    for p in [ROOT.parent / "earthranger-smart-utils" / "src" / "er_smart_sync" / f"{name}.py",
+              *ROOT.glob(f".venv-load/lib/python*/site-packages/er_smart_sync/{name}.py")]:
+        if p.is_file():
+            return p.read_text()
+    return None
+
+
 def _finding_codes(monkeypatch):
     import re
     monkeypatch.syspath_prepend(str(ROOT / "web"))
     sys.modules.pop("findings", None)
     findings = importlib.import_module("findings")
-    checklist = set(findings.BLOCKING_CHECKLIST) | set(findings.VALUE_LABEL)
+    checklist = set(findings.BLOCKING_CHECKLIST) | set(findings.VALUE_LABEL) | {"patrol_type_icons", "station_names"}
     job = set(re.findall(r'finding\("(?:import|datamodel)", "([a-z_]+)"', (ROOT / "web" / "findings.py").read_text()))
     assert "patrols_failed" in job and "site_token_rejected" in job
     preflight = set(PREFLIGHT_CODES)
-    try:   # the load venv has er-smart-sync: read every code its preflight can emit
-        import er_smart_sync.preflight as pf
-        preflight |= set(re.findall(r'Finding(?:\.of)?\(\s*"([a-z_]+)"', Path(pf.__file__).read_text()))
-    except ImportError:
-        pass
+    src = _er_smart_sync_source("preflight")
+    if src:
+        preflight |= set(re.findall(r'Finding(?:\.of)?\(\s*"([a-z_]+)"', src))
+    src = _er_smart_sync_source("patrol_datamodel")
+    if src:
+        checklist |= set(re.findall(r'(?:ChecklistItem|_permission_item)\(\s*"([a-z_]+)"', src))
     return sorted(checklist | job | preflight)
 
 

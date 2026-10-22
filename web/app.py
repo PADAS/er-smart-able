@@ -6,6 +6,7 @@ Routes:
   GET  /api/config            Firebase web config for the sign-in
   POST /api/session           id token -> session cookie;  POST /api/signout
   GET  /api/me
+  GET  /api/help              the help drawer's sections (web/help/*.md and the quirks doc)
   GET  /api/datasets          datasets the user owns or is shared on
   POST /api/datasets          create one; returns where to PUT the file
   PUT  /api/datasets/{id}/upload    (local backend only; GCS takes signed PUTs)
