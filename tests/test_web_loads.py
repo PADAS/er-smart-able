@@ -218,9 +218,9 @@ def test_run_confirms_a_plan_and_continues_a_stopped_load(client, launches):
     planned = _load(store, ds, site, status="planned")
     assert c.post(f"/api/loads/{planned}/run").status_code == 200
     assert store.get_load(planned)["status"] == "queued" and launches[-1] == (planned, "run")
-    stopped = _load(store, ds, site, status="needs_attention")
+    stopped = _load(store, ds, _site(store), status="needs_attention")   # its own site: the planned load holds this one
     assert c.post(f"/api/loads/{stopped}/run").status_code == 200
-    done = _load(store, ds, site, status="done")
+    done = _load(store, ds, _site(store), status="done")
     assert c.post(f"/api/loads/{done}/run").status_code == 409
     assert c.post(f"/api/loads/{done}/replan").status_code == 200
     assert store.get_load(done)["status"] == "planning" and launches[-1] == (done, "plan")
@@ -306,3 +306,38 @@ def test_a_fresh_running_load_still_refuses_run(client, launches):
     id = _load(store, ds, site, status="running", started_at=_ago(0))
     assert c.post(f"/api/loads/{id}/run").status_code == 409
     assert launches == []
+
+
+def test_a_planned_load_cannot_run_while_another_holds_the_target(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    first, second = _load(store, ds, site), _load(store, ds, site)
+    elsewhere = _load(store, ds, _site(store))
+    assert c.post(f"/api/loads/{first}/run").status_code == 200
+    r = c.post(f"/api/loads/{second}/run")
+    assert r.status_code == 409 and "another load" in r.json()["detail"]
+    assert c.post(f"/api/loads/{second}/replan").status_code == 409
+    assert store.get_load(second)["status"] == "planned"
+    assert c.post(f"/api/loads/{elsewhere}/run").status_code == 200
+    store.update_load(first, status="done")
+    assert c.post(f"/api/loads/{second}/run").status_code == 200
+    assert [l for l, _ in launches] == [first, elsewhere, second]
+
+
+def test_concurrent_creates_for_one_target_admit_exactly_one(client):
+    app, _ = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    results, start = [], threading.Barrier(16)
+
+    def create():
+        start.wait()
+        results.append(_load(store, ds, site, status="planning", claimed_at=sys.modules["store"].now()))
+
+    threads = [threading.Thread(target=create) for _ in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sum(1 for r in results if r) == 1 and len(store.list_loads(ds)) == 1

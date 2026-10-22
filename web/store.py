@@ -80,6 +80,15 @@ def load_in_progress(doc: dict) -> bool:
     return datetime.now(timezone.utc) - since < LOAD_STALE_AFTER
 
 
+def target_held(loads, doc: dict, except_id: str | None = None) -> bool:
+    """Another load of the same conservation area into the same site is in
+    progress. Two executions writing one target would race the schema and
+    patrol writes with separate ledgers."""
+    return any(l.get("id") != except_id and l.get("dataset_id") == doc.get("dataset_id")
+               and l.get("ca_id") == doc.get("ca_id") and l.get("site_id") == doc.get("site_id")
+               and load_in_progress(l) for l in loads)
+
+
 def is_owner(doc: dict, user: dict) -> bool:
     return doc.get("owner_uid") == user["uid"]
 
@@ -295,10 +304,16 @@ class LocalStore:
         d = self._read_file(self._loads_path()).get(id)
         return dict(id=id, **d) if d else None
 
-    def create_load(self, doc: dict) -> str:
+    def create_load(self, doc: dict):
+        """The new load's id, or None when it would hold a target another
+        load already holds. Decided under the lock, so two creates cannot
+        both pass."""
         id = uuid.uuid4().hex[:12]
         with self.lock:
-            data = self._read_file(self._loads_path()); data[id] = doc; self._write_file(self._loads_path(), data)
+            data = self._read_file(self._loads_path())
+            if doc.get("status") in LOAD_ACTIVE and target_held([dict(id=k, **v) for k, v in data.items()], doc):
+                return None
+            data[id] = doc; self._write_file(self._loads_path(), data)
         return id
 
     def update_load(self, id: str, **fields):
@@ -323,7 +338,7 @@ class LocalStore:
         with self.lock:
             data = self._read_file(self._loads_path())
             doc = data.get(id)
-            if doc is None or load_in_progress(doc):
+            if doc is None or load_in_progress(doc) or target_held([dict(id=k, **v) for k, v in data.items()], doc, id):
                 return False
             doc.update(status=status, error=None, claimed_at=now(), updated_at=now())
             self._write_file(self._loads_path(), data)
@@ -594,10 +609,27 @@ class GcpStore:
         d = self._loads().document(id).get()
         return dict(id=d.id, **d.to_dict()) if d.exists else None
 
-    def create_load(self, doc: dict) -> str:
+    def _target_loads(self, doc: dict):
+        return (self._loads().where("dataset_id", "==", doc.get("dataset_id"))
+                .where("ca_id", "==", doc.get("ca_id")).where("site_id", "==", doc.get("site_id")))
+
+    def create_load(self, doc: dict):
+        """The new load's id, or None when it would hold a target another
+        load already holds. A transaction over the target's loads, so two
+        creates cannot both pass."""
+        from google.cloud import firestore
         ref = self._loads().document()
-        ref.set(doc)
-        return ref.id
+
+        @firestore.transactional
+        def create(tx):
+            if doc.get("status") in LOAD_ACTIVE:
+                others = [dict(id=d.id, **d.to_dict()) for d in tx.get(self._target_loads(doc))]
+                if target_held(others, doc):
+                    return None
+            tx.set(ref, doc)
+            return ref.id
+
+        return create(self.db.transaction())
 
     def update_load(self, id: str, **fields):
         fields["updated_at"] = now()
@@ -622,6 +654,9 @@ class GcpStore:
         def claim(tx) -> bool:
             snap = ref.get(transaction=tx)
             if not snap.exists or load_in_progress(snap.to_dict()):
+                return False
+            others = [dict(id=d.id, **d.to_dict()) for d in tx.get(self._target_loads(snap.to_dict()))]
+            if target_held(others, snap.to_dict(), id):
                 return False
             tx.update(ref, {"status": status, "error": None, "claimed_at": now(), "updated_at": now()})
             return True

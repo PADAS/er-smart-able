@@ -274,8 +274,12 @@ implementation plan verifies each against the current code first.
 
 "Active" means `planning`, `queued`, `running` or `continuing` with the
 hold not yet lapsed, via the same claim transaction and stale rule as
-extraction. The log tail goes to anyone who can read the dataset: it names
-the site and the patrols, never the token.
+extraction. The claim is for the target, not only the load: creating,
+running or replanning a load is refused (409) while any other load of the
+same dataset, conservation area and site is active, decided inside the
+same transaction, so two planned loads for one target cannot both run.
+The log tail goes to anyone who can read the dataset: it names the site
+and the patrols, never the token.
 
 Deleting a dataset deletes its loads and their folders; it is refused (409)
 while any of its loads is active. As a backstop, a running import checks

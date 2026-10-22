@@ -340,7 +340,8 @@ def _launch(load_id: str, mode: str):
 
 def _start(load_id: str, mode: str, claim_status: str):
     if not get_store().claim_load(load_id, claim_status):
-        raise HTTPException(status_code=409, detail="This load is already planning or running")
+        raise HTTPException(status_code=409, detail="This load, or another load of this conservation area into that site, "
+                                                    "is already planning or running")
     _launch(load_id, mode)
 
 
@@ -366,9 +367,6 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
         raise HTTPException(status_code=400, detail="The event category must be 2-30 letters, digits, '-' or '_'")
     category = category.strip()
     store = get_store()
-    for other in store.list_loads(id):
-        if other.get("ca_id") == req.ca_id and other.get("site_id") == req.site_id and load_in_progress(other):
-            raise HTTPException(status_code=409, detail="A load of this conservation area into that site is already active")
     load_id = store.create_load({
         "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
         "options": {"language": language, "configurable_model": cm,
@@ -377,6 +375,8 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
         "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race
         "created_at": now(), "updated_at": now(), "continuations": 0,
         "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})
+    if load_id is None:
+        raise HTTPException(status_code=409, detail="A load of this conservation area into that site is already active")
     _launch(load_id, "plan")
     return _load_public(store.get_load(load_id), user)
 
