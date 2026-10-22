@@ -59,7 +59,7 @@ def extract_in_progress(doc: dict) -> bool:
     return datetime.now(timezone.utc) - since < EXTRACT_STALE_AFTER
 
 
-LOAD_FIELDS = ("dataset_id", "ca_id", "site_id", "owner_uid", "owner_email", "options", "status", "stage",
+LOAD_FIELDS = ("dataset_id", "ca_id", "site_id", "owner_uid", "owner_email", "options", "status", "stage", "stages", "mode",
                "created_at", "updated_at", "execution", "continuations", "plan", "findings", "progress",
                "log_tail", "error", "started_at", "claimed_at")
 LOAD_ACTIVE = ("planning", "queued", "running", "continuing")

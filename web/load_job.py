@@ -68,6 +68,7 @@ class Runner:
         self.load_dir: Path | None = None
         self.dataset_id = None
         self.findings: list = []  # the latest findings, for whichever exit records them
+        self.stages: dict = {}    # this execution's rows: status, started_at, finished_at, metrics
         self._log_lock = threading.Lock()
         self.started = self.clock()
 
@@ -82,6 +83,22 @@ class Runner:
             if self.load_dir:
                 with open(self.load_dir / "log.txt", "a", encoding="utf-8") as f:
                     f.write(line + "\n")
+
+    def _begin(self, stage: str, **fields):
+        """A stage starts: its row, the current stage and the tail so far."""
+        self.stages[stage] = {"status": "running", "started_at": now(), "finished_at": None, "metrics": {}}
+        self._update(stage=stage, stages=self.stages, log_tail=self._tail(), **fields)
+
+    def _end(self, stage: str, metrics: dict | None = None):
+        self.stages[stage].update(status="done", finished_at=now(), metrics=metrics or {})
+        self._update(stages=self.stages, log_tail=self._tail())
+
+    def _close_stages(self, status: str):
+        """The outcome closes a row still running: stopped, failed, or done."""
+        for row in self.stages.values():
+            if row["status"] == "running":
+                row.update(status={"needs_attention": "stopped", "failed": "failed", "continuing": "running"}.get(status, "done"),
+                           finished_at=None if status == "continuing" else now())
 
     def _tail(self) -> str:
         return "\n".join(F.clip(line, TAIL_LINE) for line in self.log_lines[-LOG_TAIL:])
@@ -101,6 +118,8 @@ class Runner:
         ends the execution never points at files the store does not have yet;
         a failure to push them is logged and does not stop the status."""
         self._log(f"load {self.load_id}: {status}")
+        self._close_stages(status)
+        fields["stages"] = self.stages
         try:
             self._push_files()
         except Exception as e:  # noqa: BLE001
@@ -109,7 +128,7 @@ class Runner:
             self._update(status=status, log_tail=self._tail(), **fields)
         except Exception as e:  # noqa: BLE001  e.g. a document over Firestore's limit: the status must still land
             self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, findings and plan")
-            small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at")}
+            small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at", "stages")}
             self._update(status=status, error=(fields.get("error") or "The full outcome could not be recorded; see log.txt")[:2000],
                          log_tail=None, findings=None, plan=None, **small)
             self._log(f"load {self.load_id}: {status} recorded without the tail, findings and plan")
@@ -125,7 +144,8 @@ class Runner:
             print(f"no load {self.load_id}", file=sys.stderr)
             return 2
         self.dataset_id = load["dataset_id"]
-        self._update(status="running", error=None, started_at=now())
+        self.stages = {}
+        self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode)
         self.work.mkdir(parents=True, exist_ok=True)
         findings = self.findings
         stage = None
@@ -149,10 +169,12 @@ class Runner:
                 logging.getLogger(name).setLevel(logging.WARNING)
             self._log(f"{self.mode}: {entry.get('name')} ({entry.get('ca_id')}) -> {site['url']} "
                       f"(continuation {load.get('continuations', 0)})")
+            stage = "datamodel"
+            self._begin(stage)
             try:
                 who = self.check_token(site["url"], token)
             except TokenRejected as e:
-                self._finish("needs_attention", stage="datamodel", findings=[F.token_rejected(str(e))])
+                self._finish("needs_attention", stage=stage, findings=[F.token_rejected(str(e))])
                 return 0
             self._log(f"token works as {who}")
             export_dir = self.store.fetch_export(self.dataset_id, load["ca_id"], self.work / "export")
@@ -162,13 +184,12 @@ class Runner:
                                        ca_identifier=load["options"].get("event_category") or ca_identifier(entry.get("ca_id")))
             del token
 
-            stage = "datamodel"
-            self._update(stage=stage)
             dm_stats = m.push_datamodel()
             self._log(f"datamodel: {dm_stats}")
+            self._end(stage, dm_stats)
 
             stage = "patrol_datamodel"
-            self._update(stage=stage)
+            self._begin(stage)
             checklist, pd_stats, pd_changes = m.patrol_datamodel(self.load_dir)
             (self.load_dir / "checklist.json").write_text(json.dumps(checklist, indent=1))
             findings += F.from_checklist(checklist)
@@ -176,9 +197,10 @@ class Runner:
             if not dry and F.has_blocking(findings):
                 self._finish("needs_attention", stage=stage, findings=findings)
                 return 0
+            self._end(stage, pd_stats)
 
             stage = "preflight"
-            self._update(stage=stage, findings=findings)
+            self._begin(stage, findings=findings)
             report = m.preflight()
             pre = F.from_preflight(report)
             # a plan wrote nothing, so what stages 1-2 create is reported missing; the run preflights again
@@ -187,16 +209,19 @@ class Runner:
             if not dry and F.has_blocking(findings):
                 self._finish("needs_attention", stage=stage, findings=findings)
                 return 0
+            patrols = m.patrols()
+            self._end(stage, {"blocking": len(report.get("blocking") or []), "warnings": len(report.get("warnings") or []),
+                              "patrols": len(patrols)})
 
             stage = "import"
-            self._update(stage=stage, findings=findings)
-            patrols = m.patrols()
+            self._begin(stage, findings=findings)
             if dry:
                 plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
                                     roster_group=load["options"].get("roster_group"), patrols=patrols,
                                     ledger_done=m.ledger_done(), counts=m.counts())
                 (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
                 (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
+                self.stages[stage]["metrics"] = {"planned": len(patrols), "already_done": plan["patrols"]["already_done"]}
                 self._finish("planned", stage=stage, findings=findings, plan=plan)
                 return 0
             return self._import(m, load, findings, patrols)
@@ -215,6 +240,7 @@ class Runner:
     def _import(self, m, load, findings, patrols) -> int:
         counts = m.counts()
         total = len(patrols)
+        since = self.stages["import"]["started_at"]
         stop, deleted = threading.Event(), threading.Event()
         last_push = {"t": self.clock(), "n": 0}
         last: dict = {}
@@ -240,7 +266,8 @@ class Runner:
                     return
                 self._update(progress={"patrols_total": total, "done": p["done"], "failed": p["failed"],
                                        "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
-                                       "track_points": counts.get("track_points", 0)})
+                                       "track_points": counts.get("track_points", 0), "since": since},
+                             log_tail=self._tail())
                 if periodic:
                     self._push_files()  # the ledger above all: what a continuation resumes from
                     last_push.update(t=self.clock(), n=p["done"])
@@ -263,7 +290,10 @@ class Runner:
         findings = self.findings = findings + F.from_failed_patrols(failed, ids)
         self._update(progress={"patrols_total": total, "done": len(result.get("imported") or []) + len(failed),
                                "failed": len(failed), "skipped": last.get("already_imported", 0),
-                               "events": counts.get("observations", 0), "track_points": counts.get("track_points", 0)})
+                               "events": counts.get("observations", 0), "track_points": counts.get("track_points", 0),
+                               "since": since})
+        self.stages["import"]["metrics"] = {"imported": len(result.get("imported") or []), "failed": len(failed),
+                                            "skipped": last.get("already_imported", 0)}
         self._log(f"import: {len(result.get('imported') or [])} imported, {len(failed)} failed"
                   + (", stopped at the soft deadline" if result.get("stopped_early") else ""))
         if result.get("stopped_early"):
@@ -350,7 +380,9 @@ class ErSmartSyncMigration:
             write_run_record(result, self.bundle, self.endpoint, Path(out_dir))
         if result.stats.errors:
             raise RuntimeError("patrol-datamodel: " + "; ".join(str(e) for e in result.stats.errors))
-        stats = {k: getattr(result.stats, k) for k in ("schema_written", "schema_skipped", "subjects_grouped")}
+        stats = {k: getattr(result.stats, k) for k in (
+            "schema_written", "schema_skipped", "types_created", "types_updated", "types_unchanged",
+            "subjects_created", "subjects_updated", "subjects_unchanged", "subjects_deactivated", "subjects_grouped")}
         return result.checklist_dicts(), stats, list(result.stats.changes)
 
     def preflight(self) -> dict:

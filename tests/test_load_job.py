@@ -164,7 +164,8 @@ def test_run_imports_when_only_warnings_remain(env):
     rc, load, _ = _run(env, "run", m, "queued")
     assert load["status"] == "done" and load["stage"] == "import"
     assert m.calls[-1] == "import_patrols"
-    assert load["progress"] == {"patrols_total": 3, "done": 3, "failed": 0, "skipped": 0, "events": 9, "track_points": 300}
+    assert load["progress"] == {"patrols_total": 3, "done": 3, "failed": 0, "skipped": 0, "events": 9, "track_points": 300,
+                                "since": load["stages"]["import"]["started_at"]}
     assert "patrol_type_icons" in [f["code"] for f in load["findings"]]
     store = env[0]
     assert store.get_load_file(load["dataset_id"], load["id"], "log.txt") is not None
@@ -440,3 +441,65 @@ def test_a_deleted_load_stops_the_import(env):
     assert store.get_load(id) is None and store.get_load_file(ds, id, "log.txt") is None
     assert "load deleted; stopping" in runner.log_lines
     assert not any(line.startswith("error:") for line in runner.log_lines)
+
+
+def _updates(env, monkeypatch):
+    """Every update_load call the job makes, in order."""
+    store = env[0]
+    calls, real = [], store.update_load
+    monkeypatch.setattr(store, "update_load", lambda id, **f: calls.append(f) or real(id, **f))
+    return calls
+
+
+def test_stages_record_status_times_and_metrics(env):
+    m = FakeMigration(checklist=[ICONS])
+    rc, load, _ = _run(env, "run", m, "queued")
+    assert load["status"] == "done"
+    st = load["stages"]
+    assert list(st) == ["datamodel", "patrol_datamodel", "preflight", "import"]
+    assert all(r["status"] == "done" and r["started_at"] <= r["finished_at"] for r in st.values())
+    assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
+    assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
+    assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
+    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0}
+    assert load["progress"]["since"] == st["import"]["started_at"]
+
+
+def test_a_plan_records_its_stages_too(env):
+    rc, load, _ = _run(env, "plan", FakeMigration(), "planning")
+    assert load["status"] == "planned" and [r["status"] for r in load["stages"].values()] == ["done"] * 4
+    assert load["mode"] == "plan"
+    assert load["stages"]["import"]["metrics"] == {"planned": 3, "already_done": 0}
+
+
+def test_a_stop_marks_its_stage_stopped_and_leaves_the_rest_out(env):
+    rc, load, _ = _run(env, "run", FakeMigration(checklist=[TEAM]), "queued")
+    assert load["status"] == "needs_attention"
+    assert [(s, r["status"]) for s, r in load["stages"].items()] == [("datamodel", "done"), ("patrol_datamodel", "stopped")]
+    assert load["stages"]["patrol_datamodel"]["finished_at"]
+
+
+def test_an_exception_marks_its_stage_failed(env):
+    rc, load, _ = _run(env, "run", FakeMigration(raise_in="preflight"), "queued")
+    assert load["status"] == "failed" and load["stages"]["preflight"]["status"] == "failed"
+
+
+def test_a_rejected_token_stops_the_first_stage(env):
+    def reject(host, token):
+        raise sys.modules["er_site"].TokenRejected("401")
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued", check_token=reject)
+    assert load["stages"] == {"datamodel": {**load["stages"]["datamodel"], "status": "stopped"}}
+
+
+def test_a_new_execution_starts_its_stages_afresh(env):
+    old = {"datamodel": {"status": "done", "started_at": "x", "finished_at": "y", "metrics": {}}}
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued", stages=old)
+    assert load["stages"]["datamodel"]["started_at"] != "x"
+
+
+def test_the_log_tail_is_recorded_as_the_job_goes(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    _run(env, "run", FakeMigration(), "queued")
+    staged = [c for c in calls if "stage" in c]
+    assert staged and all(c.get("log_tail") for c in staged)
+    assert any("progress" in c and c.get("log_tail") for c in calls)

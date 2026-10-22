@@ -252,13 +252,11 @@ async function renderLoad() {
     return;
   }
   if (currentLoad !== id) return;
-  $('#loadTitle').textContent = l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site') + ' · ' + l.status;
-  const idx = STAGES.indexOf(l.stage);
   const active = !!l.held;
   const stale = !active && ACTIVE.includes(l.status);
-  $('#loadStages').innerHTML = STAGES.map((s, i) => '<span class="stage ' +
-    (i < idx || (i === idx && ['done', 'planned'].includes(l.status)) ? 'done' : i === idx && active ? 'current' : i === idx && ['needs_attention', 'failed'].includes(l.status) ? 'stopped' : '') +
-    '">' + esc(STAGE_LABEL[s]) + '</span>').join('');
+  $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
+    ' <span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>';
+  $('#loadStages').innerHTML = renderStages(l, active);
   const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
   let actions = '';
   if (!active && l.site) {
@@ -284,11 +282,80 @@ async function renderLoad() {
     (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
   $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
   const p = l.progress;
-  $('#loadProgress').innerHTML = (p ? '<h3>Progress</h3><p>' + esc(p.done) + ' of ' + esc(p.patrols_total) + ' patrols' + (p.failed ? ', ' + esc(p.failed) + ' failed' : '') + (p.skipped ? ', ' + esc(p.skipped) + ' already there' : '') + '</p>' : '') +
+  $('#loadProgress').innerHTML = (p && p.patrols_total ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
     (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
-    (l.log_tail ? '<details><summary class="tiny">Log tail</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
+    (l.log_tail ? '<details' + (active ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
     '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
   if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+}
+
+// ---- the stage table: one row per stage, what it did, and how long it took
+const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; };
+const secondsSince = iso => iso ? (Date.now() - Date.parse(iso)) / 1000 : null;
+const count = (n, one, many) => n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's'));
+
+function stageRows(l) {
+  // loads from before the stage table have only `stage` and `status`
+  if (l.stages && Object.keys(l.stages).length) return l.stages;
+  const rows = {}, idx = STAGES.indexOf(l.stage);
+  STAGES.forEach((s, i) => {
+    if (i < idx || (i === idx && ['done', 'planned'].includes(l.status))) rows[s] = { status: 'done', metrics: {} };
+    else if (i === idx) rows[s] = { status: l.held ? 'running' : ['needs_attention', 'failed'].includes(l.status) ? (l.status === 'failed' ? 'failed' : 'stopped') : 'running', metrics: {} };
+  });
+  return rows;
+}
+
+function stageSummary(stage, row, l, active) {
+  const m = row.metrics || {}, dry = l.mode === 'plan' || (!l.mode && ['planning', 'planned'].includes(l.status));
+  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated' };
+  const tally = (prefix, keys) => keys.filter(k => m[prefix + k]).map(k => m[prefix + k] + ' ' + (v[k] || k));
+  const parts = [];
+  if (stage === 'datamodel') {
+    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged']), ch = tally('choices_', ['created', 'updated', 'unchanged']);
+    if (cats.length) parts.push('categories: ' + cats.join(', '));
+    if (types.length) parts.push('event types: ' + types.join(', '));
+    if (ch.length) parts.push('choices: ' + ch.join(', '));
+  } else if (stage === 'patrol_datamodel') {
+    const types = tally('types_', ['created', 'updated', 'unchanged']), subs = tally('subjects_', ['created', 'updated', 'deactivated', 'unchanged']);
+    if (types.length) parts.push('patrol types: ' + types.join(', '));
+    if (subs.length) parts.push('subjects: ' + subs.join(', '));
+    if (m.subjects_grouped) parts.push(m.subjects_grouped + ' in the roster group');
+    if (m.schema_written) parts.push(dry ? 'patrol fields to write' : 'patrol fields written');
+    else if (m.schema_skipped) parts.push('patrol fields skipped: ' + m.schema_skipped);
+  } else if (stage === 'preflight') {
+    if ('blocking' in m) parts.push(count(m.blocking, 'blocking finding') + ', ' + count(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + count(m.patrols, 'patrol') + ' checked' : ''));
+  } else if (stage === 'import') {
+    if (dry) { if ('planned' in m) parts.push(count(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
+    else if (l.progress && l.progress.patrols_total) parts.push(importSummary(l, active && row.status === 'running'));
+  }
+  return parts.join(' · ');
+}
+
+function importSummary(l, live) {
+  const p = l.progress;
+  let s = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
+  const mins = p.since ? secondsSince(p.since) / 60 : null;
+  if (mins && mins > 0.5 && p.done) {
+    const rate = p.done / mins;
+    s += ' · ' + rate.toFixed(1) + ' per minute';
+    if (live && p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left';
+  }
+  return s;
+}
+
+function renderStages(l, active) {
+  const rows = stageRows(l);
+  let html = '<table class="stagetable"><thead><tr><th>Stage</th><th>Status</th><th>Took</th><th>What happened</th></tr></thead><tbody>';
+  for (const s of STAGES) {
+    const r = rows[s], status = r ? r.status : 'pending';
+    const running = status === 'running' && active;
+    const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
+    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td><span class="pill ' + esc(running ? 'running' : status === 'running' ? 'stale' : status) + '">' +
+      esc(running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</span></td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  if (active) html += '<p class="tiny heartbeat">Running for ' + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
+  return html;
 }
 
 function renderPlan(plan) {

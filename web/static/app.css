@@ -48,11 +48,16 @@ td.actions { white-space: nowrap; text-align: right; }
 .shared ul { list-style: none; padding: 0; margin: 8px 0; }
 pre.log { background: var(--chip); padding: 10px; border-radius: 8px; font-size: 12px; max-height: 40vh; overflow: auto; white-space: pre-wrap; }
 a { color: var(--brand); }
-.stages { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
-.stage { padding: 4px 10px; border-radius: 99px; background: var(--chip); font-size: 12px; }
-.stage.done { background: var(--accent); color: var(--accent-ink); }
-.stage.current { outline: 2px solid var(--brand); }
-.stage.stopped { background: #f6d9d3; color: var(--danger); }
+.stages { margin: 10px 0; }
+.stagetable td:nth-child(2) { white-space: nowrap; }
+.stagetable tr.pending td { color: var(--ink-3); }
+.pill.pending { color: var(--ink-3); }
+.pill.stopped { background: #f6e3c4; color: #6b4b00; }
+.pill.stale { background: #f6d9d3; color: var(--danger); }
+.pill.planning, .pill.continuing { background: #fff0c2; color: #6b4b00; }
+.pill.running::before, .pill.planning::before, .pill.continuing::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+.heartbeat { margin: 4px 0 0; }
 .finding { border-left: 3px solid var(--line); padding: 6px 10px; margin: 8px 0; }
 .finding.blocking { border-color: var(--danger); }
 .finding.warning { border-color: #c99a2e; }
