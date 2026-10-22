@@ -76,15 +76,15 @@ async function loadList() {
   clearTimeout(pollTimer);
   // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
   if (list.some(d => ['queued', 'running'].includes(d.status))) pollTimer = setTimeout(loadList, 5000);
-  list.filter(d => d.status === 'ready').forEach(d => renderLoads(d.id).catch(() => {}));
+  list.filter(d => d.status === 'ready').forEach(d => renderLoads(d.id, d.export || []).catch(() => {}));
 }
 
-async function renderLoads(id) {
+async function renderLoads(id, exp) {
   const loads = await api('/api/datasets/' + id + '/loads');
   const td = $('tr[data-id="' + id + '"] td:nth-child(3)');
   if (!td || !loads.length) return;
   td.insertAdjacentHTML('beforeend', '<div class="loads">' + loads.map(l =>
-    '<div><a data-load="' + esc(l.id) + '">' + esc(l.site ? l.site.url : 'removed site') + ' · ' + esc(l.ca_id) + '</a> <span class="pill ' + esc(l.status) + '">' + esc(l.status) + '</span>' +
+    '<div><a data-load="' + esc(l.id) + '">' + esc(l.site ? l.site.url : 'removed site') + ' · ' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</a> <span class="pill ' + esc(l.status) + '">' + esc(l.status) + '</span>' +
     (l.progress && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status) ? ' <span class="tiny">' + esc(l.progress.done) + ' of ' + esc(l.progress.patrols_total) + ' patrols</span>' : '') + '</div>').join('') + '</div>');
   td.querySelectorAll('a[data-load]').forEach(a => a.onclick = () => showLoad(a.dataset.load));
   if (loads.some(l => l.held)) { clearTimeout(pollTimer); pollTimer = setTimeout(loadList, 5000); }
@@ -212,12 +212,12 @@ async function loadDialog(d) {
 
 // ---- the load page
 let loadTimer = null, currentLoad = null;
-function showDatasets() { clearTimeout(loadTimer); currentLoad = null; $('#loadPage').hidden = true; document.querySelectorAll('#appUI > .panel').forEach(p => p.hidden = false); loadList(); loadSites(); }
+function showDatasets() { clearTimeout(loadTimer); currentLoad = null; document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false); $('#loadPage').hidden = true; loadList(); loadSites(); }
 
 async function showLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
-  document.querySelectorAll('#appUI > .panel').forEach(p => p.hidden = true);
+  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); } catch (e) { alert(e.message); showDatasets(); }
 }
@@ -228,7 +228,16 @@ const ACTIVE = ['planning', 'queued', 'running', 'continuing'];
 
 async function renderLoad() {
   const id = currentLoad;
-  const l = await api('/api/loads/' + id);
+  clearTimeout(loadTimer);
+  let l;
+  try { l = await api('/api/loads/' + id); }
+  catch (e) {
+    if (currentLoad !== id) return;
+    if (/not found/i.test(e.message)) throw e;
+    $('#loadActions').insertAdjacentHTML('beforeend', '<div class="tiny" data-retry>Could not refresh; retrying…</div>');
+    loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+    return;
+  }
   if (currentLoad !== id) return;
   $('#loadTitle').textContent = l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site') + ' · ' + l.status;
   const idx = STAGES.indexOf(l.stage);
@@ -261,7 +270,6 @@ async function renderLoad() {
     (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
     (l.log_tail ? '<details><summary class="tiny">Log tail</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
     '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
-  clearTimeout(loadTimer);
   if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
 }
 
