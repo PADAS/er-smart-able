@@ -10,15 +10,11 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent
-pytest.importorskip("fastapi")
 
-# every code web/findings.py and the load job can put on a load
-CHECKLIST_CODES = ["enable_patrol_schemas", "permission_patrol_types", "permission_segment_schema", "permission_subjects",
-                   "permission_patrol_config", "permission_subject_group", "team", "roster_group", "patrol_type_icons",
-                   "station_names"]
+# the preflight codes are er-smart-sync's (src/er_smart_sync/preflight.py, every Finding.of); the
+# checklist and job codes come from web/findings.py below
 PREFLIGHT_CODES = ["feature_flag", "permissions", "patrol_types", "segment_schema", "choices", "subjects", "inactive_members",
                    "teams", "event_types", "collection_type", "leg_span", "bundle_warnings"]
-JOB_CODES = ["patrols_failed", "site_token_rejected"]
 
 
 @pytest.fixture
@@ -26,6 +22,17 @@ def help_mod(monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "web"))
     sys.modules.pop("help_pages", None)
     return importlib.import_module("help_pages")
+
+
+def _finding_codes():
+    import re
+    sys.path.insert(0, str(ROOT / "web"))
+    sys.modules.pop("findings", None)
+    findings = importlib.import_module("findings")
+    checklist = set(findings.BLOCKING_CHECKLIST) | set(findings.VALUE_LABEL)
+    job = set(re.findall(r'finding\("(?:import|datamodel)", "([a-z_]+)"', (ROOT / "web" / "findings.py").read_text()))
+    assert "patrols_failed" in job and "site_token_rejected" in job
+    return sorted(checklist | job | set(PREFLIGHT_CODES))
 
 
 def test_the_sections_come_in_order_with_ids_and_html(help_mod):
@@ -37,8 +44,15 @@ def test_the_sections_come_in_order_with_ids_and_html(help_mod):
 
 def test_every_finding_code_has_an_entry(help_mod):
     stops = next(s for s in help_mod.sections() if s["id"] == "stops")["html"]
-    missing = [c for c in CHECKLIST_CODES + PREFLIGHT_CODES + JOB_CODES if f'id="finding-{c}"' not in stops]
+    missing = [c for c in _finding_codes() if f'id="finding-{c}"' not in stops]
     assert missing == []
+
+
+def test_links_do_not_leave_the_app(help_mod):
+    quirks = next(s for s in help_mod.sections() if s["id"] == "quirks")["html"]
+    assert 'href="profiles-to-er-entities.md"' not in quirks
+    assert 'href="https://github.com/PADAS/er-smart-able/blob/main/docs/profiles-to-er-entities.md"' in quirks
+    assert '<a target="_blank" rel="noopener" href="https://github.com' in quirks
 
 
 def test_every_load_status_has_an_entry(help_mod):
@@ -48,6 +62,7 @@ def test_every_load_status_has_an_entry(help_mod):
 
 
 def test_the_api_serves_the_help_to_signed_in_users(tmp_path, monkeypatch):
+    pytest.importorskip("fastapi")
     monkeypatch.setenv("BACKEND", "local")
     monkeypatch.setenv("AUTH_DISABLED", "true")
     monkeypatch.setenv("LOCAL_DIR", str(tmp_path / "data"))

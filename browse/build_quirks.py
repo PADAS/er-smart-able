@@ -103,9 +103,21 @@ def app_theme(app_html: str) -> tuple[str, str]:
     return tokens.group(1), acorn.group(0)
 
 
+# one Markdown configuration for the doc, shared with the web app's help drawer
+EXTENSIONS = ["toc", "tables", "fenced_code"]
+TOC = {"toc_depth": "2-3"}
+
+
+def convert(md_text: str) -> markdown.Markdown:
+    """The converted Markdown instance: `.convert()` done, `.toc` available."""
+    m = markdown.Markdown(extensions=EXTENSIONS, extension_configs={"toc": TOC})
+    m.body = m.convert(md_text)
+    return m
+
+
 def render(md_text: str) -> str:
-    m = markdown.Markdown(extensions=["toc", "tables", "fenced_code"], extension_configs={"toc": {"toc_depth": "2-3"}})
-    body = m.convert(md_text)
+    m = convert(md_text)
+    body = m.body
     tokens, acorn = app_theme(APP.read_text(encoding="utf-8"))
     toc = m.toc.replace('<div class="toc">', '<nav class="toc" aria-label="On this page">', 1)
     toc = toc[: toc.rfind("</div>")] + "</nav>" if toc.rstrip().endswith("</div>") else toc

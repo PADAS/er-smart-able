@@ -318,25 +318,31 @@ async function copyValue(btn) {
 }
 
 // ---- help: a drawer of sections, deep-linked by heading id (a finding opens finding-<code>)
-let HELP = null;
+let HELP = null, helpLoading = null;
 async function openHelp(anchor) {
   const drawer = $('#help'), body = $('#helpBody');
   if (!HELP) {
-    try { HELP = (await api('/api/help')).sections; } catch (e) { alert(e.message); return; }
-    body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
-    $('#helpToc').innerHTML = HELP.map(s => '<a data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</a>').join('');
-    $('#helpToc').querySelectorAll('a').forEach(a => a.onclick = () => gotoHelp(a.dataset.goto));
+    helpLoading = helpLoading || api('/api/help');   // one fetch, however many clicks arrive while it is pending
+    let sections;
+    try { sections = (await helpLoading).sections; } catch (e) { helpLoading = null; alert(e.message); return; }
+    if (!HELP) {
+      HELP = sections;
+      body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
+      $('#helpToc').innerHTML = HELP.map(s => '<button class="link" data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</button>').join('');
+      $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
+      body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
+    }
     body.onscroll = () => {
       const top = body.scrollTop + 40;
       let current = null;
       body.querySelectorAll('section').forEach(s => { if (s.offsetTop <= top) current = s.id; });
-      $('#helpToc').querySelectorAll('a').forEach(a => a.classList.toggle('current', a.dataset.goto === current));
+      $('#helpToc').querySelectorAll('button').forEach(b => b.classList.toggle('current', b.dataset.goto === current));
       try { localStorage.setItem('help.scroll', String(body.scrollTop)); } catch (e) {}
     };
   }
   drawer.hidden = false; $('#helpBackdrop').hidden = false;
   if (anchor) gotoHelp(anchor);
-  else { let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {} body.scrollTop = saved; body.onscroll(); }
+  else { let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {} body.scrollTo({ top: saved, behavior: 'instant' }); body.onscroll(); }
   $('#helpClose').focus();
 }
 
@@ -346,7 +352,7 @@ function gotoHelp(id) {
   if (!el) return;
   body.querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   if (/^finding-/.test(id)) { el.classList.add('target'); }
-  body.scrollTop = el.offsetTop - 8;
+  body.scrollTo({ top: el.offsetTop - 8, behavior: 'instant' });   // a jump, so the highlight below reads the new position
   body.onscroll();
 }
 
