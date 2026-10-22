@@ -57,17 +57,21 @@ async function signIn() {
 }
 
 // ---- datasets
+const pill = status => '<span class="pill ' + esc(status) + '">' + esc(String(status).replace(/_/g, ' ')) + '</span>';
+let listGen = 0;   // which render of the list a late loads response belongs to
+
 async function loadList() {
   const list = await api('/api/datasets');
+  const gen = ++listGen;
   const host = $('#list');
   if (!list.length) { host.innerHTML = '<p class="muted">No datasets yet. Upload one above.</p>'; return; }
   host.innerHTML = '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
     list.map(d => '<tr data-id="' + d.id + '">' +
       '<td><b>' + esc(d.name) + '</b><div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + esc((d.created_at || '').slice(0, 10)) + '</div></td>' +
       '<td>' + ((d.cas || []).map(c => esc(c.n || c.id)).join('<br>') || '<span class="tiny">—</span>') + (d.db_version ? '<div class="tiny">SMART ' + esc(d.db_version) + '</div>' : '') + '</td>' +
-      '<td><span class="pill ' + esc(d.status) + '">' + esc(d.status) + '</span>' + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
+      '<td>' + pill(d.status) + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
         (d.counts && d.counts.patrols != null ? '<div class="tiny">' + d.counts.patrols + ' patrols · ' + d.counts.waypoints + ' waypoints</div>' : '') + '</td>' +
-      '<td class="loads"><span class="tiny">' + (d.status === 'ready' && (d.export || []).length ? '…' : '—') + '</span></td>' +
+      '<td class="loads"><span class="tiny">…</span></td>' +
       '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
       '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
       '<td class="actions">' +
@@ -83,20 +87,24 @@ async function loadList() {
   clearTimeout(pollTimer);
   // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
   if (list.some(d => ['queued', 'running'].includes(d.status))) pollTimer = setTimeout(loadList, 5000);
-  list.filter(d => d.status === 'ready').forEach(d => renderLoads(d.id, d.export || []).catch(() => {}));
+  list.forEach(d => renderLoads(d.id, d.export || [], gen).catch(() => {
+    const td = $('tr[data-id="' + d.id + '"] td.loads');
+    if (td && listGen === gen) td.innerHTML = '<span class="tiny">could not load</span>';
+  }));
 }
 
 // the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
-async function renderLoads(id, exp) {
+async function renderLoads(id, exp, gen) {
   const loads = await api('/api/datasets/' + id + '/loads');
   const td = $('tr[data-id="' + id + '"] td.loads');
-  if (!td) return;
-  if (!loads.length) { td.innerHTML = '<span class="tiny">none yet</span>'; return; }
+  if (!td || gen !== listGen || currentLoad) return;   // the list was re-rendered, or the reader has moved to a load page
+  if (!loads.length) { td.innerHTML = '<span class="tiny">' + (exp.length ? 'none yet' : '—') + '</span>'; return; }
   td.innerHTML = loads.map(l =>
     '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
     '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
-    '<span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>' +
-    (l.progress && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status) ? '<span class="tiny">' + esc(l.progress.done.toLocaleString()) + ' of ' + esc(l.progress.patrols_total.toLocaleString()) + ' patrols</span>' : '') +
+    pill(l.status) +
+    (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
+      ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
     '</button>').join('');
   td.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
   if (loads.some(l => l.held)) { clearTimeout(pollTimer); pollTimer = setTimeout(loadList, 5000); }
@@ -268,7 +276,7 @@ async function renderLoad() {
   const active = !!l.held;
   const stale = !active && ACTIVE.includes(l.status);
   $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
-    ' <span class="pill ' + esc(l.status) + '">' + esc(l.status.replace('_', ' ')) + '</span>' +
+    ' ' + pill(l.status) +
     ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
   $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
   $('#loadStages').innerHTML = renderStages(l, active);
