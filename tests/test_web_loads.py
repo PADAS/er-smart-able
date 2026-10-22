@@ -131,3 +131,110 @@ def test_start_load_runs_the_job_with_its_mode(client, monkeypatch):
     while time.time() < deadline and not (store.dir / "ran").exists():
         time.sleep(0.05)
     assert (store.dir / "ran").read_text() == "plan"
+
+
+@pytest.fixture
+def launches(client, monkeypatch):
+    app, _ = client
+    calls = []
+    monkeypatch.setattr(app.get_store(), "start_load", lambda id, mode: calls.append((id, mode)) or "exec-1")
+    return calls
+
+
+def test_create_load_plans_first(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    r = c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": {"roster_group": "Rangers"}})
+    assert r.status_code == 201, r.text
+    load = r.json()
+    assert load["status"] == "planning" and load["site"] == {"id": site, "name": "s", "url": "x.pamdas.org"}
+    assert load["options"] == {"language": "en", "configurable_model": None, "roster_group": "Rangers"}
+    assert launches == [(load["id"], "plan")]
+    assert c.get(f"/api/datasets/{ds}/loads").json()[0]["id"] == load["id"]
+    assert c.get(f"/api/loads/{load['id']}").json()["held"] is True
+
+
+def test_create_load_refuses_bad_inputs(client, launches):
+    app, c = client
+    store = app.get_store()
+    site = _site(store)
+    no_export = _dataset(store, export=[])
+    assert c.post(f"/api/datasets/{no_export}/loads", json={"ca_id": "ALPHA", "site_id": site}).status_code == 400
+    ds = _dataset(store)
+    assert c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "NOPE", "site_id": site}).status_code == 400
+    empty = _dataset(store, export=[{**EXPORT[0], "patrols": 0}])
+    assert c.post(f"/api/datasets/{empty}/loads", json={"ca_id": "ALPHA", "site_id": site}).status_code == 400
+    assert c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": "missing"}).status_code == 404
+    assert c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": {"language": "xx"}}).status_code == 400
+    assert launches == []
+
+
+def test_a_second_active_load_for_the_same_target_is_refused(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    body = {"ca_id": "ALPHA", "site_id": site}
+    assert c.post(f"/api/datasets/{ds}/loads", json=body).status_code == 201
+    assert c.post(f"/api/datasets/{ds}/loads", json=body).status_code == 409
+    other = _site(store)
+    assert c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": other}).status_code == 201
+
+
+def test_run_confirms_a_plan_and_continues_a_stopped_load(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    planned = _load(store, ds, site, status="planned")
+    assert c.post(f"/api/loads/{planned}/run").status_code == 200
+    assert store.get_load(planned)["status"] == "queued" and launches[-1] == (planned, "run")
+    stopped = _load(store, ds, site, status="needs_attention")
+    assert c.post(f"/api/loads/{stopped}/run").status_code == 200
+    done = _load(store, ds, site, status="done")
+    assert c.post(f"/api/loads/{done}/run").status_code == 409
+    assert c.post(f"/api/loads/{done}/replan").status_code == 200
+    assert store.get_load(done)["status"] == "planning" and launches[-1] == (done, "plan")
+    assert c.post(f"/api/loads/{planned}/replan").status_code == 409   # it is queued now
+
+
+def test_a_removed_site_blocks_run_and_replan(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site, status="needs_attention")
+    store.delete_site(site)
+    before = store.get_load(id)
+    assert c.post(f"/api/loads/{id}/run").status_code == 409
+    assert c.post(f"/api/loads/{id}/replan").status_code == 409
+    assert store.get_load(id) == before and launches == []
+    assert c.get(f"/api/loads/{id}").json()["site"] is None
+
+
+def test_permissions_follow_the_dataset(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site)
+    other = {"X-Dev-User": "other@earthranger.com"}
+    assert c.get(f"/api/loads/{id}", headers=other).status_code == 404
+    assert c.post(f"/api/loads/{id}/run", headers=other).status_code == 404
+    c.post(f"/api/datasets/{ds}/share", json={"email": "other@earthranger.com"})
+    assert c.get(f"/api/loads/{id}", headers=other).status_code == 200
+    # the site is not shared with them, so they cannot start a new load into it
+    assert c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site}, headers=other).status_code == 404
+
+
+def test_delete_and_files(client, tmp_path):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    id = _load(store, ds, site, status="running", started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    assert c.delete(f"/api/loads/{id}").status_code == 409
+    store.update_load(id, status="done")
+    src = tmp_path / "log.txt"; src.write_text("hello")
+    store.put_load_file(ds, id, "log.txt", src)
+    assert c.get(f"/api/loads/{id}/files/log.txt").text == "hello"
+    assert c.get(f"/api/loads/{id}/files/nope.txt").status_code == 404
+    assert c.get(f"/api/loads/{id}/files/..%2Fsecret").status_code in (400, 404)
+    assert c.delete(f"/api/loads/{id}").status_code == 200
+    assert store.get_load(id) is None

@@ -17,6 +17,11 @@ Routes:
   POST /api/sites             {name, url, token}; checks the token, stores it as a secret
   DELETE /api/sites/{id}      owner only
   POST /api/sites/{id}/share {email};  DELETE /api/sites/{id}/share/{email}
+  GET  /api/datasets/{id}/loads   POST: {ca_id, site_id, options}; starts planning
+  GET  /api/loads/{id};  DELETE /api/loads/{id}
+  POST /api/loads/{id}/run    confirm a plan / continue a stopped load
+  POST /api/loads/{id}/replan plan again
+  GET  /api/loads/{id}/files/{name}   a load's log, plan and reports
   GET  /d/{id}/               the browser for that dataset (index.html from this
                               checkout, data and photos from the dataset's store)
 """
@@ -35,7 +40,8 @@ from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
 from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
-from store import ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner, now
+from store import (LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
+                   load_in_progress, now)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -293,6 +299,135 @@ async def unshare_site(id: str, email: str, user=Depends(current_user)):
 
 
 # ---------------------------------------------------------------- the browser
+class LoadCreate(BaseModel):
+    ca_id: str
+    site_id: str
+    options: dict = {}
+
+
+def _load_public(doc: dict, user: dict) -> dict:
+    site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
+    return {k: doc.get(k) for k in LOAD_FIELDS} | {
+        "id": doc["id"], "mine": is_owner(doc, user), "held": load_in_progress(doc),
+        "site": {"id": site["id"], "name": site.get("name"), "url": site.get("url")} if site else None}
+
+
+def _load_load(id: str, user: dict) -> dict:
+    doc = get_store().get_load(id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Load not found")
+    _load(doc["dataset_id"], user)   # read on the dataset is the permission
+    return doc
+
+
+def _launch(load_id: str, mode: str):
+    """Start the job for a load that already holds its slot."""
+    store = get_store()
+    try:
+        execution = store.start_load(load_id, mode)
+    except Exception as e:  # noqa: BLE001
+        logging.exception("could not start load %s", load_id)
+        store.update_load(load_id, status="failed", error=f"Could not start the job: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail="Could not start the load job") from e
+    store.update_load(load_id, execution=execution)
+
+
+def _start(load_id: str, mode: str, claim_status: str):
+    if not get_store().claim_load(load_id, claim_status):
+        raise HTTPException(status_code=409, detail="This load is already planning or running")
+    _launch(load_id, mode)
+
+
+@app.post("/api/datasets/{id}/loads", status_code=201)
+async def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
+    doc = _load(id, user)
+    site = _load_site(req.site_id, user)
+    entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
+    if not entry:
+        raise HTTPException(status_code=400, detail="No migration bundle for that conservation area; re-extract the dataset")
+    if not entry.get("patrols"):
+        raise HTTPException(status_code=400, detail="That conservation area has no patrols to load")
+    language = req.options.get("language") or entry.get("default_language")
+    if language not in entry.get("languages", []):
+        raise HTTPException(status_code=400, detail=f"Language {language!r} is not in the bundle")
+    cm = req.options.get("configurable_model") or None
+    if cm and cm not in [c["uuid"] for c in entry.get("configurable_models", [])]:
+        raise HTTPException(status_code=400, detail="Unknown configurable model")
+    store = get_store()
+    for other in store.list_loads(id):
+        if other.get("ca_id") == req.ca_id and other.get("site_id") == req.site_id and load_in_progress(other):
+            raise HTTPException(status_code=409, detail="A load of this conservation area into that site is already active")
+    load_id = store.create_load({
+        "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
+        "options": {"language": language, "configurable_model": cm,
+                    "roster_group": (req.options.get("roster_group") or "").strip() or None},
+        "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race
+        "created_at": now(), "updated_at": now(), "continuations": 0,
+        "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})
+    _launch(load_id, "plan")
+    return _load_public(store.get_load(load_id), user)
+
+
+@app.get("/api/datasets/{id}/loads")
+async def list_loads(id: str, user=Depends(current_user)):
+    _load(id, user)
+    docs = get_store().list_loads(id)
+    docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
+    return [_load_public(d, user) for d in docs]
+
+
+@app.get("/api/loads/{id}")
+async def get_load(id: str, user=Depends(current_user)):
+    return _load_public(_load_load(id, user), user)
+
+
+def _needs_site(doc: dict):
+    if not get_store().get_site(doc.get("site_id", "")):
+        raise HTTPException(status_code=409, detail="The site was removed; register it again and start a new load")
+
+
+@app.post("/api/loads/{id}/run")
+async def run_load(id: str, user=Depends(current_user)):
+    doc = _load_load(id, user)
+    if doc.get("status") not in ("planned", "needs_attention"):
+        raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be run; plan it again first")
+    _needs_site(doc)
+    _start(id, "run", "queued")
+    return _load_public(get_store().get_load(id), user)
+
+
+@app.post("/api/loads/{id}/replan")
+async def replan_load(id: str, user=Depends(current_user)):
+    doc = _load_load(id, user)
+    if doc.get("status") not in ("planned", "needs_attention", "failed", "done") or load_in_progress(doc):
+        raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be planned again now")
+    _needs_site(doc)
+    _start(id, "plan", "planning")
+    return _load_public(get_store().get_load(id), user)
+
+
+@app.delete("/api/loads/{id}")
+async def delete_load(id: str, user=Depends(current_user)):
+    doc = _load_load(id, user)
+    if load_in_progress(doc):
+        raise HTTPException(status_code=409, detail="Wait for the load to stop before deleting it")
+    get_store().delete_load(id)
+    return {"ok": True}
+
+
+@app.get("/api/loads/{id}/files/{name}")
+async def load_file(id: str, name: str, user=Depends(current_user)):
+    doc = _load_load(id, user)
+    try:
+        found = get_store().get_load_file(doc["dataset_id"], id, name)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Bad path")
+    if not found:
+        raise HTTPException(status_code=404, detail="Not found")
+    chunks, size, ctype = found
+    return StreamingResponse(chunks, media_type=ctype, headers={"Content-Length": str(size)})
+
+
 @app.get("/d/{id}")
 async def site_root_redirect(id: str):
     return RedirectResponse(url=f"/d/{id}/")
