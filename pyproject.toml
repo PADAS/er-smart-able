@@ -24,6 +24,8 @@ web = [
     "google-cloud-firestore>=2.20",
     "google-cloud-storage>=2.19",
     "google-cloud-run>=0.10",
+    "google-cloud-secret-manager>=2.20",
+    "httpx>=0.27",
 ]
 # tests: uv sync --extra dev && uv run pytest
 dev = [

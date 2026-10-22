@@ -31,6 +31,8 @@ ROOT = Path(__file__).resolve().parent.parent  # the smart-able checkout
 DATASET_FIELDS = ("name", "owner_uid", "owner_email", "shared_with", "status", "created_at", "updated_at",
                   "source_name", "source_size", "cas", "db_version", "counts", "error", "execution", "log_tail",
                   "extract_claimed_at", "started_at", "export")
+SITE_FIELDS = ("name", "url", "owner_uid", "owner_email", "shared_with", "secret_name", "token_hint",
+               "checked_at", "checked_as", "created_at", "updated_at")
 
 now = lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -85,13 +87,19 @@ class LocalStore:
         self.lock = threading.Lock()
 
     # ---- metadata
+    def _read_file(self, path: Path) -> dict:
+        return json.loads(path.read_text()) if path.exists() else {}
+
+    def _write_file(self, path: Path, data: dict):
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=1))
+        tmp.replace(path)
+
     def _read(self) -> dict:
-        return json.loads(self.index.read_text()) if self.index.exists() else {}
+        return self._read_file(self.index)
 
     def _write(self, data: dict):
-        tmp = self.index.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=1))
-        tmp.replace(self.index)
+        self._write_file(self.index, data)
 
     def list_datasets(self) -> list:
         return [dict(id=k, **v) for k, v in self._read().items()]
@@ -126,6 +134,53 @@ class LocalStore:
             doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now())
             self._write(data)
             return True
+
+    # ---- sites
+    def list_sites(self) -> list:
+        return [dict(id=k, **v) for k, v in self._read_file(self.dir / "sites.json").items()]
+
+    def get_site(self, id: str):
+        d = self._read_file(self.dir / "sites.json").get(id)
+        return dict(id=id, **d) if d else None
+
+    def create_site(self, doc: dict, token: str) -> str:
+        id = uuid.uuid4().hex[:12]
+        secret = f"smart-able-site-{id}"
+        self._write_secret(secret, token)
+        with self.lock:
+            data = self._read_file(self.dir / "sites.json")
+            data[id] = {**doc, "secret_name": secret}
+            self._write_file(self.dir / "sites.json", data)
+        return id
+
+    def update_site(self, id: str, **fields):
+        with self.lock:
+            data = self._read_file(self.dir / "sites.json")
+            if id in data:
+                data[id].update(fields); data[id]["updated_at"] = now(); self._write_file(self.dir / "sites.json", data)
+
+    def delete_site(self, id: str):
+        with self.lock:
+            data = self._read_file(self.dir / "sites.json")
+            doc = data.pop(id, None)
+            self._write_file(self.dir / "sites.json", data)
+        if doc:
+            (self.dir / "secrets" / doc["secret_name"]).unlink(missing_ok=True)
+
+    def read_site_token(self, id: str) -> str:
+        doc = self.get_site(id)
+        p = self.dir / "secrets" / doc["secret_name"] if doc else None
+        if not p or not p.is_file():
+            raise KeyError(id)
+        return p.read_text()
+
+    def _write_secret(self, name: str, value: str):
+        d = self.dir / "secrets"
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / name
+        p.touch(mode=0o600, exist_ok=True)
+        p.chmod(0o600)
+        p.write_text(value)
 
     # ---- storage
     def _p(self, id: str) -> Path:
@@ -252,6 +307,63 @@ class GcpStore:
             return True
 
         return claim(self.db.transaction())
+
+    # ---- sites
+    def _sites(self):
+        return self.db.collection("sites")
+
+    def list_sites(self) -> list:
+        return [dict(id=d.id, **d.to_dict()) for d in self._sites().stream()]
+
+    def get_site(self, id: str):
+        d = self._sites().document(id).get()
+        return dict(id=d.id, **d.to_dict()) if d.exists else None
+
+    def create_site(self, doc: dict, token: str) -> str:
+        ref = self._sites().document()
+        secret = f"smart-able-site-{ref.id}"
+        self._secret_create(secret, token)
+        ref.set({**doc, "secret_name": secret})
+        return ref.id
+
+    def update_site(self, id: str, **fields):
+        fields["updated_at"] = now()
+        self._sites().document(id).update(fields)
+
+    def delete_site(self, id: str):
+        doc = self.get_site(id)
+        self._sites().document(id).delete()
+        if doc:
+            self._secret_delete(doc["secret_name"])
+
+    def read_site_token(self, id: str) -> str:
+        doc = self.get_site(id)
+        if not doc:
+            raise KeyError(id)
+        from google.api_core.exceptions import NotFound
+        from google.cloud import secretmanager
+        client = secretmanager.SecretManagerServiceClient()
+        try:
+            r = client.access_secret_version(name=f"projects/{self.project}/secrets/{doc['secret_name']}/versions/latest")
+        except NotFound:
+            raise KeyError(id) from None
+        return r.payload.data.decode("utf-8")
+
+    def _secret_create(self, name: str, value: str):
+        from google.cloud import secretmanager
+        client = secretmanager.SecretManagerServiceClient()
+        parent = f"projects/{self.project}"
+        client.create_secret(parent=parent, secret_id=name,
+                             secret={"replication": {"automatic": {}}})
+        client.add_secret_version(parent=f"{parent}/secrets/{name}", payload={"data": value.encode("utf-8")})
+
+    def _secret_delete(self, name: str):
+        from google.api_core.exceptions import NotFound
+        from google.cloud import secretmanager
+        try:
+            secretmanager.SecretManagerServiceClient().delete_secret(name=f"projects/{self.project}/secrets/{name}")
+        except NotFound:
+            pass
 
     # ---- storage
     def _signer(self):
