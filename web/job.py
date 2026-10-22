@@ -20,6 +20,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from store import ROOT, get_store, now  # noqa: E402
 
 
+def describe_export(export_dir: Path) -> list:
+    """One entry per conservation area that has a bundle, from its manifest
+    and datamodel.json: what the load form needs to offer."""
+    out = []
+    for manifest_path in sorted(Path(export_dir).glob("*/bundle/manifest.json")):
+        ca_dir = manifest_path.parent.parent
+        m = json.loads(manifest_path.read_text())
+        dmj = json.loads((ca_dir / "datamodel.json").read_text()) if (ca_dir / "datamodel.json").is_file() else {}
+        ca = m.get("conservation_area", {})
+        out.append({"ca_id": ca.get("id"), "dir": ca_dir.name, "name": ca.get("name"),
+                    "languages": [l["code"] for l in m.get("languages", [])],
+                    "default_language": m.get("default_language"),
+                    "configurable_models": [{"uuid": c.get("uuid"), "label": c.get("label")}
+                                            for c in dmj.get("configurable_models", [])],
+                    "patrols": (m.get("counts") or {}).get("patrols", 0),
+                    "timezone": (m.get("timezone") or {}).get("name")})
+    return out
+
+
 def main(dataset_id: str) -> int:
     store = get_store()
     doc = store.get(dataset_id)
@@ -52,7 +71,12 @@ def main(dataset_id: str) -> int:
             raise RuntimeError("site/data/meta.json has an unexpected shape")
         print("publishing site", flush=True)
         store.put_site(dataset_id, site)
-        store.update(dataset_id, status="ready", log_tail=tail,
+        export_dir = work / "out" / "export"
+        export = describe_export(export_dir) if export_dir.is_dir() else []
+        if export:
+            print("publishing export", flush=True)
+            store.put_export(dataset_id, export_dir)
+        store.update(dataset_id, status="ready", log_tail=tail, export=export,
                      cas=[{"id": c.get("id"), "n": c.get("n")} for c in meta.get("cas", [])],
                      db_version=meta.get("db_version"),
                      counts={k: meta.get(k) for k in ("patrols", "waypoints", "observations", "employees")})

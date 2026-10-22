@@ -1,0 +1,6 @@
+er-smart-sync @ git+https://github.com/PADAS/earthranger-smart-utils@v0.9.0
+google-cloud-firestore>=2.20
+google-cloud-storage>=2.19
+google-cloud-run>=0.10
+google-cloud-secret-manager>=2.20
+httpx>=0.27

@@ -17,7 +17,7 @@ The name reads as "SMART EBEL": the four stages.
 | **E**xtract | Dumps every table of a SMART backup or Conservation Area export to Parquet, and decrypts its photo attachments. | Done |
 | **B**rowse | A local web app for patrols, maps, observations, Profiles, and photos. | Done |
 | **E**xport | Writes the conservation area's data model as SMART-exact XML and its patrol history as a JSON migration bundle (`./smart-able export`). | Done |
-| **L**oad | Creates the corresponding event types, patrol types, subjects, patrols, events, and tracks in an EarthRanger site. Done by [er-smart-sync](https://github.com/PADAS/earthranger-smart-utils) (`datamodel`, `patrol-datamodel`, `patrol-preflight`, `import-patrols`), which reads the bundle; see its [Migrate SMART patrols](https://padas.github.io/earthranger-smart-utils/workflows/migrate-patrols/) guide. | Done |
+| **L**oad | Creates the corresponding event types, patrol types, subjects, patrols, events, and tracks in an EarthRanger site. The hosted app runs it (register a site, plan, confirm; see [web/DEPLOY.md](web/DEPLOY.md#loading-into-earthranger)). The command-line path remains: [er-smart-sync](https://github.com/PADAS/earthranger-smart-utils) (`datamodel`, `patrol-datamodel`, `patrol-preflight`, `import-patrols`) reads the bundle; see its [Migrate SMART patrols](https://padas.github.io/earthranger-smart-utils/workflows/migrate-patrols/) guide. | Done |
 
 ## Quick start
 
@@ -117,6 +117,18 @@ sign in with Google, upload a backup or export, have it extracted in the
 cloud, open the result, and share it with colleagues. The code is under
 `web/`; [web/DEPLOY.md](web/DEPLOY.md) covers Cloud Run deployment and running
 it locally with `BACKEND=local AUTH_DISABLED=true`.
+
+To run loads locally, give the service a separate virtualenv with
+er-smart-sync (it pins pydantic 1, the web service needs pydantic 2):
+
+```sh
+uv venv .venv-load && uv pip install --python .venv-load/bin/python -r web/requirements-load.txt
+LOAD_PYTHON=$PWD/.venv-load/bin/python   # in the service's environment
+```
+
+Before the release `web/requirements-load.txt` pins is tagged, install your
+checkout of earthranger-smart-utils into `.venv-load` instead; see
+[web/DEPLOY.md](web/DEPLOY.md#running-locally).
 
 ## Data handling
 

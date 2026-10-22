@@ -21,5 +21,10 @@ RUN uv sync --frozen --no-dev --extra web --no-install-project && \
     duckdb -c "INSTALL spatial;" && \
     chmod +x smart-able
 
+# er-smart-sync pins pydantic 1 and the web extra needs pydantic 2, so the
+# load job gets its own venv; web/load_job.py runs under it
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/* && \
+    uv venv /opt/load --python 3.12 && uv pip install --python /opt/load/bin/python -r web/requirements-load.txt
+
 ENV PATH="/app/.venv/bin:${PATH}" PYTHONUNBUFFERED=1 JOB_WORK_DIR=/tmp/smart-able
 CMD ["python", "web/job.py"]

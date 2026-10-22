@@ -48,3 +48,23 @@ td.actions { white-space: nowrap; text-align: right; }
 .shared ul { list-style: none; padding: 0; margin: 8px 0; }
 pre.log { background: var(--chip); padding: 10px; border-radius: 8px; font-size: 12px; max-height: 40vh; overflow: auto; white-space: pre-wrap; }
 a { color: var(--brand); }
+.stages { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.stage { padding: 4px 10px; border-radius: 99px; background: var(--chip); font-size: 12px; }
+.stage.done { background: var(--accent); color: var(--accent-ink); }
+.stage.current { outline: 2px solid var(--brand); }
+.stage.stopped { background: #f6d9d3; color: var(--danger); }
+.finding { border-left: 3px solid var(--line); padding: 6px 10px; margin: 8px 0; }
+.finding.blocking { border-color: var(--danger); }
+.finding.warning { border-color: #c99a2e; }
+.finding pre { white-space: pre-wrap; font-size: 12px; margin: 4px 0; }
+.plan details { margin: 4px 0; }
+.plan summary { cursor: pointer; }
+.pill.needs_attention { background: #f6e3c4; color: #6b4b00; }
+.pill.done { background: var(--accent); color: var(--accent-ink); }
+.pill.planned { background: #dde8f6; color: #1d3f6e; }
+.loads { margin-top: 6px; font-size: 12.5px; }
+.loads a { cursor: pointer; text-decoration: underline; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.col label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.col select, .col input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.finding.info { border-color: var(--brand); }

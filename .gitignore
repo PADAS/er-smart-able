@@ -12,6 +12,7 @@
 
 # Python virtualenv (machine-specific; recreate with ./smart-able setup / uv sync)
 .venv/
+.venv-load/
 __pycache__/
 *.pyc
 
@@ -25,3 +26,4 @@ derby.log
 web/infra/terraform.tfvars
 web/infra/.terraform/
 web/infra/*.tfstate*
+.worktrees/
