@@ -139,3 +139,39 @@ def test_check_token_distinguishes_rejection_from_unreachable(monkeypatch):
     monkeypatch.setattr(er_site, "_transport", lambda: httpx.MockTransport(lambda r: httpx.Response(502)))
     with pytest.raises(er_site.SiteUnreachable):
         er_site.check_token("x.pamdas.org", "tok")
+
+
+def test_a_200_that_is_not_an_earthranger_answer_is_unreachable(monkeypatch):
+    import httpx
+    er_site = importlib.import_module("er_site")
+    for resp in (httpx.Response(200, text="<html>"), httpx.Response(200, json=[1])):
+        monkeypatch.setattr(er_site, "_transport", lambda resp=resp: httpx.MockTransport(lambda r: resp))
+        with pytest.raises(er_site.SiteUnreachable):
+            er_site.check_token("x.pamdas.org", "tok")
+
+
+def test_the_route_answers_400_when_the_site_replies_with_html(client, monkeypatch):
+    import httpx
+    er_site = importlib.import_module("er_site")
+    monkeypatch.setattr(er_site, "_transport", lambda: httpx.MockTransport(lambda r: httpx.Response(200, text="<html>")))
+    _, c = client
+    r = c.post("/api/sites", json={"name": "n", "url": "x.pamdas.org", "token": "t"})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("bad", ["x.pamdas.org:8080", "user:pass@x.pamdas.org", "https://u@x.pamdas.org",
+                                 "169.254.169.254", "http://10.0.0.1/", "127.0.0.1", "localhost", "[::1]"])
+def test_hosts_with_ports_credentials_or_ips_are_rejected(client, er, bad):
+    er_site = importlib.import_module("er_site")
+    with pytest.raises(ValueError):
+        er_site.normalize_host(bad)
+    _, c = client
+    assert c.post("/api/sites", json={"name": "n", "url": bad, "token": "t"}).status_code == 400
+    assert er[0] == []
+
+
+def test_a_validation_error_does_not_echo_the_token(client):
+    _, c = client
+    r = c.post("/api/sites", json={"token": "super-secret-token"})
+    assert r.status_code == 422 and "super-secret-token" not in r.text
+    assert all({"loc", "msg", "type"} <= set(e) for e in r.json()["detail"])
