@@ -184,6 +184,8 @@ class Runner:
                                        ca_identifier=load["options"].get("event_category") or ca_identifier(entry.get("ca_id")))
             del token
 
+            self._log(f"setup took {self.clock() - self.started:.0f} s")
+            self.stages[stage]["started_at"] = now()   # the row times the push, not the export download
             dm_stats = m.push_datamodel()
             self._log(f"datamodel: {dm_stats}")
             self._end(stage, dm_stats)
@@ -267,7 +269,7 @@ class Runner:
                 self._update(progress={"patrols_total": total, "done": p["done"], "failed": p["failed"],
                                        "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
                                        "track_points": counts.get("track_points", 0), "since": since},
-                             log_tail=self._tail())
+                             **({"log_tail": self._tail()} if periodic else {}))
                 if periodic:
                     self._push_files()  # the ledger above all: what a continuation resumes from
                     last_push.update(t=self.clock(), n=p["done"])
@@ -292,10 +294,13 @@ class Runner:
                                "failed": len(failed), "skipped": last.get("already_imported", 0),
                                "events": counts.get("observations", 0), "track_points": counts.get("track_points", 0),
                                "since": since})
-        self.stages["import"]["metrics"] = {"imported": len(result.get("imported") or []), "failed": len(failed),
-                                            "skipped": last.get("already_imported", 0)}
+        metrics = {"imported": len(result.get("imported") or []), "failed": len(failed), "skipped": last.get("already_imported", 0)}
         self._log(f"import: {len(result.get('imported') or [])} imported, {len(failed)} failed"
                   + (", stopped at the soft deadline" if result.get("stopped_early") else ""))
+        if not result.get("stopped_early"):
+            self._end("import", metrics)   # it ran to its end; failed patrols are findings, not a stop
+        else:
+            self.stages["import"]["metrics"] = metrics
         if result.get("stopped_early"):
             n = load.get("continuations", 0) + 1
             if n > self.max_continuations:

@@ -130,17 +130,21 @@ def test_checklist_findings_carry_the_exact_values_to_type(findings):
         {"code": "team", "title": "Create the patrol team SMART team 7097b461",
          "steps": ["Django admin > Patrol configuration > Teams > add a team with display `SMART team 7097b461`.",
                    "Members (from SMART): none recorded.", "Re-run `er-smart-sync patrol-datamodel`."]},
-        {"code": "roster_group", "title": "Add the subjects to the `Rangers` subject group",
-         "steps": ["Admin > Subject groups (for example `Rangers`).", "or re-run with `--roster-group <name>` to let the tool."]},
+        {"code": "roster_group", "title": "Put the ranger subjects in the patrol roster subject group",
+         "steps": ["Admin > member subject groups: choose or create the group (for example `Rangers`).",
+                   "Add them to that group, or re-run with `--roster-group <name>` to let the tool do it."]},
         {"code": "permission_subjects", "title": "Grant", "steps": ["Django admin > Users > the operator > add `observations | subject | Can view/add/change subject`."]},
         {"code": "station_names", "title": "Name the stations", "steps": ["Rename `Unnamed station 0a1b2c3d`, `Unnamed station 4e5f6a7b` in admin > Choices (field `patrol_station`)."]},
-        {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]}])
+        {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]},
+        {"code": "permission_subject_group", "title": "Add the subjects to the `Rangers` subject group",
+         "steps": ["The operator cannot change subject-group membership; an admin adds the subjects in Django admin > Subject groups."]}])
     assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}]
-    assert out[1]["values"] == [{"label": "Subject group", "value": "Rangers"}]
+    assert out[1]["values"] == []   # `Rangers` there is an example, not the name to use
     assert out[2]["values"] == [{"label": "Permission", "value": "observations | subject | Can view/add/change subject"}]
     assert out[3]["values"] == [{"label": "Station name", "value": "Unnamed station 0a1b2c3d"},
                                 {"label": "Station name", "value": "Unnamed station 4e5f6a7b"}]
     assert out[4]["values"] == []
+    assert out[5]["values"] == [{"label": "Subject group", "value": "Rangers"}]
 
 
 def test_preflight_team_findings_name_each_team(findings):

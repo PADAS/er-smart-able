@@ -39,14 +39,14 @@ def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=
 # are quoted the same way and are left out.
 _QUOTED = re.compile(r"`([^`]+)`")
 _NOT_A_VALUE = ("er-smart-sync", "--", "<")
-VALUE_LABEL = {"team": "Team name", "roster_group": "Subject group", "station_names": "Station name",
-               "enable_patrol_schemas": "Feature"}
+VALUE_LABEL = {"team": "Team name", "permission_subject_group": "Subject group", "station_names": "Station name",
+               "enable_patrol_schemas": "Feature"}   # roster_group quotes only an example name: no value
 _TEAM_EXAMPLE = re.compile(r"^(.*) \((?:missing|inactive), \d+ patrols?\)$")
 
 
 def checklist_values(item: dict) -> list:
     code = item.get("code") or ""
-    label = "Permission" if code.startswith("permission_") else VALUE_LABEL.get(code)
+    label = VALUE_LABEL.get(code) or ("Permission" if code.startswith("permission_") else None)
     if not label:
         return []
     out, seen = [], set()

@@ -499,7 +499,24 @@ def test_a_new_execution_starts_its_stages_afresh(env):
 
 def test_the_log_tail_is_recorded_as_the_job_goes(env, monkeypatch):
     calls = _updates(env, monkeypatch)
-    _run(env, "run", FakeMigration(), "queued")
+    clock = Clock()
+    _run(env, "run", FakeMigration(per_patrol_seconds=31, clock=clock), "queued", clock=clock)
     staged = [c for c in calls if "stage" in c]
     assert staged and all(c.get("log_tail") for c in staged)
-    assert any("progress" in c and c.get("log_tail") for c in calls)
+    progress = [c for c in calls if "progress" in c]
+    assert any(c.get("log_tail") for c in progress)          # with the periodic (30 s) write
+    assert not all(c.get("log_tail") for c in progress)      # not with every patrol
+
+
+def test_failed_patrols_leave_the_import_row_done(env):
+    rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "boom"}), "queued")
+    assert load["status"] == "needs_attention"
+    assert load["stages"]["import"]["status"] == "done" and load["stages"]["import"]["metrics"] == {"imported": 2, "failed": 1, "skipped": 0}
+
+
+def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):
+    store = env[0]
+    monkeypatch.setattr(store, "start_load", lambda id, mode: "exec-2")
+    clock = Clock()
+    rc, load, _ = _run(env, "run", FakeMigration(per_patrol_seconds=60, clock=clock), "queued", clock=clock)
+    assert load["status"] == "continuing" and load["stages"]["import"]["status"] == "running"

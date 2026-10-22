@@ -230,6 +230,7 @@ function showDatasets() { clearTimeout(loadTimer); currentLoad = null; document.
 async function showLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
+  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); } catch (e) { alert(e.message); showDatasets(); }
@@ -314,24 +315,28 @@ const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 6
 const secondsSince = iso => iso ? (Date.now() - Date.parse(iso)) / 1000 : null;
 const count = (n, one, many) => n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's'));
 
+const notStarted = l => ['queued', 'planning'].includes(l.status);   // claimed, but the job has not reset the rows yet
+
 function stageRows(l) {
+  if (notStarted(l)) return {};
   // loads from before the stage table have only `stage` and `status`
   if (l.stages && Object.keys(l.stages).length) return l.stages;
   const rows = {}, idx = STAGES.indexOf(l.stage);
   STAGES.forEach((s, i) => {
     if (i < idx || (i === idx && ['done', 'planned'].includes(l.status))) rows[s] = { status: 'done', metrics: {} };
-    else if (i === idx) rows[s] = { status: l.held ? 'running' : ['needs_attention', 'failed'].includes(l.status) ? (l.status === 'failed' ? 'failed' : 'stopped') : 'running', metrics: {} };
+    else if (i === idx) rows[s] = { status: l.status === 'failed' ? 'failed' : l.status === 'needs_attention' ? 'stopped' : 'running', metrics: {} };
   });
   return rows;
 }
 
 function stageSummary(stage, row, l, active) {
   const m = row.metrics || {}, dry = l.mode === 'plan' || (!l.mode && ['planning', 'planned'].includes(l.status));
-  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated' };
+  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate', migrated: 'to migrate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated', migrated: 'migrated' };
+  v.skipped_by_mode = 'skipped by mode'; v.skipped_by_conflict = 'skipped on conflict'; v.errored = 'errored';
   const tally = (prefix, keys) => keys.filter(k => m[prefix + k]).map(k => m[prefix + k] + ' ' + (v[k] || k));
   const parts = [];
   if (stage === 'datamodel') {
-    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged']), ch = tally('choices_', ['created', 'updated', 'unchanged']);
+    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'errored']);
     if (cats.length) parts.push('categories: ' + cats.join(', '));
     if (types.length) parts.push('event types: ' + types.join(', '));
     if (ch.length) parts.push('choices: ' + ch.join(', '));
@@ -354,9 +359,9 @@ function stageSummary(stage, row, l, active) {
 function importSummary(l, live) {
   const p = l.progress;
   let s = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
-  const mins = p.since ? secondsSince(p.since) / 60 : null;
-  if (mins && mins > 0.5 && p.done) {
-    const rate = p.done / mins;
+  const mins = p.since ? secondsSince(p.since) / 60 : null, written = p.done - (p.skipped || 0);   // skips take no time
+  if (mins && mins > 0.5 && written > 0) {
+    const rate = written / mins;
     s += ' · ' + rate.toFixed(1) + ' per minute';
     if (live && p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left';
   }
@@ -374,7 +379,8 @@ function renderStages(l, active) {
       esc(running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</span></td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
   }
   html += '</tbody></table>';
-  if (active) html += '<p class="tiny heartbeat">Running for ' + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
+  if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
+    : '<p class="tiny heartbeat">Running for ' + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
   return html;
 }
 
