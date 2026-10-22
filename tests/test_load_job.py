@@ -263,7 +263,7 @@ def test_a_raising_store_update_in_progress_does_not_abort_the_import(env, monke
     raised = []
 
     def flaky(load_id, **fields):
-        if "progress" in fields and not raised:
+        if fields.get("progress") and not raised:
             raised.append(1)
             raise RuntimeError("firestore hiccup")
         real_update(load_id, **fields)
@@ -318,22 +318,23 @@ def test_the_token_never_reaches_the_log(env):
     assert "SECRET-TOKEN-xyz" not in json.dumps(load)
 
 
-def test_an_exception_after_the_import_keeps_the_failed_patrol_findings(env, monkeypatch):
+def test_a_store_error_on_the_outcome_keeps_the_failed_patrol_findings(env, monkeypatch):
     store = env[0]
     real_update = store.update_load
     n = {"progress": 0}
 
     def flaky(load_id, **fields):
-        if "progress" in fields:
+        if fields.get("progress"):
             n["progress"] += 1
-            if n["progress"] == 4:  # the final count, after the three callbacks
+            if n["progress"] == 4:  # the outcome write, which carries the final count after the three callbacks
                 raise RuntimeError("store down")
         real_update(load_id, **fields)
 
     monkeypatch.setattr(store, "update_load", flaky)
     rc, load, _ = _run(env, "run", FakeMigration(checklist=[ICONS], failed={"u2": "500 on the track"}), "queued")
-    assert load["status"] == "failed" and "store down" in load["error"]
+    assert load["status"] == "needs_attention" and "could not be recorded" in load["error"]
     assert [f["code"] for f in load["findings"]] == ["patrol_type_icons", "patrols_failed"]
+    assert load["progress"] is None
 
 
 UNPUSHED = {"blocking": [{"code": "patrol_types", "level": "blocking", "message": "1 patrol type(s) the legs need are missing",
@@ -399,10 +400,11 @@ def test_an_outcome_too_big_to_record_still_records_the_status(env, monkeypatch)
     rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "500 on the track"}), "queued")
     assert refused and rc == 0
     assert load["status"] == "needs_attention" and load["stage"] == "import"
-    assert load["findings"] is None and load["log_tail"] is None and "see log.txt" in load["error"]
+    assert [f["code"] for f in load["findings"]] == ["patrols_failed"]   # what the operator acts on survives
+    assert load["log_tail"] is None and load["progress"] is None and "see log.txt" in load["error"]
     log = _stored_log(store, load)
     assert "recording the outcome failed: RuntimeError: 400 Document exceeds the maximum size" in log
-    assert "needs_attention recorded without the tail, findings and plan" in log
+    assert "needs_attention recorded without the tail, plan and progress" in log
 
 
 def test_a_failed_run_keeps_its_error_when_the_outcome_is_too_big(env, monkeypatch):
@@ -440,3 +442,86 @@ def test_a_deleted_load_stops_the_import(env):
     assert store.get_load(id) is None and store.get_load_file(ds, id, "log.txt") is None
     assert "load deleted; stopping" in runner.log_lines
     assert not any(line.startswith("error:") for line in runner.log_lines)
+
+
+def _updates(env, monkeypatch):
+    """Every update_load call the job makes, in order."""
+    store = env[0]
+    import copy
+    calls, real = [], store.update_load
+    monkeypatch.setattr(store, "update_load", lambda id, **f: calls.append(copy.deepcopy(f)) or real(id, **f))
+    return calls
+
+
+def test_stages_record_status_times_and_metrics(env):
+    m = FakeMigration(checklist=[ICONS])
+    rc, load, _ = _run(env, "run", m, "queued")
+    assert load["status"] == "done"
+    st = load["stages"]
+    assert list(st) == ["datamodel", "patrol_datamodel", "preflight", "import"]
+    assert all(r["status"] == "done" and r["started_at"] <= r["finished_at"] for r in st.values())
+    assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
+    assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
+    assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
+    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0}
+
+
+def test_a_plan_records_its_stages_too(env):
+    rc, load, _ = _run(env, "plan", FakeMigration(), "planning")
+    assert load["status"] == "planned" and [r["status"] for r in load["stages"].values()] == ["done"] * 4
+    assert load["mode"] == "plan"
+    assert load["stages"]["import"]["metrics"] == {"planned": 3, "already_done": 0}
+
+
+def test_a_stop_marks_its_stage_stopped_and_leaves_the_rest_out(env):
+    rc, load, _ = _run(env, "run", FakeMigration(checklist=[TEAM]), "queued")
+    assert load["status"] == "needs_attention"
+    assert [(s, r["status"]) for s, r in load["stages"].items()] == [("datamodel", "done"), ("patrol_datamodel", "stopped")]
+    assert load["stages"]["patrol_datamodel"]["finished_at"]
+
+
+def test_an_exception_marks_its_stage_failed(env):
+    rc, load, _ = _run(env, "run", FakeMigration(raise_in="preflight"), "queued")
+    assert load["status"] == "failed" and load["stages"]["preflight"]["status"] == "failed"
+
+
+def test_a_rejected_token_stops_the_first_stage(env):
+    def reject(host, token):
+        raise sys.modules["er_site"].TokenRejected("401")
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued", check_token=reject)
+    assert load["stages"] == {"datamodel": {**load["stages"]["datamodel"], "status": "stopped"}}
+
+
+def test_a_new_execution_starts_its_stages_afresh(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    old = {"datamodel": {"status": "done", "started_at": "x", "finished_at": "y", "metrics": {}}}
+    rc, load, _ = _run(env, "plan", FakeMigration(), "planning", stages=old, stage="import", progress={"done": 120, "patrols_total": 500})
+    assert load["stages"]["datamodel"]["started_at"] != "x"
+    first = next(c for c in calls if c.get("status") == "running")
+    assert first["stages"] == {} and first["stage"] is None and first["progress"] is None
+    assert load["progress"] is None   # a plan imports nothing: the old run's counts do not show under it
+
+
+def test_the_log_tail_is_recorded_as_the_job_goes(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    clock = Clock()
+    _run(env, "run", FakeMigration(per_patrol_seconds=31, clock=clock), "queued", clock=clock)
+    staged = [c for c in calls if c.get("stage")]
+    assert staged and all(c.get("log_tail") for c in staged)
+    progress = [c for c in calls if "progress" in c]
+    assert any(c.get("log_tail") for c in progress)          # with the periodic (30 s) write
+    assert not all(c.get("log_tail") for c in progress)      # not with every patrol
+
+
+def test_failed_patrols_leave_the_import_row_done(env):
+    rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "boom"}), "queued")
+    assert load["status"] == "needs_attention"
+    assert load["stages"]["import"]["status"] == "done" and load["stages"]["import"]["metrics"] == {"imported": 2, "failed": 1, "skipped": 0}
+
+
+def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):
+    store = env[0]
+    monkeypatch.setattr(store, "start_load", lambda id, mode: "exec-2")
+    clock = Clock()
+    rc, load, _ = _run(env, "run", FakeMigration(per_patrol_seconds=60, clock=clock), "queued", clock=clock)
+    assert load["status"] == "continuing" and load["stages"]["import"]["status"] == "running"

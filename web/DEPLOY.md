@@ -16,7 +16,7 @@ GitHub Actions.
 | Load job | `web/load_job.py`: plan and run a migration into an EarthRanger site with er-smart-sync | Cloud Run Job `smart-able-load`, the same image as the extraction job, run with `/opt/load/bin/python` (its own venv, because er-smart-sync pins pydantic 1) |
 | Index | one Firestore document per dataset: owner, `shared_with`, status, counts | Firestore `(default)`, collection `datasets` |
 | Sites | one document per registered EarthRanger site: name, URL, owner, `shared_with`, the name of its token secret | Firestore `(default)`, collection `sites`; the token itself is in Secret Manager |
-| Loads | one document per load: dataset, site, options, status, stage, findings, continuations | Firestore `(default)`, collection `loads` |
+| Loads | one document per load: dataset, site, options, status, stage, per-stage rows with metrics, findings, progress, continuations | Firestore `(default)`, collection `loads` |
 | Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos), `datasets/<id>/loads/<load id>/...` (a load's plan and results) | a private GCS bucket |
 
 A dataset is owned by whoever uploaded it. The owner can share it with

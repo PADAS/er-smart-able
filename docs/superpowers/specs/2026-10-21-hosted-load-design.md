@@ -92,9 +92,11 @@ One attempt to put one conservation area of one dataset into one site.
 | `options` | `{language, configurable_model, roster_group, event_category}`; `configurable_model` is a uuid or null, `roster_group` a name or null, `event_category` the ER event-category identifier the data model is pushed under (2-30 characters of `[A-Za-z0-9_-]`, default `smart-<ca id>`; use the identifier an earlier CLI push used). The timezone comes from the bundle. |
 | `status` | `planning`, `planned`, `queued`, `running`, `continuing`, `needs_attention`, `done`, `failed` |
 | `stage` | `datamodel`, `patrol_datamodel`, `preflight`, `import`; the stage the job is in or stopped in |
+| `stages` | one row per stage this execution has reached, keyed by stage name: `{status, started_at, finished_at, metrics}`. `status` is `running`, `done`, `stopped` (the stop rule) or `failed`. `metrics` is what the stage did: the datamodel stats, the patrol-datamodel stats, `{blocking, warnings, patrols}` for preflight, `{imported, failed, skipped}` or, for a plan, `{planned, already_done}` for the import. Reset when an execution starts. |
+| `mode` | `plan` or `run`: what the latest execution did, so the page can word the stage metrics as "to create" or "created" |
 | `plan` | the dry run's grouped write list (below) |
 | `findings` | the list of findings (below), replaced on every execution |
-| `progress` | `{patrols_total, done, failed, skipped, events, track_points}` |
+| `progress` | `{patrols_total, done, failed, skipped, events, track_points}`; the import row's times give the rate |
 | `execution`, `claimed_at`, `started_at`, `continuations` | the execution bookkeeping, as for extraction plus a continuation count |
 | `log_tail`, `error` | as for extraction |
 | `created_at`, `updated_at` | |
@@ -137,6 +139,7 @@ The reusable stop-and-report unit:
 
 ```json
 {"stage": "patrol_datamodel", "code": "teams_missing", "severity": "blocking",
+ "values": [{"label": "Team name", "value": "SMART team 3865d90c"}],
  "title": "7 teams need to be created",
  "detail": "...", "fix": "In EarthRanger, create these teams ...",
  "affected": {"count": 11, "patrols": ["e3f1...", "..."]}}
@@ -144,7 +147,11 @@ The reusable stop-and-report unit:
 
 `severity` is `blocking`, `warning` or `info`. `fix` is what a human does on
 the site, in the words er-smart-sync already uses in `checklist.md` and the
-preflight report. `affected.patrols` holds at most 50 SMART uuids; the count
+preflight report. `values` lists the exact strings the fix asks the admin to
+type (a team name, a subject group, a permission, a station name), each with
+a label; the page shows them as copyable values beside the finding. They
+come from the backticked strings in the checklist steps and from the
+preflight team examples. `affected.patrols` holds at most 50 SMART uuids; the count
 is exact. Checklist items map to findings with `stage: patrol_datamodel`;
 preflight findings with `stage: preflight`; failed patrols at the end of an
 import become one finding with `stage: import`, code `patrols_failed`, and
@@ -172,7 +179,11 @@ er-smart-sync (pinned) and the Google client libraries, and imports
 
 ### Stages
 
-Each stage sets `stage` on the load as it starts and appends to `log.txt`.
+Each stage sets `stage` and its `stages` row on the load as it starts and
+closes the row with its metrics when it ends; the outcome closes a row still
+open as `stopped` or `failed`. Every one of those writes, and the periodic
+progress write, carries the log tail so far, so the page shows the log while
+the job runs. Each stage appends to `log.txt`.
 
 1. **datamodel**: push `datamodel.xml` and, when `options.configurable_model`
    is set, that configurable model, with the bundle passed so inactive and
@@ -302,7 +313,14 @@ All in the existing single page (`web/templates/index.html`,
 - **Loads on the card**, one line each: site, conservation area, status,
   and "412 of 1,527 patrols" while running. Clicking opens the load page.
 - **The load page**, one view for every status:
-  1. A stage strip: the four stages, marking done, current and stopped.
+  1. A stage table: one row per stage with its status (pending, running
+     with a pulsing marker and elapsed time, done, stopped, failed, or
+     interrupted when the hold lapsed), how long it took, and what it did
+     from the row's metrics; during the import, the live counts with the
+     rate and a rough time left. Under it, while active, a heartbeat line:
+     how long this execution has run and how long since the job last
+     reported, or that the job has not started yet.
+     Loads from before the table render it from `stage` and `status`.
   2. The plan, as grouped counts with expandable lists.
   3. Findings, blocking first, each with its title, detail and fix text, and
      the affected count. Beside the list: **Confirm and load** when
@@ -311,7 +329,8 @@ All in the existing single page (`web/templates/index.html`,
      still has blocking findings the button reads "Confirm and load (stops
      at N blocking)", with one line saying the run will write what the plan
      lists and then stop at those findings until they are fixed.
-  4. Progress, the log tail, and downloads of the files.
+  4. Progress as a bar with the counts, the log (open while the load is
+     active, a collapsed tail afterwards), and downloads of the files.
 - Polling every few seconds while a load is active, like the dataset list
   during extraction.
 
