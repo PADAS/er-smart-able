@@ -80,8 +80,8 @@ def test_build_plan_groups_dry_run_writes(findings):
     assert plan["choices"] == {"create": [{"value": "foot", "label": "foot"}], "update": [{"value": "smart_threat.law", "label": "law"}],
                                "deactivate": [{"value": "smart_threat.old", "label": "old"}]}   # switching a choice off is shown
     assert plan["subjects"] == {"create": [{"value": None, "label": "Ana Cruz"}], "update": [{"value": "s3", "label": "Carla Diaz"}],
-                                "deactivate": [{"value": "s2", "label": "Old Login"},
-                                               {"value": "s4", "label": "s4"}]}   # a nameless subject is labelled by its id
+                                "deactivate": [{"value": "s4", "label": "s4"},   # a nameless subject is labelled by its id
+                                               {"value": "s2", "label": "Old Login"}]}
     assert plan["universal_patrol_fields"] == "write" and plan["roster"] == {"group": "Rangers", "add": 2}
     assert plan["patrols"] == {"total": 2, "first": "2019-03-04", "last": "2024-11-30", "already_done": 1,
                                "events": 10, "track_points": 400}
