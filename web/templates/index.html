@@ -66,9 +66,10 @@
   </main>
 
   <div id="helpBackdrop" class="backdrop" hidden></div>
-  <aside id="help" class="drawer" hidden aria-label="Help">
+  <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help">
     <div class="drawer-head"><h2>Help</h2><button class="ghost" id="helpClose" title="Close"><span class="mi" aria-hidden="true">close</span></button></div>
     <nav id="helpToc" class="help-toc"></nav>
+    <p id="helpNote" class="tiny help-note" hidden></p>
     <div id="helpBody" class="help-body"></div>
   </aside>
 

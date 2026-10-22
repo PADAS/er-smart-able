@@ -13,8 +13,9 @@ ROOT = Path(__file__).parent.parent
 
 # the preflight codes are er-smart-sync's (src/er_smart_sync/preflight.py, every Finding.of); the
 # checklist and job codes come from web/findings.py below
-PREFLIGHT_CODES = ["feature_flag", "permissions", "patrol_types", "segment_schema", "choices", "subjects", "inactive_members",
-                   "teams", "event_types", "collection_type", "leg_span", "bundle_warnings"]
+PREFLIGHT_CODES = ["timezone", "language", "time_coverage", "check_failed", "feature_flag", "permissions", "patrol_types",
+                   "segment_schema", "choices", "subjects", "inactive_members", "teams", "event_types", "collection_type",
+                   "leg_span", "bundle_warnings"]
 
 
 @pytest.fixture
@@ -24,15 +25,21 @@ def help_mod(monkeypatch):
     return importlib.import_module("help_pages")
 
 
-def _finding_codes():
+def _finding_codes(monkeypatch):
     import re
-    sys.path.insert(0, str(ROOT / "web"))
+    monkeypatch.syspath_prepend(str(ROOT / "web"))
     sys.modules.pop("findings", None)
     findings = importlib.import_module("findings")
     checklist = set(findings.BLOCKING_CHECKLIST) | set(findings.VALUE_LABEL)
     job = set(re.findall(r'finding\("(?:import|datamodel)", "([a-z_]+)"', (ROOT / "web" / "findings.py").read_text()))
     assert "patrols_failed" in job and "site_token_rejected" in job
-    return sorted(checklist | job | set(PREFLIGHT_CODES))
+    preflight = set(PREFLIGHT_CODES)
+    try:   # the load venv has er-smart-sync: read every code its preflight can emit
+        import er_smart_sync.preflight as pf
+        preflight |= set(re.findall(r'Finding(?:\.of)?\(\s*"([a-z_]+)"', Path(pf.__file__).read_text()))
+    except ImportError:
+        pass
+    return sorted(checklist | job | preflight)
 
 
 def test_the_sections_come_in_order_with_ids_and_html(help_mod):
@@ -42,9 +49,9 @@ def test_the_sections_come_in_order_with_ids_and_html(help_mod):
     assert sections[-1]["title"] == "SMART data quirks" and 'id="timezones"' in sections[-1]["html"]
 
 
-def test_every_finding_code_has_an_entry(help_mod):
+def test_every_finding_code_has_an_entry(help_mod, monkeypatch):
     stops = next(s for s in help_mod.sections() if s["id"] == "stops")["html"]
-    missing = [c for c in _finding_codes() if f'id="finding-{c}"' not in stops]
+    missing = [c for c in _finding_codes(monkeypatch) if f'id="finding-{c}"' not in stops]
     assert missing == []
 
 

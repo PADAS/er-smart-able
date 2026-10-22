@@ -127,7 +127,7 @@ async def me(user=Depends(current_user)):
 
 
 @app.get("/api/help")
-async def help_sections(user=Depends(current_user)):
+def help_sections(user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
     import help_pages
     return {"sections": help_pages.sections()}
 

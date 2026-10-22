@@ -49,7 +49,9 @@ td.actions { white-space: nowrap; text-align: right; }
 .help-toc { padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .help-toc button.link { background: none; border: 0; padding: 0; font: inherit; color: var(--ink-2); cursor: pointer; }
 .help-toc button.link.current, .help-toc button.link:hover { color: var(--brand); text-decoration: underline; }
-.help-body { overflow: auto; padding: 4px 20px 40px; font-size: 13.5px; line-height: 1.55; }
+.help-body { position: relative; overflow: auto; padding: 4px 20px 40px; font-size: 13.5px; line-height: 1.55; }   /* positioned: offsetTop is measured inside it */
+.help-note { margin: 0; padding: 8px 20px; background: #fff6d6; color: #6b4b00; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .help-note { background: #3a3414; color: #e8dcae; } }
 .help-body h2 { font-size: 17px; margin: 22px 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
 .help-body section:first-child h2 { border-top: 0; padding-top: 0; }
 .help-body h3 { font-size: 14.5px; margin: 18px 0 6px; }

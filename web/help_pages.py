@@ -4,13 +4,9 @@ once per process; the page shows the sections in a drawer and deep-links to
 heading ids (a finding opens `finding-<code>`)."""
 from __future__ import annotations
 
-import os
 import re
 import sys
-from functools import lru_cache
 from pathlib import Path
-
-import markdown
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -34,12 +30,15 @@ def _links(html: str) -> str:
     return html.replace('<a href="http', '<a target="_blank" rel="noopener" href="http')
 
 
-def _render(text: str, extensions=EXTENSIONS) -> tuple[str, str]:
-    """(title, html): the first heading is the title and is not repeated in the body."""
+def _split_title(text: str) -> tuple[str, str]:
+    """(title, body): the first heading is the title and is not repeated in the body."""
     m = re.match(r"\s*#\s+(.+?)\s*\n", text)
-    title = m.group(1) if m else ""
-    body = text[m.end():] if m else text
-    return title, _links(markdown.markdown(body, extensions=extensions, extension_configs={"toc": build_quirks.TOC}))
+    return (m.group(1), text[m.end():]) if m else ("", text)
+
+
+def _render(text: str, extensions=EXTENSIONS) -> tuple[str, str]:
+    title, body = _split_title(text)
+    return title, _links(build_quirks.convert(body, extensions).body)
 
 
 def _load() -> list:
@@ -48,19 +47,24 @@ def _load() -> list:
         title, html = _render(f.read_text(encoding="utf-8"))
         out.append({"id": re.sub(r"^\d+-", "", f.stem), "title": title, "html": html})
     if QUIRKS.is_file():
-        text = QUIRKS.read_text(encoding="utf-8")
-        m = re.match(r"\s*#\s+(.+?)\s*\n", text)
-        text = text[:m.end()] + "\n" + QUIRKS_PREAMBLE + text[m.end():] if m else text
-        title, html = _render(text, build_quirks.EXTENSIONS)
+        title, body = _split_title(QUIRKS.read_text(encoding="utf-8"))
+        _, html = _render(QUIRKS_PREAMBLE + body, build_quirks.EXTENSIONS)
         out.append({"id": "quirks", "title": title or "SMART data quirks", "html": html})
     return out
 
 
-@lru_cache(maxsize=1)
-def _cached() -> list:
-    return _load()
+_cache: dict = {}
+
+
+def _stamp() -> tuple:
+    files = sorted(HELP_DIR.glob("*.md")) + ([QUIRKS] if QUIRKS.is_file() else [])
+    return tuple((str(f), f.stat().st_mtime_ns) for f in files)
 
 
 def sections() -> list:
-    """Rendered fresh in development, once per process otherwise."""
-    return _load() if os.environ.get("APP_VERSION", "dev") == "dev" else _cached()
+    """Rendered once, and again when a source file changes (so an edit shows
+    in development without a restart)."""
+    stamp = _stamp()
+    if _cache.get("stamp") != stamp:
+        _cache.update(stamp=stamp, sections=_load())
+    return _cache["sections"]

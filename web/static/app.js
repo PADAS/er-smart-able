@@ -318,9 +318,10 @@ async function copyValue(btn) {
 }
 
 // ---- help: a drawer of sections, deep-linked by heading id (a finding opens finding-<code>)
-let HELP = null, helpLoading = null;
+let HELP = null, helpLoading = null, helpOpener = null;
 async function openHelp(anchor) {
   const drawer = $('#help'), body = $('#helpBody');
+  helpOpener = document.activeElement;   // focus goes back there on close
   if (!HELP) {
     helpLoading = helpLoading || api('/api/help');   // one fetch, however many clicks arrive while it is pending
     let sections;
@@ -347,8 +348,14 @@ async function openHelp(anchor) {
 }
 
 function gotoHelp(id) {
-  const body = $('#helpBody');
-  const el = body.querySelector('#' + CSS.escape(id)) || body.querySelector('#help-stops');
+  const body = $('#helpBody'), note = $('#helpNote');
+  let el = body.querySelector('#' + CSS.escape(id));
+  note.hidden = true;
+  if (!el && /^finding-/.test(id)) {   // a finding without an entry yet: say so rather than land silently
+    el = body.querySelector('#help-stops');
+    note.textContent = 'No help entry yet for the finding "' + id.slice(8) + '". The finding\'s own fix text is the guidance.';
+    note.hidden = false;
+  }
   if (!el) return;
   body.querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   if (/^finding-/.test(id)) { el.classList.add('target'); }
@@ -356,7 +363,10 @@ function gotoHelp(id) {
   body.onscroll();
 }
 
-function closeHelp() { $('#help').hidden = true; $('#helpBackdrop').hidden = true; }
+function closeHelp() {
+  $('#help').hidden = true; $('#helpBackdrop').hidden = true;
+  if (helpOpener && helpOpener.focus && document.contains(helpOpener)) helpOpener.focus();
+}
 
 // ---- the stage table: one row per stage, what it did, and how long it took
 const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; };

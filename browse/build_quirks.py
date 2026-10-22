@@ -108,9 +108,10 @@ EXTENSIONS = ["toc", "tables", "fenced_code"]
 TOC = {"toc_depth": "2-3"}
 
 
-def convert(md_text: str) -> markdown.Markdown:
-    """The converted Markdown instance: `.convert()` done, `.toc` available."""
-    m = markdown.Markdown(extensions=EXTENSIONS, extension_configs={"toc": TOC})
+def convert(md_text: str, extensions=None) -> markdown.Markdown:
+    """The converted Markdown instance: `.body` is the HTML, `.toc` the contents.
+    The help drawer renders its own pages through this with extra extensions."""
+    m = markdown.Markdown(extensions=extensions or EXTENSIONS, extension_configs={"toc": TOC})
     m.body = m.convert(md_text)
     return m
 

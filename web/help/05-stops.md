@@ -48,6 +48,22 @@ A warning, not a stop. Some stations have no name in any SMART language, so they
 
 ## Preflight
 
+### The bundle's timezone was inferred {#finding-timezone}
+
+A warning. SMART did not record the conservation area's timezone, so the extraction inferred it from where the waypoints are. Patrol and observation times are converted with that zone. If it is wrong, set `SMART_ABLE_TIMEZONE` for the extraction and extract the dataset again; the quirks page explains how timezones are handled.
+
+### Labels are missing in the chosen language {#finding-language}
+
+A warning. Some data-model elements have no label in the language the load was created with, so they fall back to the bundle's default language or any language that has one. The dataset's Data Model tab shows how well each language is covered; plan the load again with the best-covered one if the labels matter.
+
+### Leg days with no time information {#finding-time_coverage}
+
+A warning, nothing to do. Some leg days have no track, no start or end time and no timed waypoint, so their segments cover the whole day. Each such segment is recorded with `time_source: date_only`.
+
+### A preflight check could not run {#finding-check_failed}
+
+One of the checks raised an error before it could report, usually a connectivity or permission problem with the site. The message names the check and the error. Fix the cause, then Continue; preflight runs again from the start.
+
 ### The patrol_schemas feature is off {#finding-feature_flag}
 
 The same condition as *Enable the patrol_schemas feature* above, seen from preflight. Enable the feature, then Continue.
