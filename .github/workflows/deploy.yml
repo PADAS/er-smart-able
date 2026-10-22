@@ -13,6 +13,7 @@ env:
   AR_REPOSITORY: ${{ vars.AR_REPOSITORY }}
   SERVICE: smart-able
   JOB: smart-able-extract
+  LOAD_JOB: smart-able-load
 
 jobs:
   deploy:
@@ -52,6 +53,16 @@ jobs:
             --memory 16Gi --cpu 4 --task-timeout 2h --max-retries 0 \
             --set-env-vars "BACKEND=gcp,GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},GCP_REGION=${{ env.GCP_REGION }},GCS_BUCKET=${{ vars.GCS_BUCKET }},SMART_DB_USER=${{ secrets.SMART_DB_USER }},SMART_DB_PASSWORD=${{ secrets.SMART_DB_PASSWORD }}"
 
+      - name: Deploy the load job
+        run: |
+          gcloud run jobs deploy ${{ env.LOAD_JOB }} \
+            --image "${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ env.JOB }}:${{ github.sha }}" \
+            --region ${{ env.GCP_REGION }} \
+            --service-account ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }} \
+            --command /opt/load/bin/python --args web/load_job.py \
+            --memory 2Gi --cpu 1 --task-timeout 24h --max-retries 0 \
+            --set-env-vars "BACKEND=gcp,GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},GCP_REGION=${{ env.GCP_REGION }},GCS_BUCKET=${{ vars.GCS_BUCKET }},LOAD_JOB=${{ env.LOAD_JOB }},LOAD_SOFT_DEADLINE_SECONDS=79200,LOAD_MAX_CONTINUATIONS=10"
+
       - name: Deploy the service
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -66,6 +77,8 @@ jobs:
             GCP_REGION=${{ env.GCP_REGION }}
             GCS_BUCKET=${{ vars.GCS_BUCKET }}
             EXTRACT_JOB=${{ env.JOB }}
+            LOAD_JOB=${{ env.LOAD_JOB }}
+            LOAD_STALE_AFTER_SECONDS=90000
             ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS }}
             FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
             FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}

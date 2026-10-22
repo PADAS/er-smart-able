@@ -12,6 +12,7 @@ services:
       - BACKEND=local
       - LOCAL_DIR=/data
       - AUTH_DISABLED=true
+      - LOAD_PYTHON=/opt/load/bin/python
       - SMART_DB_USER=${SMART_DB_USER}
       - SMART_DB_PASSWORD=${SMART_DB_PASSWORD}
     volumes:

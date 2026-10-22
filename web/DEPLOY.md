@@ -13,7 +13,10 @@ GitHub Actions.
 | --- | --- | --- |
 | Service | `web/app.py`: sign-in, dataset list, upload URLs, share, serves the browser | Cloud Run service `smart-able`, image `web/Dockerfile` |
 | Job | `web/job.py`: fetch the upload, run `./smart-able all`, publish the site | Cloud Run Job `smart-able-extract`, image `web/Dockerfile.job` (Java, DuckDB, OpenSSL, uv) |
+| Load job | `web/load_job.py`: plan and run a migration into an EarthRanger site with er-smart-sync | Cloud Run Job `smart-able-load`, the same image as the extraction job, run with `/opt/load/bin/python` (its own venv, because er-smart-sync pins pydantic 1) |
 | Index | one Firestore document per dataset: owner, `shared_with`, status, counts | Firestore `(default)`, collection `datasets` |
+| Sites | one document per registered EarthRanger site: name, URL, owner, `shared_with`, the name of its token secret | Firestore `(default)`, collection `sites`; the token itself is in Secret Manager |
+| Loads | one document per load: dataset, site, options, status, stage, findings, continuations | Firestore `(default)`, collection `loads` |
 | Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos), `datasets/<id>/loads/<load id>/...` (a load's plan and results) | a private GCS bucket |
 
 A dataset is owned by whoever uploaded it. The owner can share it with
@@ -30,6 +33,38 @@ Sign-in sets a session cookie rather than the bearer header the webhook
 editor uses, because the browser page loads its JSON and photos with plain
 requests that cannot add a header. Scripts can still send
 `Authorization: Bearer <Firebase ID token>`.
+
+## Loading into EarthRanger
+
+A dataset's owner can load it into an EarthRanger site from the app.
+
+Registering a site stores its name, URL, owner and sharing in the `sites`
+collection and its API token in Secret Manager as `smart-able-site-<id>`;
+the document holds only the secret's name and a short hint of the token,
+never the token. The token is checked against the site before it is saved.
+
+A load has two steps. Creating it starts the job in plan mode, which
+checks the site and the dataset and writes a plan (and any findings) under
+`datasets/<id>/loads/<load id>/`. Nothing is written to EarthRanger. The
+owner reads the plan and confirms it, which runs the job in load mode; a
+plan can also be made again.
+
+`needs_attention` means the job stopped because something needs a person: a
+token the site rejects, or findings from the checks (the load page lists
+them). Fix the cause, then continue the load or plan it again.
+
+A load is long, so the job stops itself at a soft deadline and starts a
+continuation that resumes from the load's ledger. Three variables set the
+limits:
+
+| Variable | Where | Default | Meaning |
+| --- | --- | --- | --- |
+| `LOAD_SOFT_DEADLINE_SECONDS` | load job | 79200 (22 h) | when the job stops and continues; keep it below the job's 24 h `--task-timeout` |
+| `LOAD_MAX_CONTINUATIONS` | load job | 10 | continuations before the load is marked failed |
+| `LOAD_STALE_AFTER_SECONDS` | service | 90000 (25 h) | how long an active load holds its dataset before the owner may continue or plan it again; keep it above the soft deadline plus startup |
+
+Deleting a dataset deletes its loads, their plans and reports. It never
+deletes anything already written to EarthRanger.
 
 ## 1. Provision
 
@@ -49,7 +84,9 @@ tofu output
 ```
 
 This creates the Artifact Registry repository, the deploy and runtime
-service accounts with their roles, the WIF pool and provider for GitHub
+service accounts with their roles (including Secret Manager access limited
+by an IAM condition to secrets named `smart-able-site-*`; the condition
+cannot restrict creating secrets, only reading and deleting them), the WIF pool and provider for GitHub
 Actions, the Firestore database (or adopts it), and the bucket with CORS
 for browser uploads and a 30-day lifecycle rule on uploaded backups.
 
@@ -103,6 +140,9 @@ decrypted photos at once, about 10 GB. A Conservation Area export needs far
 less. Raise `--memory` in the workflow if a job dies with an out-of-memory
 error; lower it to save cost if only exports are uploaded.
 
+The load job (`smart-able-load`) is deployed from the same image with a
+command override, 2 GiB of memory and a 24-hour timeout.
+
 Starting an extraction claims the dataset first (a Firestore transaction),
 so while it is `queued` or `running` a second request gets 409 instead of
 launching a second job. A job killed outright, by running out of memory or
@@ -144,6 +184,25 @@ toolchain (`./smart-able check`) must be installed, as for the command line.
 `web/docker-compose.yml` runs the same thing inside the job image, which
 has the toolchain.
 
+Loading runs er-smart-sync, which needs its own virtualenv (it pins
+pydantic 1; the web service needs pydantic 2). Once the release it pins
+exists:
+
+```sh
+uv venv .venv-load && uv pip install --python .venv-load/bin/python -r web/requirements-load.txt
+LOAD_PYTHON=$PWD/.venv-load/bin/python   # for the service's env, so start_load uses it
+```
+
+Before that release is tagged, install your checkout of
+[earthranger-smart-utils](https://github.com/PADAS/earthranger-smart-utils)
+instead:
+
+```sh
+uv venv .venv-load && uv pip install --python .venv-load/bin/python \
+  -e /path/to/earthranger-smart-utils \
+  google-cloud-firestore google-cloud-storage google-cloud-run google-cloud-secret-manager httpx
+```
+
 ## Data handling
 
 The bucket is private with public access prevention enforced; only the
@@ -155,3 +214,7 @@ columns, but only to its temporary disk, which is discarded when it ends:
 only the browser's data and photos (`work/site/`) are uploaded. The site's JSON
 still holds ranger names and the photos are plaintext: treat the bucket as
 you would a backup.
+
+An EarthRanger site's API token is stored in Secret Manager as
+`smart-able-site-<id>`, never in Firestore, and is deleted with the site.
+The runtime account can read and delete only secrets with that prefix.

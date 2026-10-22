@@ -12,6 +12,7 @@
 
 # Python virtualenv (machine-specific; recreate with ./smart-able setup / uv sync)
 .venv/
+.venv-load/
 __pycache__/
 *.pyc
 

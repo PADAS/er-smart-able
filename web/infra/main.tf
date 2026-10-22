@@ -26,6 +26,7 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "firestore.googleapis.com",
     "storage.googleapis.com",
+    "secretmanager.googleapis.com",
   ]
 }
 
@@ -82,6 +83,23 @@ resource "google_project_iam_member" "runtime" {
   project  = var.project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+data "google_project" "current" {}
+
+# the service creates, reads and deletes one secret per registered
+# EarthRanger site (smart-able-site-<id>). The condition gates access and
+# delete to those names; create is checked at project scope, not against a
+# resource name, so it cannot be gated: the runtime account can create any
+# secret but read or delete only smart-able-site-* ones.
+resource "google_project_iam_member" "runtime_site_secrets" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+  condition {
+    title      = "smart-able site tokens only"
+    expression = "resource.name.startsWith(\"projects/${data.google_project.current.number}/secrets/smart-able-site-\")"
+  }
 }
 
 # the service signs upload URLs with its own identity (no key file), and
