@@ -127,11 +127,11 @@ class Runner:
         try:
             self._update(status=status, log_tail=self._tail(), **fields)
         except Exception as e:  # noqa: BLE001  e.g. a document over Firestore's limit: the status must still land
-            self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, findings and plan")
-            small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at", "stages")}
+            self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, plan and progress")
+            small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at", "stages", "findings")}
             self._update(status=status, error=(fields.get("error") or "The full outcome could not be recorded; see log.txt")[:2000],
-                         log_tail=None, findings=None, plan=None, **small)
-            self._log(f"load {self.load_id}: {status} recorded without the tail, findings and plan")
+                         log_tail=None, plan=None, progress=None, **small)   # the findings are what the operator acts on
+            self._log(f"load {self.load_id}: {status} recorded without the tail, plan and progress")
             try:   # so log.txt has both attempts
                 self._push_files()
             except Exception as e2:  # noqa: BLE001
@@ -145,7 +145,8 @@ class Runner:
             return 2
         self.dataset_id = load["dataset_id"]
         self.stages = {}
-        self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode)
+        self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode,
+                     stage=None, progress=None)   # nothing of the previous execution shows as this one's
         self.work.mkdir(parents=True, exist_ok=True)
         findings = self.findings
         stage = None
@@ -186,6 +187,7 @@ class Runner:
 
             self._log(f"setup took {self.clock() - self.started:.0f} s")
             self.stages[stage]["started_at"] = now()   # the row times the push, not the export download
+            self._update(stages=self.stages)
             dm_stats = m.push_datamodel()
             self._log(f"datamodel: {dm_stats}")
             self._end(stage, dm_stats)
@@ -242,7 +244,6 @@ class Runner:
     def _import(self, m, load, findings, patrols) -> int:
         counts = m.counts()
         total = len(patrols)
-        since = self.stages["import"]["started_at"]
         stop, deleted = threading.Event(), threading.Event()
         last_push = {"t": self.clock(), "n": 0}
         last: dict = {}
@@ -268,7 +269,7 @@ class Runner:
                     return
                 self._update(progress={"patrols_total": total, "done": p["done"], "failed": p["failed"],
                                        "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
-                                       "track_points": counts.get("track_points", 0), "since": since},
+                                       "track_points": counts.get("track_points", 0)},
                              **({"log_tail": self._tail()} if periodic else {}))
                 if periodic:
                     self._push_files()  # the ledger above all: what a continuation resumes from
@@ -290,34 +291,31 @@ class Runner:
         for u, err in failed.items():
             self._log(f"failed {ids.get(u, u)}: {err}")
         findings = self.findings = findings + F.from_failed_patrols(failed, ids)
-        self._update(progress={"patrols_total": total, "done": len(result.get("imported") or []) + len(failed),
-                               "failed": len(failed), "skipped": last.get("already_imported", 0),
-                               "events": counts.get("observations", 0), "track_points": counts.get("track_points", 0),
-                               "since": since})
-        metrics = {"imported": len(result.get("imported") or []), "failed": len(failed), "skipped": last.get("already_imported", 0)}
-        self._log(f"import: {len(result.get('imported') or [])} imported, {len(failed)} failed"
-                  + (", stopped at the soft deadline" if result.get("stopped_early") else ""))
+        imported = len(result.get("imported") or [])
+        # one write records the outcome, the final counts and the import row (closed by the outcome:
+        # done or needs_attention end it, failed patrols are findings, a continuation keeps it running)
+        progress = {"patrols_total": total, "done": imported + len(failed), "failed": len(failed),
+                    "skipped": last.get("already_imported", 0), "events": counts.get("observations", 0),
+                    "track_points": counts.get("track_points", 0)}
+        self.stages["import"]["metrics"] = {"imported": imported, "failed": len(failed), "skipped": progress["skipped"]}
         if not result.get("stopped_early"):
-            self._end("import", metrics)   # it ran to its end; failed patrols are findings, not a stop
-        else:
-            self.stages["import"]["metrics"] = metrics
+            self.stages["import"].update(status="done", finished_at=now())   # it ran to its end; failed patrols are findings
+        self._log(f"import: {imported} imported, {len(failed)} failed"
+                  + (", stopped at the soft deadline" if result.get("stopped_early") else ""))
         if result.get("stopped_early"):
             n = load.get("continuations", 0) + 1
             if n > self.max_continuations:
-                self._finish("failed", stage="import", findings=findings,
+                self._finish("failed", stage="import", findings=findings, progress=progress,
                              error=f"the import is not finishing after {self.max_continuations} continuations")
                 return 0
-            self._finish("continuing", stage="import", findings=findings, continuations=n, claimed_at=now())
+            self._finish("continuing", stage="import", findings=findings, progress=progress, continuations=n, claimed_at=now())
             execution = self.store.start_load(self.load_id, "run")
             try:
                 self._update(execution=execution)
             except Exception as e:  # noqa: BLE001  the continuation may already be running
                 self._log(f"recording the continuation's execution failed: {type(e).__name__}: {e}")
             return 0
-        if F.has_blocking(findings):
-            self._finish("needs_attention", stage="import", findings=findings)
-        else:
-            self._finish("done", stage="import", findings=findings)
+        self._finish("needs_attention" if F.has_blocking(findings) else "done", stage="import", findings=findings, progress=progress)
         return 0
 
     def _watch_deadline(self, stop: threading.Event):

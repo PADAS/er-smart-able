@@ -38,7 +38,11 @@ def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=
 # values. The checklist quotes them in backticks; commands and placeholders
 # are quoted the same way and are left out.
 _QUOTED = re.compile(r"`([^`]+)`")
-_NOT_A_VALUE = ("er-smart-sync", "--", "<")
+_PLACEHOLDER = re.compile(r"<.*>")
+
+
+def _not_a_value(v: str) -> bool:
+    return v.startswith("er-smart-sync") or v.startswith("--") or bool(_PLACEHOLDER.fullmatch(v))
 VALUE_LABEL = {"team": "Team name", "permission_subject_group": "Subject group", "station_names": "Station name",
                "enable_patrol_schemas": "Feature"}   # roster_group quotes only an example name: no value
 _TEAM_EXAMPLE = re.compile(r"^(.*) \((?:missing|inactive), \d+ patrols?\)$")
@@ -52,7 +56,7 @@ def checklist_values(item: dict) -> list:
     out, seen = [], set()
     for text in [item.get("title") or ""] + list(item.get("steps") or []):
         for v in _QUOTED.findall(text):
-            if v in seen or any(x in v for x in _NOT_A_VALUE):
+            if v in seen or _not_a_value(v):
                 continue
             if code == "station_names" and not v.startswith("Unnamed station"):
                 continue   # the `patrol_station` field name is quoted beside the station names

@@ -55,7 +55,7 @@ a { color: var(--brand); }
 .pill.stopped { background: #f6e3c4; color: #6b4b00; }
 .pill.stale { background: #f6d9d3; color: var(--danger); }
 .pill.planning, .pill.continuing { background: #fff0c2; color: #6b4b00; }
-.pill.running::before, .pill.planning::before, .pill.continuing::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
+#loadPage .pill.running::before, #loadPage .pill.planning::before, #loadPage .pill.continuing::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 .heartbeat { margin: 4px 0 0; }
 .finding { border-left: 3px solid var(--line); padding: 6px 10px; margin: 8px 0; }

@@ -291,7 +291,7 @@ async function renderLoad() {
   const prevLog = $('#loadProgress details'), prevPre = prevLog && prevLog.querySelector('pre');
   const logOpen = prevLog ? prevLog.open : active;
   const atBottom = !prevPre || prevPre.scrollHeight - prevPre.scrollTop - prevPre.clientHeight < 12, scrollTop = prevPre ? prevPre.scrollTop : 0;
-  $('#loadProgress').innerHTML = (p && p.patrols_total ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
+  $('#loadProgress').innerHTML = (p && p.patrols_total && l.mode !== 'plan' ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
     (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
     (l.log_tail ? '<details' + (logOpen ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
     '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
@@ -319,6 +319,7 @@ const notStarted = l => ['queued', 'planning'].includes(l.status);   // claimed,
 
 function stageRows(l) {
   if (notStarted(l)) return {};
+  if (l.mode) return l.stages || {};   // written by a job that records rows; empty means it has not begun one
   // loads from before the stage table have only `stage` and `status`
   if (l.stages && Object.keys(l.stages).length) return l.stages;
   const rows = {}, idx = STAGES.indexOf(l.stage);
@@ -359,7 +360,9 @@ function stageSummary(stage, row, l, active) {
 function importSummary(l, live) {
   const p = l.progress;
   let s = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
-  const mins = p.since ? secondsSince(p.since) / 60 : null, written = p.done - (p.skipped || 0);   // skips take no time
+  const row = (l.stages || {}).import || {};
+  const end = live ? Date.now() : row.finished_at ? Date.parse(row.finished_at) : null;   // a finished import's rate does not decay
+  const mins = row.started_at && end ? (end - Date.parse(row.started_at)) / 60000 : null, written = p.done - (p.skipped || 0);   // skips take no time
   if (mins && mins > 0.5 && written > 0) {
     const rate = written / mins;
     s += ' · ' + rate.toFixed(1) + ' per minute';
@@ -380,7 +383,7 @@ function renderStages(l, active) {
   }
   html += '</tbody></table>';
   if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
-    : '<p class="tiny heartbeat">Running for ' + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
+    : '<p class="tiny heartbeat">' + (l.continuations ? 'Continuation ' + esc(l.continuations) + ' running for ' : 'Running for ') + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
   return html;
 }
 

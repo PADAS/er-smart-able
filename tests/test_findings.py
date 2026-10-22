@@ -137,7 +137,9 @@ def test_checklist_findings_carry_the_exact_values_to_type(findings):
         {"code": "station_names", "title": "Name the stations", "steps": ["Rename `Unnamed station 0a1b2c3d`, `Unnamed station 4e5f6a7b` in admin > Choices (field `patrol_station`)."]},
         {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]},
         {"code": "permission_subject_group", "title": "Add the subjects to the `Rangers` subject group",
-         "steps": ["The operator cannot change subject-group membership; an admin adds the subjects in Django admin > Subject groups."]}])
+         "steps": ["The operator cannot change subject-group membership; an admin adds the subjects in Django admin > Subject groups."]},
+        {"code": "team", "title": "Create the patrol team K9--Unit <North>",
+         "steps": ["Django admin > Patrol configuration > Teams > add a team with display `K9--Unit <North>`."]}])
     assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}]
     assert out[1]["values"] == []   # `Rangers` there is an example, not the name to use
     assert out[2]["values"] == [{"label": "Permission", "value": "observations | subject | Can view/add/change subject"}]
@@ -145,6 +147,7 @@ def test_checklist_findings_carry_the_exact_values_to_type(findings):
                                 {"label": "Station name", "value": "Unnamed station 4e5f6a7b"}]
     assert out[4]["values"] == []
     assert out[5]["values"] == [{"label": "Subject group", "value": "Rangers"}]
+    assert out[6]["values"] == [{"label": "Team name", "value": "K9--Unit <North>"}]   # odd characters are still a name
 
 
 def test_preflight_team_findings_name_each_team(findings):

@@ -96,7 +96,7 @@ One attempt to put one conservation area of one dataset into one site.
 | `mode` | `plan` or `run`: what the latest execution did, so the page can word the stage metrics as "to create" or "created" |
 | `plan` | the dry run's grouped write list (below) |
 | `findings` | the list of findings (below), replaced on every execution |
-| `progress` | `{patrols_total, done, failed, skipped, events, track_points, since}`; `since` is when the import stage started, for a rate |
+| `progress` | `{patrols_total, done, failed, skipped, events, track_points}`; the import row's times give the rate |
 | `execution`, `claimed_at`, `started_at`, `continuations` | the execution bookkeeping, as for extraction plus a continuation count |
 | `log_tail`, `error` | as for extraction |
 | `created_at`, `updated_at` | |
@@ -318,7 +318,8 @@ All in the existing single page (`web/templates/index.html`,
      interrupted when the hold lapsed), how long it took, and what it did
      from the row's metrics; during the import, the live counts with the
      rate and a rough time left. Under it, while active, a heartbeat line:
-     how long the load has run and how long since the job last reported.
+     how long this execution has run and how long since the job last
+     reported, or that the job has not started yet.
      Loads from before the table render it from `stage` and `status`.
   2. The plan, as grouped counts with expandable lists.
   3. Findings, blocking first, each with its title, detail and fix text, and
