@@ -131,7 +131,9 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
                "subject": {"create": [], "update": [], "deactivate": []}}
     action_key = {"created": "create", "updated": "update", "deactivated": "deactivate"}
     for c in pd_changes:
-        k = action_key.get(c.get("action"))
+        # er-smart-sync records a deactivation as an update whose before-state was active
+        deactivation = c.get("action") == "updated" and (c.get("before") or {}).get("is_active") is True
+        k = "deactivate" if deactivation else action_key.get(c.get("action"))
         if c.get("kind") in by_kind and k in by_kind[c["kind"]]:
             ident = c.get("id") if c.get("kind") == "subject" else c.get("value")
             by_kind[c["kind"]][k].append(_entry(ident or c.get("value"), (c.get("name") or c.get("value")) if c.get("kind") == "subject" else None))
