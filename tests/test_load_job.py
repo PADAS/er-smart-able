@@ -60,18 +60,22 @@ class FakeMigration:
         return set(self.done)
 
     def import_patrols(self, progress, stop):
+        """Both phases, as er-smart-sync reports them: a done == 0 call at each
+        phase start, then one per patrol; the clock advances per patrol."""
         self._call("import_patrols")
-        imported, stopped_early = [], False
-        for i, p in enumerate(PATROLS):
-            if stop.is_set():
-                stopped_early = True
-                break
-            if self.clock is not None:
-                self.clock.advance(self.per_patrol_seconds)
-            if p["uuid"] not in self.failed:
-                imported.append(p["uuid"]); self.done.add(p["uuid"])
-            progress({"total": len(PATROLS), "done": i + 1, "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0})
-        return {"imported": imported, "failed": dict(self.failed), "stopped_early": stopped_early}
+        imported = []
+        for phase in ("events", "tracks"):
+            progress({"phase": phase, "total": len(PATROLS), "done": 0, "failed": 0, "already_imported": 0})
+            for i, p in enumerate(PATROLS):
+                if stop.is_set():
+                    return {"imported": imported, "failed": dict(self.failed), "stopped_early": True}
+                if self.clock is not None:
+                    self.clock.advance(self.per_patrol_seconds)
+                if phase == "tracks" and p["uuid"] not in self.failed:
+                    imported.append(p["uuid"]); self.done.add(p["uuid"])
+                progress({"phase": phase, "total": len(PATROLS), "done": i + 1,
+                          "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0})
+        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False}
 
 
 class Clock:
@@ -326,7 +330,7 @@ def test_a_store_error_on_the_outcome_keeps_the_failed_patrol_findings(env, monk
     def flaky(load_id, **fields):
         if fields.get("progress"):
             n["progress"] += 1
-            if n["progress"] == 4:  # the outcome write, which carries the final count after the three callbacks
+            if n["progress"] == 9:  # the outcome write, after a start and three patrols in each of the two phases
                 raise RuntimeError("store down")
         real_update(load_id, **fields)
 
@@ -429,7 +433,7 @@ def test_a_deleted_load_stops_the_import(env):
     class Deleting(FakeMigration):
         def import_patrols(self, progress, stop):
             def wrapped(p):
-                if p["done"] == 2:
+                if p["phase"] == "tracks" and p["done"] == 2:
                     store.delete_load(id)
                 progress(p)
             return super().import_patrols(wrapped, stop)
@@ -525,3 +529,42 @@ def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):
     clock = Clock()
     rc, load, _ = _run(env, "run", FakeMigration(per_patrol_seconds=60, clock=clock), "queued", clock=clock)
     assert load["status"] == "continuing" and load["stages"]["import"]["status"] == "running"
+
+
+def test_live_progress_names_the_phase(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    _run(env, "run", FakeMigration(), "queued")
+    live = [c["progress"] for c in calls if c.get("progress") and c["progress"].get("phase")]
+    assert [p["phase"] for p in live][0] == "events" and live[-1]["phase"] == "tracks"
+    starts = {p["phase"]: p["phase_started_at"] for p in live}
+    assert starts["events"] <= starts["tracks"]
+    assert all(p["patrols_total"] == 3 for p in live)
+
+
+def test_a_phase_change_is_written_at_once(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    _run(env, "run", FakeMigration(), "queued")   # the clock never moves: no periodic write is due
+    live = [c["progress"] for c in calls if c.get("progress") and c["progress"].get("phase")]
+    first_tracks = next(p for p in live if p["phase"] == "tracks")
+    assert first_tracks["done"] == 0
+
+
+def test_the_final_progress_carries_no_phase(env):
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued")
+    assert "phase" not in load["progress"] and "phase_started_at" not in load["progress"]
+
+
+def test_the_network_timeout_is_set(env, monkeypatch):
+    load_job = env[1]
+    seen = []
+    monkeypatch.setattr(load_job.socket, "setdefaulttimeout", seen.append)
+    _run(env, "run", FakeMigration(), "queued")
+    _run(env, "run", FakeMigration(), "queued", env_vars={"LOAD_NETWORK_TIMEOUT_SECONDS": "42"})
+    assert seen == [600.0, 42.0]
+
+
+def test_load_workers_reach_the_migration(env):
+    _, _, seen = _run(env, "run", FakeMigration(), "queued")
+    assert seen["workers"] == 1
+    _, _, seen = _run(env, "run", FakeMigration(), "queued", env_vars={"LOAD_WORKERS": "3"})
+    assert seen["workers"] == 3

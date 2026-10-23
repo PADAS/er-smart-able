@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import shutil
+import socket
 import sys
 import tempfile
 import threading
@@ -64,6 +65,9 @@ class Runner:
         self.env = os.environ if env is None else env
         self.soft_deadline = int(self.env.get("LOAD_SOFT_DEADLINE_SECONDS", 79200))
         self.max_continuations = int(self.env.get("LOAD_MAX_CONTINUATIONS", 10))
+        # erclient sets no timeout of its own: without this a hung request stalls the job until its hold lapses
+        self.network_timeout = float(self.env.get("LOAD_NETWORK_TIMEOUT_SECONDS", 600))
+        self.workers = int(self.env.get("LOAD_WORKERS", 1))   # for experiments: more is slower on today's EarthRanger
         self.log_lines: list = []
         self.load_dir: Path | None = None
         self.dataset_id = None
@@ -180,7 +184,8 @@ class Runner:
             self._log(f"token works as {who}")
             export_dir = self.store.fetch_export(self.dataset_id, load["ca_id"], self.work / "export")
             dry = self.mode == "plan"
-            m = self.migration_factory(bundle_dir=Path(export_dir) / "bundle", load_dir=self.load_dir, host=site["url"],
+            socket.setdefaulttimeout(self.network_timeout)
+            m = self.migration_factory(workers=self.workers, bundle_dir=Path(export_dir) / "bundle", load_dir=self.load_dir, host=site["url"],
                                        token=token, options=load["options"], dry_run=dry,
                                        ca_identifier=load["options"].get("event_category") or ca_identifier(entry.get("ca_id")))
             del token
@@ -247,6 +252,7 @@ class Runner:
         stop, deleted = threading.Event(), threading.Event()
         last_push = {"t": self.clock(), "n": 0}
         last: dict = {}
+        current = {"phase": None, "started_at": None}
 
         def progress(p: dict):
             """Called by er-smart-sync after each patrol. It must never raise:
@@ -260,6 +266,10 @@ class Runner:
                 return
             try:
                 last.update(p)
+                phase = p.get("phase")
+                if phase != current["phase"]:   # done restarts at 0 with each phase
+                    current.update(phase=phase, started_at=now())
+                    last_push["n"] = 0
                 periodic = p["done"] - last_push["n"] >= 10 or self.clock() - last_push["t"] >= 30
                 if periodic and self.store.get_load(self.load_id) is None:
                     # the load (or its dataset) was deleted: stop writing to the site; there is nothing to record to
@@ -267,9 +277,12 @@ class Runner:
                     stop.set()
                     self._log("load deleted; stopping")
                     return
-                self._update(progress={"patrols_total": total, "done": p["done"], "failed": p["failed"],
-                                       "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
-                                       "track_points": counts.get("track_points", 0)},
+                live = {"patrols_total": total, "done": p["done"], "failed": p["failed"],
+                        "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
+                        "track_points": counts.get("track_points", 0)}
+                if phase:
+                    live.update(phase=phase, phase_started_at=current["started_at"])
+                self._update(progress=live,
                              **({"log_tail": self._tail()} if periodic else {}))
                 if periodic:
                     self._push_files()  # the ledger above all: what a continuation resumes from
@@ -331,7 +344,7 @@ class Runner:
 class ErSmartSyncMigration:
     """er-smart-sync, called as a library, for one bundle against one site."""
 
-    def __init__(self, *, bundle_dir, load_dir, host, token, options, dry_run, ca_identifier, er_client=None):
+    def __init__(self, *, bundle_dir, load_dir, host, token, options, dry_run, ca_identifier, er_client=None, workers=1):
         from er_smart_sync.bundle import load_bundle
         from er_smart_sync.defaults import DryRunERClient
         from er_smart_sync.er_patrol_api import ERPatrolAPI
@@ -347,6 +360,10 @@ class ErSmartSyncMigration:
         self.bundle = load_bundle(self.bundle_dir, language=self.language)
         client = er_client or ERClient(service_root=self.endpoint, username="", password="", token=token,
                                        client_id="das_web_client")
+        self.workers = max(1, int(workers))
+        # one client per worker thread; the client already holds the token, so this keeps no more of it
+        self.api_factory = (lambda: ERPatrolAPI(ERClient(service_root=self.endpoint, username="", password="", token=token,
+                                                         client_id="das_web_client"))) if self.workers > 1 else None
         self.dry = dry_run
         self.client = DryRunERClient(client) if dry_run else client
         self.dry_calls = self.client.calls if dry_run else []
@@ -407,11 +424,13 @@ class ErSmartSyncMigration:
     def import_patrols(self, progress, stop) -> dict:
         from importlib.metadata import version as pkg_version
         from er_smart_sync import patrol_import
+        workers = 1 if self.dry else self.workers   # a plan's writes read in order
         opts = patrol_import.ImportOptions(event_type_prefix=self.event_type_prefix, event_type_version="v2",
-                                           timezone=self.bundle.manifest.timezone.get("name"))
+                                           timezone=self.bundle.manifest.timezone.get("name"), workers=workers)
+        extra = {"api_factory": self.api_factory} if workers > 1 else {}
         result = patrol_import.run_import(self.api, self.bundle, endpoint=self.endpoint, ledger=self.ledger, opts=opts,
                                           ns=self.ns, importer_version=pkg_version("er-smart-sync"),
-                                          report=getattr(self, "_report", None), progress=progress, stop=stop)
+                                          report=getattr(self, "_report", None), progress=progress, stop=stop, **extra)
         return {"imported": list(result.imported), "failed": dict(result.failed), "stopped_early": result.stopped_early}
 
 
