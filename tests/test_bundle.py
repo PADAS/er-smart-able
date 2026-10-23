@@ -83,6 +83,19 @@ def test_missing_attachment_warns(smart_parquet, tmp_path):
     assert warnings == [f"attachment photo1.jpg of waypoint {hyphenate(WP_1)} is not in the extracted filestore"]
 
 
+def test_empty_attachment_warns_and_is_left_out(smart_parquet, tmp_path):
+    att_root = tmp_path / "site_attachments"
+    (att_root / CA_A / "patrol" / PATROL_1).mkdir(parents=True)
+    (att_root / CA_A / "patrol" / PATROL_1 / "photo1.jpg").write_bytes(b"")  # SMART kept a zero-length photo
+    out = tmp_path / "bundle"
+    warnings: list = []
+    d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, att_root, out, warnings)
+    assert warnings == [f"attachment photo1.jpg of waypoint {hyphenate(WP_1)} is empty; left out"]
+    wp = d["patrols"][0]["legs"][0]["waypoints"][0]
+    assert wp["attachments"] == []
+    assert not (out / "attachments" / hyphenate(WP_1) / "photo1.jpg").exists()
+
+
 def test_json_is_utf8(smart_parquet, tmp_path):
     d = build_patrols(SmartDb(smart_parquet), CA_A, MANILA, None, None, [])
     s = json.dumps(d, ensure_ascii=False)

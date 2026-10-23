@@ -141,7 +141,7 @@ def export_ca(db: SmartDb, ca: CA, a, attachments: Path) -> None:
         if w.startswith("attachment "):
             shown += 1
             if shown == 4 and n_att > 4:
-                warn(f"{ca.id}: ... and {n_att - 3} more attachments are not in the extracted filestore (all listed in bundle/manifest.json)")
+                warn(f"{ca.id}: ... and {n_att - 3} more attachment warnings (all listed in bundle/manifest.json)")
             if shown >= 4:
                 continue
         warn(f"{ca.id}: {w}")
