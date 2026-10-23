@@ -204,6 +204,10 @@ def build_patrols(db: SmartDb, ca_uuid: str, zone: ZoneInfo, attachments_root: O
                 continue
             rel = f"attachments/{H(w['uuid'])}/{a['filename']}"
             src = attachments_root / ca_uuid / "patrol" / wp_patrol[w["uuid"]] / a["filename"] if attachments_root else None
+            if src is not None and src.exists() and src.stat().st_size == 0:
+                # SMART kept a zero-length photo; EarthRanger rejects an empty upload, so the importer must never see it
+                warnings.append(f"attachment {a['filename']} of waypoint {H(w['uuid'])} is empty; left out")
+                continue
             if src is not None and src.exists():
                 if out_dir is not None:
                     dst = out_dir / rel
