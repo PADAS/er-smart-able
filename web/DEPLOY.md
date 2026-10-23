@@ -63,6 +63,8 @@ limits:
 | --- | --- | --- | --- |
 | `LOAD_SOFT_DEADLINE_SECONDS` | load job | 79200 (22 h) | when the job stops and continues; keep it below the job's 24 h `--task-timeout` |
 | `LOAD_MAX_CONTINUATIONS` | load job | 10 | continuations before the load is marked failed |
+| `LOAD_NETWORK_TIMEOUT_SECONDS` | load job | 600 | longest wait for any one request to EarthRanger; a request that exceeds it fails its patrol, which the next run retries |
+| `LOAD_WORKERS` | load job | 1 | patrols imported at a time; for experiments only, since EarthRanger creates a site's events one at a time and more workers are slower |
 | `LOAD_STALE_AFTER_SECONDS` | service | 90000 (25 h) | how long an active load holds its slot (that conservation area into that site) before anyone who can read the dataset and the site may continue or plan it again; keep it above the soft deadline plus startup |
 
 Deleting a dataset deletes its loads, their plans and reports. It never
