@@ -464,7 +464,8 @@ function importSummary(l, live) {
   // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
   const since = p.phase ? p.phase_started_at : row.started_at;
   let s = p.phase ? (p.phase === 'tracks' ? 'Tracks: ' : 'Events: ') + of : of;
-  const mins = since ? (Date.now() - Date.parse(since)) / 60000 : null, written = p.done - (p.skipped || 0);   // skips take no time
+  const mins = since ? (Date.now() - Date.parse(since)) / 60000 : null;
+  const written = p.done - ((p.phase ? p.phase_skipped : p.skipped) || 0);   // skips take no time; a phase also skips what a stopped run left half done
   if (mins && mins > 0.5 && written > 0) {
     const rate = written / mins;
     s += ' · ' + rate.toFixed(1) + ' per minute';

@@ -253,6 +253,7 @@ class Runner:
         last_push = {"t": self.clock(), "n": 0}
         last: dict = {}
         current = {"phase": None, "started_at": None}
+        last_live: dict = {}
 
         def progress(p: dict):
             """Called by er-smart-sync after each patrol. It must never raise:
@@ -281,7 +282,9 @@ class Runner:
                         "skipped": p.get("already_imported", 0), "events": counts.get("observations", 0),
                         "track_points": counts.get("track_points", 0)}
                 if phase:
-                    live.update(phase=phase, phase_started_at=current["started_at"])
+                    live.update(phase=phase, phase_started_at=current["started_at"],
+                                phase_skipped=p.get("phase_skipped", 0))
+                last_live.clear(); last_live.update(live)
                 self._update(progress=live,
                              **({"log_tail": self._tail()} if periodic else {}))
                 if periodic:
@@ -321,6 +324,9 @@ class Runner:
                 self._finish("failed", stage="import", findings=findings, progress=progress,
                              error=f"the import is not finishing after {self.max_continuations} continuations")
                 return 0
+            if last_live.get("phase"):
+                # still live: keep the phase it stopped in, so the bar does not drop to the whole run's count
+                progress = dict(last_live)
             self._finish("continuing", stage="import", findings=findings, progress=progress, continuations=n, claimed_at=now())
             execution = self.store.start_load(self.load_id, "run")
             try:

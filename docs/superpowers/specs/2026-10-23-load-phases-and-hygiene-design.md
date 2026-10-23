@@ -99,7 +99,10 @@ phase two cannot walk because its `patrol` stage never landed counts as done
 and failed in phase two at once, with its phase-one reason and no new write,
 so each phase closes at `total`. `already_imported` is the whole-run count of
 patrols that had nothing left to do in any wanted stage when the run began,
-computed once and repeated in every call. The callback is called once with
+computed once and repeated in every call. `phase_skipped` (added after the
+final review) counts, within the phase, the patrols the phase found already
+done in the ledger: a continuation that stopped in the events phase re-walks
+those in seconds, and a rate must leave them out. The callback is called once with
 `done == 0` when a phase starts, so the consumer learns the boundary.
 
 **What the result means.** `result.imported` is the patrols with every
@@ -116,8 +119,10 @@ a continuation does today) and then runs phase two.
 **Progress document.** While the run is live, `progress` carries `phase`
 and `phase_started_at`, with `done` and `failed` counting within the phase
 and `skipped` the whole-run already-imported count; `patrols_total` stays
-the selected count. The final write, on `done`, `needs_attention` or
-`continuing`, clears `phase` and reports the whole run: `done` is the
+the selected count, and `phase_skipped` passes through. A `continuing` write
+keeps the last live progress, phase included, so the bar does not drop while
+the load is still running. The final write, on `done` or `needs_attention`,
+clears `phase` and reports the whole run: `done` is the
 patrols that finished every stage plus those that failed, `failed` the
 patrols with any failure, `skipped` as above. The `import` stage row keeps
 its times; `metrics` is `{imported, failed, skipped}` from the result as

@@ -33,6 +33,7 @@ class FakeMigration:
         self.clock = clock
         self.raise_in = raise_in
         self.done = set()
+        self.phase_skipped = {}   # phase -> the count reported with its last patrol
 
     def _call(self, name):
         self.calls.append(name)
@@ -65,7 +66,7 @@ class FakeMigration:
         self._call("import_patrols")
         imported = []
         for phase in ("events", "tracks"):
-            progress({"phase": phase, "total": len(PATROLS), "done": 0, "failed": 0, "already_imported": 0})
+            progress({"phase": phase, "total": len(PATROLS), "done": 0, "failed": 0, "already_imported": 0, "phase_skipped": 0})
             for i, p in enumerate(PATROLS):
                 if stop.is_set():
                     return {"imported": imported, "failed": dict(self.failed), "stopped_early": True}
@@ -74,7 +75,8 @@ class FakeMigration:
                 if phase == "tracks" and p["uuid"] not in self.failed:
                     imported.append(p["uuid"]); self.done.add(p["uuid"])
                 progress({"phase": phase, "total": len(PATROLS), "done": i + 1,
-                          "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0})
+                          "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0,
+                          "phase_skipped": self.phase_skipped.get(phase, 0) if i + 1 >= len(PATROLS) else 0})
         return {"imported": imported, "failed": dict(self.failed), "stopped_early": False}
 
 
@@ -194,6 +196,8 @@ def test_the_soft_deadline_stops_and_continues(env, monkeypatch):
     assert load["status"] == "continuing" and load["continuations"] == 1
     assert starts == [(load["id"], "run")]
     assert load["progress"]["done"] < 3
+    # a continuing load is still live: it keeps the phase it stopped in, so the bar does not drop to the finished count
+    assert load["progress"]["phase"] == "events" and load["progress"]["done"] >= 1
 
 
 def test_too_many_continuations_fail(env, monkeypatch):
@@ -568,3 +572,12 @@ def test_load_workers_reach_the_migration(env):
     assert seen["workers"] == 1
     _, _, seen = _run(env, "run", FakeMigration(), "queued", env_vars={"LOAD_WORKERS": "3"})
     assert seen["workers"] == 3
+
+
+def test_live_progress_carries_the_phase_skipped_count(env, monkeypatch):
+    calls = _updates(env, monkeypatch)
+    m = FakeMigration()
+    m.phase_skipped = {"events": 2}
+    _run(env, "run", m, "queued")
+    live = [c["progress"] for c in calls if c.get("progress") and c["progress"].get("phase") == "events"]
+    assert live[-1]["phase_skipped"] == 2
