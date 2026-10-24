@@ -244,10 +244,10 @@ async function loadDialog(d) {
     '<label>Configurable model <select id="ldCm"></select></label>' +
     '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
     '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
-    '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
-    '<p class="muted tiny" id="ldScopeHint"></p>' +
-    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
     '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (phinney: lawin050500).</p>' +
+    '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
+    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
+    '<p class="muted tiny" id="ldScopeHint"></p>' +
     '<div class="row right"><button type="submit" class="primary">Make the plan</button></div></form>');
   const scopeChanged = () => {
     const dm = $('#ldScope').value === 'datamodel';
