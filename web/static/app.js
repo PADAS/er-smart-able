@@ -135,7 +135,13 @@ async function action(act, id, d) {
   } catch (e) { alert(e.message); }
 }
 
-function dialog(title, bodyHtml) { $('#modalTitle').textContent = title; $('#modalBody').innerHTML = bodyHtml; $('#modal').hidden = false; }
+// a form that brings its own Close beside its submit button (data-close) hides the dialog's own
+function dialog(title, bodyHtml) {
+  $('#modalTitle').textContent = title; $('#modalBody').innerHTML = bodyHtml;
+  const own = $('#modalBody').querySelector('[data-close]');
+  $('#modalFoot').hidden = !!own; if (own) own.onclick = () => { $('#modal').hidden = true; };
+  $('#modal').hidden = false;
+}
 
 function shareDialog(d, base = '/api/datasets/', note) {
   const refresh = () => base === '/api/sites/' ? loadSites() : loadList();
@@ -242,13 +248,14 @@ async function loadDialog(d) {
     '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '</select></label>' +
     '<label>Label language <select id="ldLang"></select></label>' +
     '<label>Configurable model <select id="ldCm"></select></label>' +
+    '<p class="muted tiny">none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.</p>' +
     '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
     '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
+    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (for example, site-xyz).</p>' +
     '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
-    '<p class="muted tiny" id="ldScopeHint"></p>' +
     '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
-    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (phinney: lawin050500).</p>' +
-    '<div class="row right"><button type="submit" class="primary">Make the plan</button></div></form>');
+    '<p class="muted tiny" id="ldScopeHint"></p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary">Make the plan</button></div></form>');
   const scopeChanged = () => {
     const dm = $('#ldScope').value === 'datamodel';
     $('#ldWindow').hidden = dm;
