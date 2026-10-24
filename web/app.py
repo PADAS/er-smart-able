@@ -27,6 +27,7 @@ Routes:
                               checkout, data and photos from the dataset's store)
 """
 from datetime import date
+import hashlib
 import logging
 import os
 import re
@@ -54,6 +55,9 @@ BROWSER = ROOT / "browse" / "index.html"
 # the browser page does. Falls back to the dataset's copy when absent.
 QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
+# the page asks for its script and stylesheet by content, so a browser holding the previous
+# deploy's copies fetches the new ones
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js")}
 
 app = FastAPI(title="smart-able")
 
@@ -100,7 +104,7 @@ def _load(id: str, user: dict, owner: bool = False) -> dict:
 # ---------------------------------------------------------------- pages
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION})
+    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION, "assets": ASSETS})
 
 
 @app.get("/api/config")
