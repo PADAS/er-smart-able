@@ -161,7 +161,7 @@ def test_create_load_plans_first(client, launches):
     load = r.json()
     assert load["status"] == "planning" and load["site"] == {"id": site, "name": "s", "url": "x.pamdas.org"}
     assert load["options"] == {"language": "en", "configurable_model": None, "roster_group": "Rangers",
-                               "event_category": "smart-050500"}
+                               "event_category": "smart-050500", "scope": "all", "since": None, "until": None}
     assert launches == [(load["id"], "plan")]
     assert c.get(f"/api/datasets/{ds}/loads").json()[0]["id"] == load["id"]
     assert c.get(f"/api/loads/{load['id']}").json()["held"] is True
@@ -341,3 +341,49 @@ def test_concurrent_creates_for_one_target_admit_exactly_one(client):
     for t in threads:
         t.join()
     assert sum(1 for r in results if r) == 1 and len(store.list_loads(ds)) == 1
+
+
+def _create(c, ds, site, **options):
+    return c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": options})
+
+
+def test_a_load_defaults_to_the_data_model_and_every_patrol(client, launches):
+    app, c = client
+    store = app.get_store()
+    r = _create(c, _dataset(store), _site(store))
+    assert r.status_code == 201
+    o = r.json()["options"]
+    assert o["scope"] == "all" and o["since"] is None and o["until"] is None
+
+
+def test_a_load_can_be_the_data_model_only(client, launches):
+    app, c = client
+    store = app.get_store()
+    r = _create(c, _dataset(store), _site(store), scope="datamodel")
+    assert r.status_code == 201 and r.json()["options"]["scope"] == "datamodel"
+
+
+def test_a_data_model_load_needs_no_patrols(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds = _dataset(store, export=[{**EXPORT[0], "patrols": 0}])
+    assert _create(c, ds, _site(store)).status_code == 400   # patrols asked for, none there
+    assert _create(c, ds, _site(store), scope="datamodel").status_code == 201
+
+
+def test_a_time_window_is_kept_and_validated(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds = _dataset(store)
+    r = _create(c, ds, _site(store), since="2023-01-01", until="2024-12-31")
+    assert r.status_code == 201
+    assert (r.json()["options"]["since"], r.json()["options"]["until"]) == ("2023-01-01", "2024-12-31")
+    store.update_load(r.json()["id"], status="done")   # free the target for the next create
+    r = _create(c, ds, _site(store), since="2023-01-01", until="")
+    assert r.status_code == 201 and r.json()["options"]["until"] is None   # an open end
+    store.update_load(r.json()["id"], status="done")
+    for bad in ({"since": "2024-12-31", "until": "2023-01-01"},       # an empty window
+                {"since": "2023-13-01"}, {"until": "31/12/2024"}, {"since": 2023},
+                {"scope": "datamodel", "since": "2023-01-01"},        # a window with nothing to apply it to
+                {"scope": "patrols-only"}):
+        assert _create(c, ds, _site(store), **bad).status_code == 400, bad

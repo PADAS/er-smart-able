@@ -101,6 +101,16 @@ async function loadList() {
     pollTimer = setTimeout(loadList, 5000);
 }
 
+// what a load writes, in words: empty for the data model and every patrol (the default)
+function loadScope(l) {
+  const o = l.options || {};
+  if (o.scope === 'datamodel') return 'Data model only';
+  if (o.since && o.until) return 'Patrols from ' + o.since + ' to ' + o.until;
+  if (o.since) return 'Patrols from ' + o.since;
+  if (o.until) return 'Patrols up to ' + o.until;
+  return '';
+}
+
 // the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
 function loadsCell(loads, exp) {
   if (loads === null) return '<span class="tiny">could not load</span>';
@@ -108,6 +118,7 @@ function loadsCell(loads, exp) {
   return loads.map(l =>
     '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
     '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
+    (loadScope(l) ? '<span class="tiny">' + esc(loadScope(l)) + '</span>' : '') +
     pill(l.status) +
     (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
       ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
@@ -233,15 +244,27 @@ async function loadDialog(d) {
     '<label>Configurable model <select id="ldCm"></select></label>' +
     '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
     '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
+    '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
+    '<p class="muted tiny" id="ldScopeHint"></p>' +
+    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
     '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (phinney: lawin050500).</p>' +
     '<div class="row right"><button type="submit" class="primary">Make the plan</button></div></form>');
-  render(); $('#ldCa').onchange = render;
+  const scopeChanged = () => {
+    const dm = $('#ldScope').value === 'datamodel';
+    $('#ldWindow').hidden = dm;
+    $('#ldScopeHint').textContent = dm
+      ? 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.'
+      : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
+  };
+  render(); scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
+    const dm = $('#ldScope').value === 'datamodel', since = dm ? '' : $('#ldSince').value, until = dm ? '' : $('#ldUntil').value;
+    if (since && until && since > until) return alert('The window starts after it ends.');
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
-        event_category: $('#ldCategory').value.trim() } }) });
+        event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
       $('#modal').hidden = true; showLoad(l.id);
     } catch (e) { alert(e.message); }
   };
@@ -280,6 +303,7 @@ async function renderLoad() {
   const active = !!l.held;
   const stale = !active && ACTIVE.includes(l.status);
   $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
+    (loadScope(l) ? ' <span class="scope">' + esc(loadScope(l)) + '</span>' : '') +
     ' ' + pill(l.status) +
     ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
   $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
@@ -481,7 +505,7 @@ function importSummary(l, live) {
 function renderStages(l, active) {
   const rows = stageRows(l);
   let html = '<table class="stagetable"><thead><tr><th>Stage</th><th>Status</th><th>Took</th><th>What happened</th></tr></thead><tbody>';
-  for (const s of STAGES) {
+  for (const s of ((l.options || {}).scope === 'datamodel' ? STAGES.slice(0, 2) : STAGES)) {
     const r = rows[s], status = r ? r.status : 'pending';
     const running = status === 'running' && active;
     const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
@@ -507,11 +531,12 @@ function renderPlan(plan) {
     if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
     return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
   };
-  const p = plan.patrols || {};
+  const p = plan.patrols;   // absent from a data-model-only plan
   return group('Event categories', plan.event_categories) + group('Event types', plan.event_types) + group('Patrol types', plan.patrol_types) +
     '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects, { noIdOnCreate: true }) +
     '<div><b>Roster</b> ' + (plan.roster && plan.roster.group ? esc(plan.roster.group) + ': ' : '') + esc((plan.roster || {}).add || 0) + ' to add</div>' +
-    '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>';
+    (!p ? '<div><b>Patrols</b> <span class="tiny">none: this load is the data model only</span></div>' :
+    '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>');
 }
 
 boot();

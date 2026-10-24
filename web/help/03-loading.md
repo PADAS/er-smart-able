@@ -29,6 +29,15 @@ Patrols that fail during the import do not stop the others. At the end they beco
 
 The event category is the EarthRanger identifier the data model is pushed under. The default is `smart-<conservation area id>`. If a data model for this conservation area was already pushed to the site, for example with the command-line tool, use the identifier that push used, so the event types are updated rather than created a second time under a new category.
 
+## Loading part of a dataset
+
+**What to load** in the load dialog has two choices.
+
+- **The data model and patrols**, the default. Leave **Patrols from** and **to** empty to load every patrol, or set one or both to load only the patrols that start on or between those days. A patrol's observations, photos and track come with it. Dates are the conservation area's own, as SMART recorded them. A patrol SMART stored without a start date is left out of any window. A window narrows only the patrols: the load still sets up the whole data model, so the steps it asks an admin to do, such as creating teams, cover every team in the conservation area, including teams only older patrols used.
+- **The data model only**: the event types, the patrol types and their fields, the rangers as subjects, and the patrol roster. That is what a team needs to start patrolling and recording in EarthRanger without bringing its history across. It still stops on anything an admin must do on the site first, such as teams to create.
+
+A later load into the same site can widen the window or add the patrols. Anything already imported is skipped. The load page and the dataset list name what each load wrote, such as "Data model only" or "Patrols from 2023-01-01 to 2024-12-31".
+
 ## Long runs and continuation
 
 A run imports every patrol with its observations and photos first, then every patrol's tracks. The progress bar shows the phase it is in, how fast it is going, and the time left in that phase.

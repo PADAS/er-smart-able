@@ -26,6 +26,7 @@ Routes:
   GET  /d/{id}/               the browser for that dataset (index.html from this
                               checkout, data and photos from the dataset's store)
 """
+from datetime import date
 import logging
 import os
 import re
@@ -309,6 +310,19 @@ async def unshare_site(id: str, email: str, user=Depends(current_user)):
 
 
 # ---------------------------------------------------------------- the browser
+LOAD_SCOPES = ("all", "datamodel")   # the data model and patrols, or the data model only
+
+
+def _window_date(value, which: str) -> str | None:
+    """One end of a load's date window: a YYYY-MM-DD day, or None for an open end."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    try:
+        return date.fromisoformat(value.strip()).isoformat()
+    except (AttributeError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=f"The window's {which} must be a date (YYYY-MM-DD)") from None
+
+
 class LoadCreate(BaseModel):
     ca_id: str
     site_id: str
@@ -319,7 +333,7 @@ def _load_public(doc: dict, user: dict) -> dict:
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
     out = {k: doc.get(k) for k in LOAD_FIELDS}
     # loads made before event_category existed run with the default (load_job's fallback)
-    out["options"] = {"event_category": None, **(out.get("options") or {})}
+    out["options"] = {"event_category": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
     return out | {
         "id": doc["id"], "mine": is_owner(doc, user), "held": load_in_progress(doc),
         "site": {"id": site["id"], "name": site.get("name"), "url": site.get("url")} if site else None}
@@ -359,8 +373,16 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
     if not entry:
         raise HTTPException(status_code=400, detail="No migration bundle for that conservation area; re-extract the dataset")
-    if not entry.get("patrols"):
-        raise HTTPException(status_code=400, detail="That conservation area has no patrols to load")
+    scope = req.options.get("scope") or "all"
+    if scope not in LOAD_SCOPES:
+        raise HTTPException(status_code=400, detail="What to load must be the data model only, or the data model and patrols")
+    since, until = _window_date(req.options.get("since"), "start"), _window_date(req.options.get("until"), "end")
+    if scope == "datamodel" and (since or until):
+        raise HTTPException(status_code=400, detail="A date window applies to patrols; a data-model-only load has none")
+    if since and until and since > until:
+        raise HTTPException(status_code=400, detail="The window's start is after its end")
+    if scope == "all" and not entry.get("patrols"):
+        raise HTTPException(status_code=400, detail="That conservation area has no patrols to load; load the data model only")
     language = req.options.get("language") or entry.get("default_language")
     if language not in entry.get("languages", []):
         raise HTTPException(status_code=400, detail=f"Language {language!r} is not in the bundle")
@@ -378,7 +400,7 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
         "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
         "options": {"language": language, "configurable_model": cm,
                     "roster_group": (req.options.get("roster_group") or "").strip() or None,
-                    "event_category": category},
+                    "event_category": category, "scope": scope, "since": since, "until": until},
         "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race
         "created_at": now(), "updated_at": now(), "continuations": 0,
         "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})

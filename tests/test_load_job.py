@@ -644,3 +644,39 @@ def test_live_progress_carries_the_phase_skipped_count(env, monkeypatch):
     _run(env, "run", m, "queued")
     live = [c["progress"] for c in calls if c.get("progress") and c["progress"].get("phase") == "events"]
     assert live[-1]["phase_skipped"] == 2
+
+
+DM_ONLY = {"language": "en", "configurable_model": None, "roster_group": "Rangers", "scope": "datamodel"}
+
+
+def test_a_data_model_load_stops_after_patrol_setup(env):
+    m = FakeMigration()
+    rc, load, _ = _run(env, "run", m, "queued", options=DM_ONLY)
+    assert rc == 0 and load["status"] == "done" and load["stage"] == "patrol_datamodel"
+    assert m.calls == ["push_datamodel", "patrol_datamodel"]
+    assert set(load["stages"]) == {"datamodel", "patrol_datamodel"}
+    assert all(r["status"] == "done" for r in load["stages"].values())
+    assert load["progress"] is None
+
+
+def test_a_data_model_plan_has_no_patrols(env):
+    m = FakeMigration(checklist=[ICONS])
+    rc, load, _ = _run(env, "plan", m, "planning", options=DM_ONLY)
+    assert load["status"] == "planned" and load["stage"] == "patrol_datamodel"
+    assert m.calls == ["push_datamodel", "patrol_datamodel"]
+    assert "patrols" not in load["plan"] and "event_types" in load["plan"]
+    assert [f["code"] for f in load["findings"]] == ["patrol_type_icons"]
+
+
+def test_a_data_model_load_still_stops_on_what_the_site_needs(env):
+    m = FakeMigration(checklist=[TEAM])
+    rc, load, _ = _run(env, "run", m, "queued", options=DM_ONLY)
+    assert load["status"] == "needs_attention" and load["stage"] == "patrol_datamodel"
+
+
+def test_a_windowed_load_counts_only_its_patrols(env):
+    class Windowed(FakeMigration):
+        def patrols(self):
+            return PATROLS[1:]   # the migration applies the window
+    rc, load, _ = _run(env, "plan", Windowed(), "planning")
+    assert load["plan"]["patrols"]["total"] == 2 and load["plan"]["patrols"]["first"] == "2019-03-05"

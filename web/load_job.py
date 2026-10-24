@@ -231,6 +231,19 @@ class Runner:
                 return 0
             self._end(stage, pd_stats)
 
+            if load["options"].get("scope") == "datamodel":
+                # the data model only: everything a team needs to patrol and record in EarthRanger, no history
+                if dry:
+                    plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
+                                        roster_group=load["options"].get("roster_group"), patrols=None,
+                                        ledger_done=set(), counts={})
+                    (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
+                    (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
+                    self._finish("planned", stage=stage, findings=findings, plan=plan)
+                    return 0
+                self._finish("needs_attention" if F.has_blocking(findings) else "done", stage=stage, findings=findings)
+                return 0
+
             stage = "preflight"
             self._begin(stage, findings=findings)
             report = m.preflight()
@@ -436,26 +449,59 @@ class ErSmartSyncMigration:
 
     def preflight(self) -> dict:
         from er_smart_sync.preflight import render_json, run_preflight
-        report = run_preflight(self.api, self.bundle, timezone=self.bundle.manifest.timezone.get("name"),
+        report = run_preflight(self.api, self._window_bundle(), timezone=self.bundle.manifest.timezone.get("name"),
                                event_type_prefix=self.event_type_prefix, event_type_version="v2")
         self._report = report
         return json.loads(render_json(report))
 
+    def _window(self) -> dict:
+        """The load's date window as er-smart-sync's ImportOptions fields: patrols that
+        start on or between these days (the bundle's dates are the area's own)."""
+        from datetime import date
+        o = self.options
+        return {"since": date.fromisoformat(o["since"]) if o.get("since") else None,
+                "until": date.fromisoformat(o["until"]) if o.get("until") else None}
+
+    def _selected(self) -> list:
+        from er_smart_sync import patrol_import
+        return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
+
+    def _window_bundle(self):
+        """The bundle as the import will see it: only the window's patrols and their tracks.
+        Readiness is about what this load imports, so a patrol outside the window must not
+        block it; the patrol setup still runs on the whole bundle (the full data model)."""
+        w = self._window()
+        if not (w["since"] or w["until"]):
+            return self.bundle
+        from dataclasses import replace
+        selected = self._selected()
+        keep = {p["uuid"] for p in selected}
+        return replace(self.bundle, patrols=selected, tracks=[t for t in self.bundle.tracks if t.get("patrol_uuid") in keep])
+
     def patrols(self) -> list:
-        return [{"uuid": p["uuid"], "id": p.get("id"), "start_date": p.get("start_date")} for p in self.bundle.patrols]
+        return [{"uuid": p["uuid"], "id": p.get("id"), "start_date": p.get("start_date")} for p in self._selected()]
 
     def counts(self) -> dict:
-        return dict(self.bundle.manifest.counts)
+        w = self._window()
+        if not (w["since"] or w["until"]):
+            return dict(self.bundle.manifest.counts)
+        selected = {p["uuid"] for p in self._selected()}
+        obs = sum(len(g.get("observations") or []) for p in self.bundle.patrols if p["uuid"] in selected
+                  for leg in p["legs"] for wp in leg.get("waypoints") or [] for g in wp.get("observation_groups") or [])
+        points = sum(len(c) for t in self.bundle.tracks if t.get("patrol_uuid") in selected
+                     for part in t.get("parts") or [] for c in [part.get("coordinates") or []])
+        return {"observations": obs, "track_points": points}
 
     def ledger_done(self) -> set:
-        return {p["uuid"] for p in self.bundle.patrols if {"patrol", "events", "tracks"} <= self.ledger.stages(p["uuid"])}
+        return {p["uuid"] for p in self._selected() if {"patrol", "events", "tracks"} <= self.ledger.stages(p["uuid"])}
 
     def import_patrols(self, progress, stop) -> dict:
         from importlib.metadata import version as pkg_version
         from er_smart_sync import patrol_import
         workers = 1 if self.dry else self.workers   # a plan's writes read in order
         opts = patrol_import.ImportOptions(event_type_prefix=self.event_type_prefix, event_type_version="v2",
-                                           timezone=self.bundle.manifest.timezone.get("name"), workers=workers)
+                                           timezone=self.bundle.manifest.timezone.get("name"), workers=workers,
+                                           **self._window())
         extra = {"api_factory": self.api_factory} if workers > 1 else {}
         result = patrol_import.run_import(self.api, self.bundle, endpoint=self.endpoint, ledger=self.ledger, opts=opts,
                                           ns=self.ns, importer_version=pkg_version("er-smart-sync"),
