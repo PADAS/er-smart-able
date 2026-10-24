@@ -41,6 +41,8 @@ async function boot() {
   $('#uploadForm').onsubmit = upload;
   $('#siteForm').onsubmit = addSite;
   $('#loadBack').onclick = showDatasets;
+  // the title goes home from anywhere in the app; signed in, without reloading the page
+  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); $('#modal').hidden = true; showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
 }
 
@@ -58,20 +60,24 @@ async function signIn() {
 
 // ---- datasets
 const pill = status => '<span class="pill ' + esc(status) + '">' + esc(String(status).replace(/_/g, ' ')) + '</span>';
-let listGen = 0;   // which render of the list a late loads response belongs to
+let listGen = 0, listHtml = null;   // which render of the list is current, and what it last drew
 
 async function loadList() {
   const list = await api('/api/datasets');
   const gen = ++listGen;
+  // every dataset's loads first, so the table is drawn once, complete: drawing it with
+  // placeholders and filling them one response at a time made it flicker on every poll
+  const loadsOf = await Promise.all(list.map(d => api('/api/datasets/' + d.id + '/loads').catch(() => null)));
+  if (gen !== listGen || currentLoad) return;   // a newer render started, or the reader has moved to a load page
   const host = $('#list');
-  if (!list.length) { host.innerHTML = '<p class="muted">No datasets yet. Upload one above.</p>'; return; }
-  host.innerHTML = '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
-    list.map(d => '<tr data-id="' + d.id + '">' +
+  const html = !list.length ? '<p class="muted">No datasets yet. Upload one above.</p>' :
+    '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
+    list.map((d, i) => '<tr data-id="' + d.id + '">' +
       '<td><b>' + esc(d.name) + '</b><div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + esc((d.created_at || '').slice(0, 10)) + '</div></td>' +
       '<td>' + ((d.cas || []).map(c => esc(c.n || c.id)).join('<br>') || '<span class="tiny">—</span>') + (d.db_version ? '<div class="tiny">SMART ' + esc(d.db_version) + '</div>' : '') + '</td>' +
       '<td>' + pill(d.status) + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
         (d.counts && d.counts.patrols != null ? '<div class="tiny">' + d.counts.patrols + ' patrols · ' + d.counts.waypoints + ' waypoints</div>' : '') + '</td>' +
-      '<td class="loads"><span class="tiny">…</span></td>' +
+      '<td class="loads">' + loadsCell(loadsOf[i], d.export || []) + '</td>' +
       '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
       '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
       '<td class="actions">' +
@@ -83,31 +89,29 @@ async function loadList() {
         (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
         (d.mine ? '<button data-act="delete" class="danger" title="Delete this dataset and its files"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
       '</td></tr>').join('') + '</tbody></table>';
-  host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => action(b.dataset.act, b.closest('tr').dataset.id, list.find(d => d.id === b.closest('tr').dataset.id)));
+  if (html !== listHtml || !host.firstChild) {   // nothing changed: leave the page, its focus and its hover alone
+    host.innerHTML = html;
+    listHtml = html;
+    host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => action(b.dataset.act, b.closest('tr').dataset.id, list.find(d => d.id === b.closest('tr').dataset.id)));
+    host.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
+  }
   clearTimeout(pollTimer);
   // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
-  if (list.some(d => ['queued', 'running'].includes(d.status))) pollTimer = setTimeout(loadList, 5000);
-  list.forEach(d => renderLoads(d.id, d.export || [], gen).catch(() => {
-    const td = $('tr[data-id="' + d.id + '"] td.loads');
-    if (td && listGen === gen) td.innerHTML = '<span class="tiny">could not load</span>';
-  }));
+  if (list.some(d => ['queued', 'running'].includes(d.status)) || loadsOf.some(ls => (ls || []).some(l => l.held)))
+    pollTimer = setTimeout(loadList, 5000);
 }
 
 // the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
-async function renderLoads(id, exp, gen) {
-  const loads = await api('/api/datasets/' + id + '/loads');
-  const td = $('tr[data-id="' + id + '"] td.loads');
-  if (!td || gen !== listGen || currentLoad) return;   // the list was re-rendered, or the reader has moved to a load page
-  if (!loads.length) { td.innerHTML = '<span class="tiny">' + (exp.length ? 'none yet' : '—') + '</span>'; return; }
-  td.innerHTML = loads.map(l =>
+function loadsCell(loads, exp) {
+  if (loads === null) return '<span class="tiny">could not load</span>';
+  if (!loads.length) return '<span class="tiny">' + (exp.length ? 'none yet' : '—') + '</span>';
+  return loads.map(l =>
     '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
     '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
     pill(l.status) +
     (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
       ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
     '</button>').join('');
-  td.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
-  if (loads.some(l => l.held)) { clearTimeout(pollTimer); pollTimer = setTimeout(loadList, 5000); }
 }
 
 async function action(act, id, d) {
