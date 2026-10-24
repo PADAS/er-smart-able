@@ -186,8 +186,7 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
         else:
             entry = _entry(value or ident)
         by_kind[kind][k].append(entry)
-    dates = sorted(p["start_date"] for p in patrols if p.get("start_date"))
-    return {
+    plan = {
         "event_categories": _group(**cats, unchanged=datamodel_stats.get("categories_existing", 0)),
         "event_types": _group(**types, unchanged=datamodel_stats.get("event_types_unchanged", 0)),
         "patrol_types": _group(**by_kind["patrol_type"]),
@@ -195,7 +194,10 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
         "choices": _group(**by_kind["choice"]),
         "subjects": _group(**by_kind["subject"]),
         "roster": {"group": roster_group, "add": pd_stats.get("subjects_grouped", 0)},
-        "patrols": {"total": len(patrols), "first": dates[0] if dates else None, "last": dates[-1] if dates else None,
-                    "already_done": len(ledger_done), "events": counts.get("observations", 0),
-                    "track_points": counts.get("track_points", 0)},
     }
+    if patrols is not None:   # None: a data-model-only load imports no patrols
+        dates = sorted(p["start_date"] for p in patrols if p.get("start_date"))
+        plan["patrols"] = {"total": len(patrols), "first": dates[0] if dates else None, "last": dates[-1] if dates else None,
+                           "already_done": len(ledger_done), "events": counts.get("observations", 0),
+                           "track_points": counts.get("track_points", 0)}
+    return plan
