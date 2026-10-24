@@ -108,3 +108,4 @@ td.loads { min-width: 220px; }
 .col label { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
 .col select, .col input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 .finding.info { border-color: var(--brand); }
+.scope { font-size: 13px; font-weight: normal; color: var(--ink-2); }
