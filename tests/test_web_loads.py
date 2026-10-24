@@ -387,3 +387,30 @@ def test_a_time_window_is_kept_and_validated(client, launches):
                 {"scope": "datamodel", "since": "2023-01-01"},        # a window with nothing to apply it to
                 {"scope": "patrols-only"}):
         assert _create(c, ds, _site(store), **bad).status_code == 400, bad
+
+
+def test_patrols_are_recorded_against_the_whole_data_model(client, launches):
+    # SMART does not record which form a patrol observation came from; the whole data model holds them all
+    app, c = client
+    store = app.get_store()
+    r = _create(c, _dataset(store), _site(store), configurable_model="abc")
+    assert r.status_code == 400 and "whole data model" in r.json()["detail"]
+
+
+def test_a_configurable_model_loads_as_the_data_model_only_under_its_own_category(client, launches):
+    app, c = client
+    store = app.get_store()
+    r = _create(c, _dataset(store), _site(store), scope="datamodel", configurable_model="abc")
+    assert r.status_code == 201, r.text
+    o = r.json()["options"]
+    assert o["configurable_model"] == "abc" and o["event_category"] == "smart-050500-mobile"
+
+
+def test_a_model_category_is_made_safe_and_fits():
+    sys.path.insert(0, str(ROOT / "web"))
+    from findings import ca_identifier
+
+    assert ca_identifier("050500", "R05 Lawin") == "smart-050500-r05-lawin"
+    assert ca_identifier("050500") == "smart-050500"
+    long = ca_identifier("050500", "Ecological monitoring of mangroves")
+    assert len(long) == 30 and not long.endswith("-") and long.startswith("smart-050500-ecological")
