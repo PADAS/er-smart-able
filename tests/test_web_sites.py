@@ -189,3 +189,17 @@ def test_a_validation_error_does_not_echo_the_token(client):
     r = c.post("/api/sites", json={"token": "super-secret-token"})
     assert r.status_code == 422 and "super-secret-token" not in r.text
     assert all({"loc", "msg", "type"} <= set(e) for e in r.json()["detail"])
+
+
+def test_the_page_names_its_assets_by_their_content(client):
+    """A deploy changes app.css and app.js under the same path; a browser that cached the old ones
+    must fetch the new ones (it once showed the new page with the old script and stylesheet)."""
+    import hashlib
+    import re
+
+    _, c = client
+    html = c.get("/").text
+    for name in ("app.css", "app.js"):
+        digest = hashlib.sha256((ROOT / "web" / "static" / name).read_bytes()).hexdigest()[:12]
+        assert re.search(rf'"/static/{re.escape(name)}\?v={digest}"', html), name
+        assert c.get(f"/static/{name}?v={digest}").status_code == 200
