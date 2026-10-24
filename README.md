@@ -178,6 +178,9 @@ way it will look in the system it is moving to.
   backups and open questions.
 - [docs/deployment-cloud-run.md](docs/deployment-cloud-run.md): running the
   browser as a Cloud Run service; assessed, not started.
+- [docs/load-performance.md](docs/load-performance.md): where a load's time
+  goes in EarthRanger, measured, with what das does per request and what
+  would make it faster.
 
 ## License
 

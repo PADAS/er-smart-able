@@ -454,14 +454,22 @@ function stageSummary(stage, row, l, active) {
 
 function importSummary(l, live) {
   const p = l.progress;
-  let s = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
+  const counts = (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
+  const of = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + counts;
   const row = (l.stages || {}).import || {};
-  const end = live ? Date.now() : row.finished_at ? Date.parse(row.finished_at) : null;   // a finished import's rate does not decay
-  const mins = row.started_at && end ? (end - Date.parse(row.started_at)) / 60000 : null, written = p.done - (p.skipped || 0);   // skips take no time
+  if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
+    const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
+    return of + (secs != null ? ' · ' + fmtDur(secs) : '');
+  }
+  // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
+  const since = p.phase ? p.phase_started_at : row.started_at;
+  let s = p.phase ? (p.phase === 'tracks' ? 'Tracks: ' : 'Events: ') + of : of;
+  const mins = since ? (Date.now() - Date.parse(since)) / 60000 : null;
+  const written = p.done - ((p.phase ? p.phase_skipped : p.skipped) || 0);   // skips take no time; a phase also skips what a stopped run left half done
   if (mins && mins > 0.5 && written > 0) {
     const rate = written / mins;
     s += ' · ' + rate.toFixed(1) + ' per minute';
-    if (live && p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left';
+    if (p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left' + (p.phase === 'events' ? ' in this phase, then tracks' : '');
   }
   return s;
 }

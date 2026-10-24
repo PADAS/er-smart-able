@@ -31,7 +31,11 @@ The event category is the EarthRanger identifier the data model is pushed under.
 
 ## Long runs and continuation
 
-A run imports roughly two patrols a minute. A Cloud Run job may run for at most 24 hours, so at 22 hours the job stops taking new patrols, finishes the one in flight, saves its ledger, and starts a new execution of itself. The load's status is `continuing` while that happens and the page names the continuation it is timing. Nothing is lost and nothing is imported twice. A load may continue up to ten times before it is marked failed; that is far more than any dataset needs.
+A run imports every patrol with its observations and photos first, then every patrol's tracks. The progress bar shows the phase it is in, how fast it is going, and the time left in that phase.
+
+How long a run takes depends on how fast the EarthRanger site writes, not on smart-able. Each observation takes about 0.8 seconds, and track points add a little, so a conservation area with 70,000 observations takes about a day. Two loads into two different sites run side by side at full speed; two into the same site would only slow each other.
+
+A Cloud Run job may run for at most 24 hours, so at 22 hours the job stops taking new patrols, finishes the one in flight, saves its ledger, and starts a new execution of itself. The load's status is `continuing` while that happens and the page names the continuation it is timing. Nothing is lost and nothing is imported twice. A load may continue up to ten times before it is marked failed; that is far more than any dataset needs.
 
 If a job is killed outright, by an outage for example, it cannot report. The load keeps its last status until its hold lapses, about 25 hours after the job started, and then the page offers **Continue**, which resumes from the ledger.
 

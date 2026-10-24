@@ -240,6 +240,7 @@ it prints a `warning:` line rather than stopping. They mean:
 | `N leg(s) start on 1970-01-01, SMART's placeholder for an unset date, or span more than a year` | SMART stores an unset leg start as 1970-01-01 and generates a leg-day row for every day up to the end date (13 legs with 93,697 leg days in one export). | The leg days are kept as stored and the leg is marked `placeholder_dates`; the importer clamps such legs to the days with evidence. See quirks.html#patrol-times. |
 | `waypoint ... links to a leg day that does not exist` | A `patrol_waypoint` row points at a missing leg day. | The waypoint is left out of the bundle (it is still in the browser). See quirks.html#waypoints-and-legs. |
 | `attachment ... is not in the extracted filestore` | The database refers to a photo the backup lacks (same gap as the browse warning above). | Nothing to fix in smart-able. See quirks.html#attachments. |
+| `attachment ... is empty; left out` | SMART's filestore holds a zero-length file for the photo (the original was lost before the export). EarthRanger rejects an empty upload. | Left out of the bundle so the import skips it. Nothing to fix in smart-able. |
 | `waypoint ... has coordinates outside WGS 84 range` | `waypoint.x/y` are not longitude/latitude. | The CA may use a projected CRS; report it, since the bundle assumes WGS 84. |
 | `bundle schema: ...` | The written bundle does not match `export/bundle.schema.json`. | A smart-able bug; report the message. |
 
