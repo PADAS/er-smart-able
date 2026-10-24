@@ -97,6 +97,14 @@ def test_a_windowed_plan_counts_only_the_patrols_in_it(smart_parquet, tmp_path, 
     assert p["events"] == 0 and p["track_points"] == 0
 
 
+def test_readiness_checks_only_the_patrols_in_the_window(smart_parquet, tmp_path, monkeypatch):
+    # only the first patrol uses Team One, which the fake site lacks; a window holding just the
+    # second must not stop on it (the patrol setup still covers the whole data model)
+    load = _plan(smart_parquet, tmp_path, monkeypatch, since="2019-04-01")
+    pre = [f for f in load["findings"] if f["stage"] == "preflight" and f["severity"] == "blocking"]
+    assert pre == [], [f["code"] for f in pre]
+
+
 def test_a_data_model_plan_end_to_end(smart_parquet, tmp_path, monkeypatch):
     load = _plan(smart_parquet, tmp_path, monkeypatch, scope="datamodel")
     assert "patrols" not in load["plan"] and load["stage"] == "patrol_datamodel"
@@ -155,7 +163,7 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     # the empty site lacks the data model the run will write, so those preflight findings are info;
     # only the missing team blocks (nothing a load creates)
     blocking_preflight = {f["code"] for f in load["findings"] if f["stage"] == "preflight" and f["severity"] == "blocking"}
-    assert blocking_preflight <= {"teams"}, blocking_preflight
+    assert blocking_preflight == {"teams"}, blocking_preflight   # the first patrol's team
     created = {f["code"] for f in load["findings"] if f["title"].startswith("Will be created by this load: ")}
     assert {"patrol_types", "segment_schema", "subjects", "event_types"} <= created
     team = [f for f in load["findings"] if f["code"] == "team"]

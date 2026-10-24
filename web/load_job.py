@@ -449,7 +449,7 @@ class ErSmartSyncMigration:
 
     def preflight(self) -> dict:
         from er_smart_sync.preflight import render_json, run_preflight
-        report = run_preflight(self.api, self.bundle, timezone=self.bundle.manifest.timezone.get("name"),
+        report = run_preflight(self.api, self._window_bundle(), timezone=self.bundle.manifest.timezone.get("name"),
                                event_type_prefix=self.event_type_prefix, event_type_version="v2")
         self._report = report
         return json.loads(render_json(report))
@@ -465,6 +465,18 @@ class ErSmartSyncMigration:
     def _selected(self) -> list:
         from er_smart_sync import patrol_import
         return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
+
+    def _window_bundle(self):
+        """The bundle as the import will see it: only the window's patrols and their tracks.
+        Readiness is about what this load imports, so a patrol outside the window must not
+        block it; the patrol setup still runs on the whole bundle (the full data model)."""
+        w = self._window()
+        if not (w["since"] or w["until"]):
+            return self.bundle
+        from dataclasses import replace
+        selected = self._selected()
+        keep = {p["uuid"] for p in selected}
+        return replace(self.bundle, patrols=selected, tracks=[t for t in self.bundle.tracks if t.get("patrol_uuid") in keep])
 
     def patrols(self) -> list:
         return [{"uuid": p["uuid"], "id": p.get("id"), "start_date": p.get("start_date")} for p in self._selected()]
