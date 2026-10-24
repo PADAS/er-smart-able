@@ -391,11 +391,16 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     if language not in entry.get("languages", []):
         raise HTTPException(status_code=400, detail=f"Language {language!r} is not in the bundle")
     cm = req.options.get("configurable_model") or None
-    if cm and cm not in [c["uuid"] for c in entry.get("configurable_models", [])]:
+    model = next((c for c in entry.get("configurable_models", []) if c["uuid"] == cm), None)
+    if cm and not model:
         raise HTTPException(status_code=400, detail="Unknown configurable model")
+    if cm and scope != "datamodel":
+        # SMART does not record which form a patrol observation came from; the whole data model holds every form's
+        raise HTTPException(status_code=400, detail="Patrols are recorded against the whole data model; "
+                                                    "load a configurable model as the data model only")
     category = req.options.get("event_category")
     if category is None or (isinstance(category, str) and not category.strip()):
-        category = ca_identifier(entry.get("ca_id"))
+        category = ca_identifier(entry.get("ca_id"), model and model.get("label"))
     elif not isinstance(category, str) or not EVENT_CATEGORY.fullmatch(category.strip()):
         raise HTTPException(status_code=400, detail="The event category must be 2-30 letters, digits, '-' or '_'")
     category = category.strip()

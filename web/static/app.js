@@ -102,9 +102,10 @@ async function loadList() {
 }
 
 // what a load writes, in words: empty for the data model and every patrol (the default)
-function loadScope(l) {
+function loadScope(l, exp) {
   const o = l.options || {};
-  if (o.scope === 'datamodel') return 'Data model only';
+  const m = o.configurable_model && (((exp || []).find(e => e.dir === l.ca_id) || {}).configurable_models || []).find(c => c.uuid === o.configurable_model);
+  if (o.scope === 'datamodel') return o.configurable_model ? 'Configurable model: ' + (m ? m.label : o.configurable_model) : 'Data model only';
   if (o.since && o.until) return 'Patrols from ' + o.since + ' to ' + o.until;
   if (o.since) return 'Patrols from ' + o.since;
   if (o.until) return 'Patrols up to ' + o.until;
@@ -118,7 +119,7 @@ function loadsCell(loads, exp) {
   return loads.map(l =>
     '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
     '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
-    (loadScope(l) ? '<span class="tiny">' + esc(loadScope(l)) + '</span>' : '') +
+    (loadScope(l, exp) ? '<span class="tiny">' + esc(loadScope(l, exp)) + '</span>' : '') +
     pill(l.status) +
     (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
       ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
@@ -223,54 +224,71 @@ async function addSite(ev) {
   finally { btn.disabled = false; }
 }
 
-// mirrors findings.ca_identifier: smart-<ca id>, 2-30 chars of [A-Za-z0-9_-]
-function defaultEventCategory(caId) {
-  const s = ('smart-' + (caId || 'ca')).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
-  return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
+// mirrors findings.ca_identifier: smart-<ca id>, or smart-<ca id>-<model label>, 2-30 chars of [A-Za-z0-9_-]
+function defaultEventCategory(caId, model) {
+  const s = ('smart-' + (caId || 'ca') + (model ? '-' + model : '')).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return (s.length >= 2 ? s : 'smart-ca').slice(0, 30).replace(/-+$/, '');
 }
 
-async function loadDialog(d) {
+const helpBtn = (id, title) => ' <button type="button" class="help" data-help="' + esc(id) + '" title="' + esc(title) + '"><span class="mi" aria-hidden="true">help</span></button>';
+
+// preset: {ca, site, scope, cm} to open the form already filled, as the load page's model buttons do
+async function loadDialog(d, preset = {}) {
   const sites = await api('/api/sites');
   if (!sites.length) return alert('Register an EarthRanger site first.');
   let lastDefault = null;
-  const render = () => {
-    const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
-    const def = defaultEventCategory(ca.ca_id);   // what the server defaults to
+  const ca = () => d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
+  const model = () => $('#ldScope').value === 'datamodel' ? ca().configurable_models.find(m => m.uuid === $('#ldCm').value) : null;
+  const category = () => {   // follows the default until the user types their own
+    const def = defaultEventCategory(ca().ca_id, model() && model().label);   // what the server defaults to
     if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
     lastDefault = def;
-    $('#ldLang').innerHTML = ca.languages.map(l => '<option' + (l === ca.default_language ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
-    $('#ldCm').innerHTML = '<option value="">none</option>' + ca.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
   };
-  dialog('Load "' + d.name + '" into EarthRanger',
-    '<p class="muted tiny">First a plan is made without writing anything. You confirm it before the site is changed.</p>' +
-    '<form id="ldForm" class="col">' +
-    '<label>Conservation area <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + esc(e.name || e.ca_id) + ' (' + esc(e.patrols) + ' patrols)</option>').join('') + '</select></label>' +
-    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '</select></label>' +
-    '<label>Label language <select id="ldLang"></select></label>' +
-    '<label>Configurable model <select id="ldCm"></select></label>' +
-    '<p class="muted tiny">none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.</p>' +
-    '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
-    '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
-    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (for example, site-xyz).</p>' +
-    '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
-    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
-    '<p class="muted tiny" id="ldScopeHint"></p>' +
-    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary">Make the plan</button></div></form>');
+  const render = () => {
+    const c = ca();
+    $('#ldLang').innerHTML = c.languages.map(l => '<option' + (l === c.default_language ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
+    $('#ldCm').innerHTML = '<option value="">none: the whole data model</option>' + c.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
+    $('#ldCmRow').dataset.models = c.configurable_models.length;
+    scopeChanged();
+  };
   const scopeChanged = () => {
     const dm = $('#ldScope').value === 'datamodel';
     $('#ldWindow').hidden = dm;
+    $('#ldCmRow').hidden = !dm || $('#ldCmRow').dataset.models === '0';
     $('#ldScopeHint').textContent = dm
-      ? 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.'
-      : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
+      ? (model()
+        ? 'Event types from this configurable model, under their own event category, for teams to record with from now on. No patrols or observations are filed against them. Patrol types, rangers and the roster come too.'
+        : 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.')
+      : 'Patrols are recorded against the whole data model, under the event category below. Leave the dates empty to load every patrol; a patrol is in the window when it starts on or between the dates.';
+    category();
   };
-  render(); scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
+  const opt = (v, label, sel) => '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(label) + '</option>';
+  dialog('Load "' + d.name + '" into EarthRanger',
+    '<p class="muted tiny">First a plan is made without writing anything. You confirm it before the site is changed.</p>' +
+    '<form id="ldForm" class="col">' +
+    '<label>Conservation area <select id="ldCa">' + d.export.map(e => opt(e.dir, (e.name || e.ca_id) + ' (' + e.patrols + ' patrols)', e.dir === preset.ca)).join('') + '</select></label>' +
+    '<label>Site <select id="ldSite">' + sites.map(s => opt(s.id, s.name + ' · ' + s.url, s.id === preset.site)).join('') + '</select></label>' +
+    '<label><span>What to load' + helpBtn('loading-models', 'Patrols, the whole data model and configurable models') + '</span><select id="ldScope">' +
+      opt('all', 'The data model and patrols', preset.scope !== 'datamodel') + opt('datamodel', 'The data model only', preset.scope === 'datamodel') + '</select></label>' +
+    '<label id="ldCmRow"><span>Configurable model' + helpBtn('loading-models', 'What a configurable model loads') + '</span><select id="ldCm"></select></label>' +
+    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
+    '<p class="muted tiny" id="ldScopeHint"></p>' +
+    '<label>Label language <select id="ldLang"></select></label>' +
+    '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
+    '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
+    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (for example, site-xyz).</p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary">Make the plan</button></div></form>');
+  render();
+  if (preset.cm) { $('#ldCm').value = preset.cm; scopeChanged(); }
+  $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged; $('#ldCm').onchange = scopeChanged;
+  $('#ldForm').querySelectorAll('[data-help]').forEach(b => b.onclick = ev => { ev.preventDefault(); openHelp(b.dataset.help); });
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
     const dm = $('#ldScope').value === 'datamodel', since = dm ? '' : $('#ldSince').value, until = dm ? '' : $('#ldUntil').value;
     if (since && until && since > until) return alert('The window starts after it ends.');
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
-        options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
+        options: { language: $('#ldLang').value, configurable_model: (dm && $('#ldCm').value) || null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
       $('#modal').hidden = true; showLoad(l.id);
     } catch (e) { alert(e.message); }
@@ -278,13 +296,36 @@ async function loadDialog(d) {
 }
 
 // ---- the load page
-let loadTimer = null, currentLoad = null;
+// once a load has put the patrols on the site under the whole data model, the area's configurable
+// models can follow, each as the data model only, for teams to record with in EarthRanger
+async function renderModels(l) {
+  const box = $('#loadModels'), o = l.options || {};
+  const entry = loadDataset && (loadDataset.export || []).find(e => e.dir === l.ca_id);
+  const models = (entry && entry.configurable_models) || [];
+  if (l.status !== 'done' || o.scope === 'datamodel' || o.configurable_model || !models.length || !l.site) { box.innerHTML = ''; return; }
+  let loads = [];
+  try { loads = await api('/api/datasets/' + l.dataset_id + '/loads'); } catch (e) { /* the buttons still work without the marks */ }
+  if (currentLoad !== l.id) return;
+  const done = uuid => loads.find(x => x.ca_id === l.ca_id && x.site_id === l.site_id && (x.options || {}).configurable_model === uuid);
+  box.innerHTML = '<div class="models"><p class="tiny">The patrols are recorded against the whole data model. Load the configurable models too, so teams can record with their SMART forms in EarthRanger. Each gets its own event category; no observations are filed against them.' +
+    helpBtn('loading-models', 'Why patrols use the whole data model') + '</p>' +
+    models.map(m => { const x = done(m.uuid);
+      return x ? '<button data-open-load="' + esc(x.id) + '"><span class="mi" aria-hidden="true">check</span>' + esc(m.label) + ': ' + esc(x.status) + '</button>'
+               : '<button data-model="' + esc(m.uuid) + '"><span class="mi" aria-hidden="true">add</span>Load ' + esc(m.label) + ' for teams to record with</button>'; }).join('') + '</div>';
+  box.querySelector('[data-help]').onclick = () => openHelp('loading-models');
+  box.querySelectorAll('[data-open-load]').forEach(b => b.onclick = () => showLoad(b.dataset.openLoad));
+  box.querySelectorAll('[data-model]').forEach(b => b.onclick = () =>
+    loadDialog(loadDataset, { ca: l.ca_id, site: l.site_id, scope: 'datamodel', cm: b.dataset.model }).catch(e => alert(e.message)));
+}
+
+let loadTimer = null, currentLoad = null, loadDataset = null;   // the open load's dataset, fetched once
 function showDatasets() { clearTimeout(loadTimer); currentLoad = null; document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false); $('#loadPage').hidden = true; loadList(); loadSites(); }
 
 async function showLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
-  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
+  loadDataset = null;
+  ['#loadTitle', '#loadStages', '#loadActions', '#loadModels', '#loadFindings', '#loadPlan', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); } catch (e) { alert(e.message); showDatasets(); }
@@ -307,10 +348,12 @@ async function renderLoad() {
     return;
   }
   if (currentLoad !== id) return;
+  if (!loadDataset || loadDataset.id !== l.dataset_id) { try { loadDataset = await api('/api/datasets/' + l.dataset_id); } catch (e) { loadDataset = null; } }
+  if (currentLoad !== id) return;
   const active = !!l.held;
   const stale = !active && ACTIVE.includes(l.status);
   $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
-    (loadScope(l) ? ' <span class="scope">' + esc(loadScope(l)) + '</span>' : '') +
+    (loadScope(l, loadDataset && loadDataset.export) ? ' <span class="scope">' + esc(loadScope(l, loadDataset && loadDataset.export)) + '</span>' : '') +
     ' ' + pill(l.status) +
     ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
   $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
@@ -330,6 +373,7 @@ async function renderLoad() {
   if (stale) actions += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
   if (l.error) actions += '<div class="tiny" style="color:var(--danger)">' + esc(l.error) + '</div>';
   $('#loadActions').innerHTML = actions;
+  renderModels(l);
   const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets(); } catch (e) { alert(e.message); } };

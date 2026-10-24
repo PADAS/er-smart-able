@@ -3,6 +3,7 @@ the job stopped and what a human does about it; the plan is what a run
 would write. Pure functions, no er-smart-sync or Google imports, so the
 service and the job both use them."""
 import re
+from typing import Optional
 
 MAX_PATROLS = 50
 LIST_CAP = 200
@@ -22,10 +23,12 @@ BLOCKING_CHECKLIST = ("enable_patrol_schemas", "permission_patrol_types", "permi
 EVENT_CATEGORY = re.compile(r"[A-Za-z0-9_-]{2,30}")
 
 
-def ca_identifier(ca_id: str) -> str:
-    """A load's default ER event-category identifier: smart-<ca id>, made safe (2-30 chars of [A-Za-z0-9_-])."""
-    s = re.sub(r"[^a-z0-9_-]+", "-", f"smart-{ca_id or 'ca'}".lower()).strip("-")
-    return (s if len(s) >= 2 else "smart-ca")[:30]
+def ca_identifier(ca_id: str, model: Optional[str] = None) -> str:
+    """A load's default ER event-category identifier: smart-<ca id>, or smart-<ca id>-<configurable model's
+    label> so a model's event types sit apart from the whole data model's, made safe (2-30 chars of [A-Za-z0-9_-])."""
+    raw = f"smart-{ca_id or 'ca'}" + (f"-{model}" if model else "")
+    s = re.sub(r"[^a-z0-9_-]+", "-", raw.lower()).strip("-")
+    return (s if len(s) >= 2 else "smart-ca")[:30].rstrip("-")
 
 
 def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=()) -> dict:

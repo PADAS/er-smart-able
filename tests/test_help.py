@@ -4,6 +4,7 @@ source."""
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 from pathlib import Path
 
@@ -112,3 +113,13 @@ def test_the_api_serves_the_help_to_signed_in_users(tmp_path, monkeypatch):
     assert r.status_code == 200
     ids = [s["id"] for s in r.json()["sections"]]
     assert ids[0] == "overview" and "stops" in ids
+
+
+def test_every_help_link_in_the_page_has_an_entry(help_mod):
+    js = (ROOT / "web" / "static" / "app.js").read_text()
+    ids = set(re.findall(r"(?:openHelp|helpBtn)\('([a-z0-9_-]+)'", js)) | set(re.findall(r'data-help="([a-z0-9_-]+)"', js))
+    assert "loading-models" in ids
+    html = "".join(s["html"] for s in help_mod.sections())
+    sections = {"help-" + s["id"] for s in help_mod.sections()}
+    missing = [i for i in ids if f'id="{i}"' not in html and i not in sections]
+    assert not missing, missing
