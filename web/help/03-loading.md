@@ -1,6 +1,6 @@
 # Loading a dataset
 
-A load puts one conservation area from one dataset into one site. Start it from the dataset card with **Load**, choosing the conservation area, the site, the language of the labels, an optional configurable model, the roster group rangers are picked from, and the event category.
+A load puts one conservation area from one dataset into one site. Start it from the dataset card with **Load**, choosing the conservation area, the site, what to load, the language of the labels, the roster group rangers are picked from, and the event category.
 
 ## Plan, then confirm
 
@@ -12,7 +12,7 @@ A run works through the stages in order. Each is idempotent: a second run redoes
 
 | Stage | What it writes to EarthRanger |
 |---|---|
-| **Event types** | The event category and one event type per SMART category, with their fields and dropdown choices, from the data model (and the configurable model, if one was chosen). Existing types are updated, not duplicated. |
+| **Event types** | The event category and one event type per SMART category, with their fields and dropdown choices, from the whole data model, or from one configurable model on a load of the data model only. Existing types are updated, not duplicated. |
 | **Patrol setup** | Patrol types, the universal patrol fields, the ranger subjects (one per SMART employee who patrolled), their membership of the roster group, and the station choices. Anything the API cannot do becomes a finding: teams, icons, permissions. |
 | **Preflight** | Writes nothing. Checks that the site has everything the patrols need: patrol types, teams, subjects, event types, fields. |
 | **Patrols** | The patrols themselves, each with its legs, members, track and events from its waypoints. A ledger records every patrol as it lands, so a run can be resumed without duplicating anything. |
@@ -37,6 +37,16 @@ The event category is the EarthRanger identifier the data model is pushed under.
 - **The data model only**: the event types, the patrol types and their fields, the rangers as subjects, and the patrol roster. That is what a team needs to start patrolling and recording in EarthRanger without bringing its history across. It still stops on anything an admin must do on the site first, such as teams to create.
 
 A later load into the same site can widen the window or add the patrols. Anything already imported is skipped. The load page and the dataset list name what each load wrote, such as "Data model only" or "Patrols from 2023-01-01 to 2024-12-31".
+
+## Patrols, the whole data model and configurable models {#loading-models}
+
+A SMART conservation area can have several **configurable models**: the forms its rangers carry on their phones, each a subset of the data model, such as one for ranger patrols and one for ecological monitoring. SMART does not record which form recorded a patrol observation, so on import there is no way to tell which form's event types an observation belongs to.
+
+So a load with patrols always uses the **whole data model**. It contains every form's categories, so every observation has an event type, whichever form recorded it. Its event category is the home category, `smart-<conservation area id>` by default, and all patrol history lives there.
+
+Each configurable model is then loaded on its own, as **the data model only**: pick it under **Configurable model** in the load dialog, or press its button on the page of a finished load. Its event types make only its categories and dropdown options active, under their own event category (`smart-<conservation area id>-<model name>` by default), and no historical observations are filed against them. They are there for teams to record with in EarthRanger from then on.
+
+SMART's ecological surveys are different: each survey names the configurable model its observations were recorded with, so when smart-able migrates surveys, their observations can go to that model's event types. Surveys are not migrated yet.
 
 ## Long runs and continuation
 
