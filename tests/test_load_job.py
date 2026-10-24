@@ -561,10 +561,73 @@ def test_the_final_progress_carries_no_phase(env):
 def test_the_network_timeout_is_set(env, monkeypatch):
     load_job = env[1]
     seen = []
-    monkeypatch.setattr(load_job.socket, "setdefaulttimeout", seen.append)
+    monkeypatch.setattr(load_job, "bound_http_timeouts", seen.append)
     _run(env, "run", FakeMigration(), "queued")
     _run(env, "run", FakeMigration(), "queued", env_vars={"LOAD_NETWORK_TIMEOUT_SECONDS": "42"})
     assert seen == [600.0, 42.0]
+
+
+@pytest.fixture
+def stalled_server():
+    """A server that accepts connections and never answers."""
+    import socket
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(8)
+    held = []
+
+    def accept():
+        try:
+            while True:
+                held.append(srv.accept())
+        except OSError:   # closed at teardown
+            pass
+
+    threading.Thread(target=accept, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.getsockname()[1]}"
+    for conn, _ in held:
+        conn.close()
+    srv.close()
+
+
+@pytest.mark.parametrize("how", ["session", "module"])   # erclient posts JSON on a session and files with requests.post
+def test_a_stalled_response_times_out(env, monkeypatch, stalled_server, how):
+    import socket
+    import time
+    import requests
+    load_job = env[1]
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", requests.adapters.HTTPAdapter.send)   # restored after the test
+    monkeypatch.setattr(socket, "getdefaulttimeout", socket.getdefaulttimeout)
+    old = socket.getdefaulttimeout()
+    try:
+        load_job.bound_http_timeouts(0.5)
+        post = requests.Session().post if how == "session" else requests.post
+        t0 = time.monotonic()
+        with pytest.raises(requests.exceptions.Timeout):
+            post(stalled_server + "/api/v1.0/activity/events", data="[]")
+        assert time.monotonic() - t0 < 5
+    finally:
+        socket.setdefaulttimeout(old)
+
+
+def test_a_caller_s_own_timeout_is_kept(env, monkeypatch):
+    import requests
+    load_job = env[1]
+    seen = []
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", lambda self, request, **kw: seen.append(kw.get("timeout")))
+    import socket
+    old = socket.getdefaulttimeout()
+    try:
+        load_job.bound_http_timeouts(30)
+        adapter = requests.adapters.HTTPAdapter()
+        adapter.send(None, timeout=None)
+        adapter.send(None, timeout=7)
+        adapter.send(None)
+        load_job.bound_http_timeouts(30)   # a second call does not stack another wrapper
+        adapter.send(None, timeout=None)
+    finally:
+        socket.setdefaulttimeout(old)
+    assert seen == [30, 7, 30, 30]
 
 
 def test_load_workers_reach_the_migration(env):

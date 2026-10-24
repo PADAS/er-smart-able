@@ -54,6 +54,29 @@ class _RunLogHandler(logging.Handler):
             self.handleError(record)
 
 
+def bound_http_timeouts(seconds: float) -> None:
+    """Bound every HTTP request this process makes without a timeout of its own.
+
+    erclient sends with requests and no timeout. requests turns that into an
+    explicit unlimited timeout, which overrides socket.setdefaulttimeout, so a
+    site that accepts a request and never answers would stall the job until
+    its hold lapses. Wrapping HTTPAdapter.send covers erclient's session and
+    its module-level requests.post for files; callers that pass their own
+    timeout (the Google clients) keep it. The socket default stays as a floor
+    for anything that bypasses requests."""
+    import requests.adapters
+
+    socket.setdefaulttimeout(seconds)
+    adapter = requests.adapters.HTTPAdapter
+    send = getattr(adapter.send, "_unbounded", adapter.send)   # a second call replaces the wrapper, never stacks one
+
+    def bounded(self, request, *args, timeout=None, **kwargs):
+        return send(self, request, *args, timeout=seconds if timeout is None else timeout, **kwargs)
+
+    bounded._unbounded = send
+    adapter.send = bounded
+
+
 class Runner:
     def __init__(self, store, load_id, mode, *, work: Path, migration_factory=None, check_token=None,
                  clock=time.monotonic, env=None):
@@ -184,7 +207,7 @@ class Runner:
             self._log(f"token works as {who}")
             export_dir = self.store.fetch_export(self.dataset_id, load["ca_id"], self.work / "export")
             dry = self.mode == "plan"
-            socket.setdefaulttimeout(self.network_timeout)
+            bound_http_timeouts(self.network_timeout)
             m = self.migration_factory(workers=self.workers, bundle_dir=Path(export_dir) / "bundle", load_dir=self.load_dir, host=site["url"],
                                        token=token, options=load["options"], dry_run=dry,
                                        ca_identifier=load["options"].get("event_category") or ca_identifier(entry.get("ca_id")))
