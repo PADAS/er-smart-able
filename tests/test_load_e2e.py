@@ -110,6 +110,9 @@ def test_a_data_model_plan_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert "patrols" not in load["plan"] and load["stage"] == "patrol_datamodel"
     assert load["plan"]["event_types"]["create"] and load["plan"]["patrol_types"]["create"]
     assert "preflight" not in load["stages"]
+    # the rangers are listed, with no patrols from this load (it imports none) but their whole history
+    assert sorted(r["name"] for r in load["rangers"]) == ["Ana Cruz", "Ben Reyes"]
+    assert all(r["patrols"] == 0 and r["patrols_total"] >= 1 for r in load["rangers"])
 
 
 def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
