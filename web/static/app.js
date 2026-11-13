@@ -63,10 +63,11 @@ function navigate(route, nav = 'push') {
   else if (nav === 'replace') history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + hash);
   renderRoute(route);
 }
-// one show* per page; the dataset and sites pages arrive in later tasks
+// one show* per page; the sites page arrives in a later task
 function renderRoute(route) {
   clearTimeout(pollTimer); listGen++;   // leaving the home page: its poll and any response in flight stop
   if (route.page === 'home') showHome();
+  else if (route.page === 'dataset') showDataset(route);
   else if (route.page === 'load') openLoad(route.load);
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
@@ -161,7 +162,7 @@ function dialog(title, bodyHtml) {
 }
 
 function shareDialog(d, base = '/api/datasets/', note) {
-  const refresh = () => base === '/api/sites/' ? loadSites() : parseRoute(location.hash).page === 'home' && showHome();
+  const refresh = () => { if (base === '/api/sites/') return loadSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
   const render = shared => {
     dialog('Share "' + d.name + '"',
@@ -172,6 +173,54 @@ function shareDialog(d, base = '/api/datasets/', note) {
     $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } });
   };
   render(d.shared_with || []);
+}
+
+// ---- the dataset page: the dataset, the tab's data, the actions; polls while it extracts
+let datasetGen = 0;
+async function showDataset(route) {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
+  const gen = ++datasetGen, mine = routeHash(route);
+  const current = () => gen === datasetGen && location.hash === mine;
+  let d;
+  try { d = await api('/api/datasets/' + route.id); }
+  catch (e) {
+    if (!current()) return;
+    setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
+    mountPage(renderNotFound());
+    return;
+  }
+  if (!current()) return;
+  let tab = route.tab;
+  if (tab !== 'overview' && d.status !== 'ready') { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
+  const extra = {};
+  try {
+    if (tab === 'loads') extra.loads = await api('/api/datasets/' + d.id + '/loads');
+    else if (tab === 'rangers') {
+      const loads = (await api('/api/datasets/' + d.id + '/loads')).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      // the list items carry no rangers: the newest load that has some is found by fetching, newest first
+      for (const l of loads) { if (!current()) return; const full = await api('/api/loads/' + l.id); if ((full.rangers || []).length) { extra.load = full; break; } }
+    }
+  } catch (e) { if (!current()) return; mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  if (!current()) return;
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
+  mountPage(renderDatasetPage(d, tab, extra));
+  bindDataset(d, tab, route, extra);
+  if (['running', 'queued', 'pending'].includes(d.status) || (tab === 'loads' && (extra.loads || []).some(l => l.held)))
+    pollTimer = setTimeout(() => { if (current()) showDataset(route); }, 5000);
+}
+function bindDataset(d, tab, route, extra) {
+  document.querySelectorAll('.tabs [aria-disabled="true"]').forEach(a => { a.onclick = ev => ev.preventDefault(); });
+  const share = $('#shareBtn'); if (share) share.onclick = () => shareDialog(d);
+  const ex = $('#extractBtn'); if (ex) ex.onclick = async () => {
+    try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { alert(e.message); }
+  };
+  const del = $('#deleteBtn'); if (del) del.onclick = async () => {
+    if (!confirm('Delete "' + d.name + '" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.')) return;
+    try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { alert(e.message); }
+  };
+  document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
+  const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d);
+  if (tab === 'rangers' && extra.load) bindRangers($('#tabBody'), extra.load);
 }
 
 // ---- upload: create the dataset, PUT the file where the server says (a signed
@@ -253,7 +302,7 @@ function defaultEventCategory(caId) {
   return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
 }
 
-async function loadDialog(d) {
+async function loadDialog(d, caId) {
   const sites = await api('/api/sites');
   if (!sites.length) return alert('Register an EarthRanger site first.');
   let lastDefault = null;
@@ -287,6 +336,7 @@ async function loadDialog(d) {
       ? 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.'
       : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
   };
+  if (caId) $('#ldCa').value = caId;
   render(); scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
@@ -575,27 +625,24 @@ function renderStages(l, active) {
   return html;
 }
 
-// ---- rangers: the people behind the subjects, for whoever creates their accounts
+// ---- rangers: the markup is renderRangersSection (pages.js); this binds its help and CSV buttons
+function bindRangers(host, l) {
+  const rows = l.rangers || [];
+  host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
+  host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
+    rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
+}
 function renderRangers(l) {
   const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
-  const dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
   if (!rows.length) { host.innerHTML = ''; host.dataset.key = ''; return; }
   // the rows change only when patrol setup runs: a poll that brings the same list leaves the table alone
   const key = l.id + ':' + total + ':' + JSON.stringify(rows);
   if (host.dataset.key === key && host.firstChild) return;
   host.dataset.key = key;
   const open = openState(host);
-  host.innerHTML = '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + count(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
-    '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
-    '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
-    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
-    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th>' + (dmOnly ? '<th title="In the whole dataset; this load imports no patrols">Patrols (all)</th>' : '<th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th>') + '<th>Subject</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
-    '</tbody></table></details>';
+  host.innerHTML = renderRangersSection(l);
   restoreOpen(host, open);
-  host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
-  host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
-    rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
+  bindRangers(host, l);
 }
 
 function downloadCsv(filename, header, rows) {

@@ -97,3 +97,83 @@ function renderHome(datasets) {
     '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>Upload a backup or export</button></div>' +
     '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
 }
+
+// ---- rangers: the people behind the subjects, for whoever creates their accounts. The table, summary,
+// CSV button and help button, shared by the dataset page's tab and the load page.
+function plural(n, one, many) { return Number(n).toLocaleString('en-US') + ' ' + (n === 1 ? one : (many || one + 's')); }
+function renderRangersSection(l) {
+  var rows = l.rangers || [], total = l.rangers_total || rows.length;
+  var dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
+  if (!rows.length) return '';
+  return '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + plural(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
+    '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
+    '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
+    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
+    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th>' + (dmOnly ? '<th title="In the whole dataset; this load imports no patrols">Patrols (all)</th>' : '<th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th>') + '<th>Subject</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
+    '</tbody></table></details>';
+}
+
+// ---- the dataset page
+function renderNotFound() {
+  return '<div class="panel"><h1>Not found or not shared with you</h1><p class="muted">This dataset does not exist, or its owner has not shared it with you.</p>' +
+    '<a class="btn primary" href="#/"><span class="mi" aria-hidden="true">arrow_back</span>Back to datasets</a></div>';
+}
+function fmtDate(s) { return String(s || '').slice(0, 10); }
+function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; }
+function hasBundle(e) { return !!e.patrols; }
+function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
+
+function renderTabs(d, tab) {
+  var ready = d.status === 'ready';
+  return '<nav class="tabs">' + [['overview', 'Overview', ''], ['loads', 'Loads', '/loads'], ['rangers', 'Rangers', '/rangers']].map(t => {
+    var off = t[0] !== 'overview' && !ready;
+    return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
+  }).join('') + '</nav>';
+}
+
+function renderOverview(d) {
+  var running = ['running', 'queued', 'pending'].includes(d.status);
+  var times = (d.started_at ? 'Started ' + esc(fmtWhen(d.started_at)) : '') + (d.finished_at ? (d.started_at ? ' · ' : '') + 'Finished ' + esc(fmtWhen(d.finished_at)) : '');
+  var rows = (d.export || []).map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
+    '<td class="tiny">' + (e.patrols != null ? plural(e.patrols, 'patrol') : '') + (e.waypoints != null ? ' · ' + plural(e.waypoints, 'waypoint') : '') + '</td>' +
+    '<td class="actions"><a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' +
+    (hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</td></tr>').join('');
+  return '<div class="panel"><h2>Extraction</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
+    (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
+    (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">Log' + (running ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
+    (rows ? '<div class="panel"><h2>Conservation areas</h2><table><thead><tr><th>Name</th><th>SMART id</th><th>Version</th><th>Contents</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
+}
+
+function renderLoadsTab(d, loads) {
+  var list = (loads || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  var canLoad = (d.export || []).some(hasBundle);
+  var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : '';
+  if (!list.length) return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><p class="empty">No loads yet.</p>';
+  return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><table><thead><tr><th>Area and site</th><th>Status</th><th>Progress</th><th>Started</th><th>By</th></tr></thead><tbody>' +
+    list.map(l => {
+      var p = l.progress, prog = p && p.patrols_total ? Number(p.done || 0).toLocaleString('en-US') + ' of ' + plural(p.patrols_total, 'patrol') : '';
+      return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + esc(l.site ? l.site.name : 'removed site') + '</a></td>' +
+        '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">held</span>' : '') + '</td><td class="tiny">' + esc(prog) + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function renderRangersTab(load) {
+  var rows = load && load.rangers || [];
+  if (!rows.length) return '<p class="empty">No rangers listed yet: a load that reaches patrol setup fills this; the viewer\'s Rangers tab lists the people in the dataset meanwhile.</p>';
+  return '<p class="tiny">From the load of ' + esc(load.ca_id) + ' into ' + esc(load.site ? load.site.name : 'a removed site') + ', ' + esc(fmtDate(load.created_at)) + '</p>' + renderRangersSection(load);
+}
+
+function renderDatasetPage(d, tab, extra) {
+  extra = extra || {};
+  var dis = d.extract_held ? ' disabled' : '';
+  var actions = d.mine ? '<div class="actions row">' +
+    '<button id="shareBtn"' + dis + '><span class="mi" aria-hidden="true">share</span>Share</button>' +
+    '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>Re-extract</button>' +
+    '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>Delete</button></div>' : '';
+  var shared = (d.shared_with || []).length ? ' · shared with ' + d.shared_with.map(esc).join(', ') : '';
+  var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load) : renderOverview(d);
+  return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
+    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · uploaded ' + esc(fmtDate(d.created_at)) + ' · ' + (d.mine ? 'owned by you' : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
+    renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
+}
