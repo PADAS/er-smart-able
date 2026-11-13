@@ -505,6 +505,9 @@ class ErSmartSyncMigration:
         return self._selection
 
     def _select(self) -> list:
+        """What this load imports: nothing for a data-model-only load, else the window's patrols."""
+        if self.options.get("scope") == "datamodel":
+            return []
         from er_smart_sync import patrol_import
         return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
 

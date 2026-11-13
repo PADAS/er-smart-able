@@ -564,6 +564,7 @@ function renderStages(l, active) {
 // ---- rangers: the people behind the subjects, for whoever creates their accounts
 function renderRangers(l) {
   const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
+  const dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
   if (!rows.length) { host.innerHTML = ''; host.dataset.key = ''; return; }
   // the rows change only when patrol setup runs: a poll that brings the same list leaves the table alone
   const key = l.id + ':' + total + ':' + JSON.stringify(rows);
@@ -574,8 +575,8 @@ function renderRangers(l) {
     '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
     '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
     '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
-    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th><th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th><th>Subject</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '') + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
+    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th>' + (dmOnly ? '<th title="In the whole dataset; this load imports no patrols">Patrols (all)</th>' : '<th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th>') + '<th>Subject</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
     '</tbody></table></details>';
   restoreOpen(host, open);
   host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
