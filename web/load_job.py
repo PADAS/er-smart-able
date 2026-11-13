@@ -30,6 +30,7 @@ from store import get_store, now  # noqa: E402
 
 STAGES = ("datamodel", "patrol_datamodel", "preflight", "import")
 LOG_TAIL = 60
+RANGERS_CAP = 500   # rows kept on the load document; rangers.json has them all
 TAIL_LINE = 500   # characters per tail line: the tail lives on the load doc (Firestore: 1 MiB a document)
 FILE_BASED_CA_UUID = "smart-ca-import"
 QUIET_LOGGERS = ("httpx", "httpcore", "urllib3")
@@ -96,6 +97,7 @@ class Runner:
         self.dataset_id = None
         self.findings: list = []  # the latest findings, for whichever exit records them
         self.stages: dict = {}    # this execution's rows: status, started_at, finished_at, metrics
+        self.rangers: list = []   # the people behind the subjects, for whoever creates their accounts
         self._log_lock = threading.Lock()
         self.started = self.clock()
 
@@ -223,6 +225,9 @@ class Runner:
             stage = "patrol_datamodel"
             self._begin(stage)
             checklist, pd_stats, pd_changes = m.patrol_datamodel(self.load_dir)
+            self.rangers = m.rangers()
+            (self.load_dir / "rangers.json").write_text(json.dumps(self.rangers, indent=1))
+            self._update(rangers=self.rangers[:RANGERS_CAP])
             (self.load_dir / "checklist.json").write_text(json.dumps(checklist, indent=1))
             findings += F.from_checklist(checklist)
             self._log(f"patrol-datamodel: {len(checklist)} checklist item(s)")
@@ -445,7 +450,29 @@ class ErSmartSyncMigration:
         stats = {k: getattr(result.stats, k) for k in (
             "schema_written", "schema_skipped", "types_created", "types_updated", "types_unchanged",
             "subjects_created", "subjects_updated", "subjects_unchanged", "subjects_deactivated", "subjects_grouped")}
+        self._subject_ids = dict(result.subject_ids)
         return result.checklist_dicts(), stats, list(result.stats.changes)
+
+    def rangers(self) -> list:
+        """One row per SMART employee who appears on a patrol, as patrol setup
+        named them: for whoever creates their EarthRanger accounts and links
+        each to its subject. Most-patrolled first."""
+        from collections import Counter
+        patrols_of: Counter = Counter()
+        for p in self.bundle.patrols:
+            for uuid in {m["employee_uuid"] for leg in p["legs"] for m in leg["members"]}:
+                patrols_of[uuid] += 1
+        by_uuid = {e.uuid: e for e in self.bundle.reference.employees}
+        ids = getattr(self, "_subject_ids", {})
+        out = []
+        for uuid, n in patrols_of.items():
+            e = by_uuid.get(uuid)
+            name = (" ".join(x for x in (e.given_name, e.family_name) if x) if e else "") or (e.id if e else None) or uuid
+            subject = ids.get(uuid)
+            out.append({"name": name, "smart_employee_id": e.id if e else None, "smart_member_id": uuid,
+                        "active": e.active if e else None, "patrols": n,
+                        "subject_id": None if subject in (None, "dry-run") else subject})
+        return sorted(out, key=lambda r: (-r["patrols"], r["name"]))
 
     def preflight(self) -> dict:
         from er_smart_sync.preflight import render_json, run_preflight
