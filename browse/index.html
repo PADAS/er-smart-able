@@ -792,8 +792,9 @@ function rangerRows() {
   if (rangerCache && rangerCache.ca === CA) return rangerCache.rows;
   const today = new Date().toISOString().slice(0, 10);
   const byU = new Map(), byN = new Map(), rows = [];
-  // a name is a key only when the data has no uuid for the person (older extractions) and it is not blank
-  const add = r => { rows.push(r); if (r.u) byU.set(r.u, r); else if (r.n) byN.set(r.n, r); return r; };
+  // a name matches members only when the data has no uuid for the person (older extractions) and it is not
+  // blank; the first row of a name takes them. Each row's key `k` is its own, so homonyms stay apart.
+  const add = r => { r.k = r.u || 'n' + rows.length; rows.push(r); if (r.u) byU.set(r.u, r); else if (r.n && !byN.has(r.n)) byN.set(r.n, r); return r; };
   for (const e of D.emps) {
     if (e.ca && !caOk(e.ca)) continue;   // employees belong to a conservation area (data format 3 on)
     add({ u: e.u || null, n: e.n || e.id || '(unnamed)', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
@@ -839,7 +840,7 @@ function rRangers(v) {
   function draw() {
     const list = rows.filter(matches);
     let h = '<table><thead><tr><th>Name</th><th>SMART id</th><th>Agency</th><th>Rank</th><th>Employed</th><th class="num">Patrols</th><th class="num">Led</th><th>First – last patrol</th></tr></thead><tbody>';
-    for (const r of list) h += '<tr class="click" data-r="' + esc(r.u || r.n) + '"><td><button class="linkish" data-r="' + esc(r.u || r.n) + '">' + esc(r.n) + '</button>' + (r.known ? '' : ' <span class="pill">not in employee table</span>') + '</td>' +
+    for (const r of list) h += '<tr class="click" data-r="' + esc(r.k) + '"><td><button class="linkish" data-r="' + esc(r.k) + '">' + esc(r.n) + '</button>' + (r.known ? '' : ' <span class="pill">not in employee table</span>') + '</td>' +
       '<td class="mono">' + esc(r.id) + '</td><td>' + esc(r.agency) + '</td><td>' + esc(r.rank) + '</td>' +
       '<td class="num">' + (r.known ? esc(r.sd || '?') + ' → ' + (r.ed ? esc(r.ed) : 'now') : '') + '</td>' +
       '<td class="num">' + fmt(r.patrols) + '</td><td class="num">' + fmt(r.led) + '</td><td class="num">' + (r.first ? esc(r.first) + ' – ' + esc(r.last) : '') + '</td></tr>';
@@ -855,7 +856,7 @@ function rRangers(v) {
   draw();
 }
 function rangerDrawer(id) {
-  const r = rangerRows().find(x => (x.u || x.n) === id);
+  const r = rangerRows().find(x => x.k === id);
   if (!r) return closeDrawer();
   const d = openDrawer();
   d.insertAdjacentHTML('beforeend', '<h3>' + esc(r.n) + '</h3>');
@@ -870,7 +871,7 @@ function rangerDrawer(id) {
   let h = '<table><thead><tr><th>Patrol</th><th>Dates</th><th>Mandate</th><th>Role</th><th class="num">Waypoints</th></tr></thead><tbody>';
   for (const p of ps) {
     const l0 = (p.legs || [])[0] || {};
-    const mine = (p.legs || []).flatMap(l => l.members || []).filter(m => r.u ? m.u === r.u : m.n === r.n);
+    const mine = (p.legs || []).flatMap(l => l.members || []).filter(m => r.u ? m.u === r.u : (!m.u && m.n === r.n));
     h += '<tr class="click" data-p="' + p.u + '"><td class="mono"><button class="linkish" data-p="' + p.u + '">' + esc(p.id) + '</button></td><td class="num">' + p.sd + (p.ed !== p.sd ? ' → ' + p.ed : '') + '</td>' +
       '<td>' + esc(l0.md || '') + '</td><td>' + (mine.some(m => m.ldr) ? '<span class="pill lead">leader</span>' : 'member') + '</td><td class="num">' + fmt(p.nwp) + '</td></tr>';
   }
@@ -897,7 +898,7 @@ async function patrolDrawer(pu, from) {
   if (!p) return closeDrawer();
   const d = openDrawer(), gen = drawerGen;
   if (from && from.ranger) {
-    const r = rangerRows().find(x => (x.u || x.n) === from.ranger);
+    const r = rangerRows().find(x => x.k === from.ranger);
     backButton(d, 'Back to ' + esc(r ? r.n : 'ranger'), { k: 'ranger', id: from.ranger });
   }
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
