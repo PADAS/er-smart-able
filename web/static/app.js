@@ -30,7 +30,11 @@ const LOAD_HASH = /^#load\/([A-Za-z0-9]+)$/;
 window.addEventListener('popstate', e => {
   if (!ME) return;
   const s = e.state || {};
-  if (s.load) showLoad(s.load, 'none'); else showDatasets('none');
+  if (s.load) showLoad(s.load, 'none');
+  else {
+    const m = !e.state && LOAD_HASH.exec(location.hash);   // a hand-edited address: the URL says which view
+    if (m) showLoad(m[1], 'replace'); else showDatasets('none');
+  }
 });
 
 async function boot() {
@@ -314,7 +318,11 @@ async function showLoad(id, nav = 'push') {
   ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
-  try { await renderLoad(); } catch (e) { alert(e.message); showDatasets('replace'); }   // a gone load leaves no entry behind
+  try { await renderLoad(); }
+  catch (e) {   // a gone load leaves no entry behind: the one just pushed is popped, another is replaced
+    alert(e.message);
+    if (nav === 'push') history.back(); else showDatasets('replace');
+  }
 }
 
 const STAGES = ['datamodel', 'patrol_datamodel', 'preflight', 'import'];

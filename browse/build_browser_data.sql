@@ -49,7 +49,7 @@ JOIN 'parquet/patrol_leg.parquet' pl ON pld.patrol_leg_uuid = pl.uuid;
 -- data on disk can say so instead of silently showing less.
 COPY (
   SELECT
-    3 AS data_format,
+    2 AS data_format,
     strftime(now(), '%Y-%m-%d') AS generated,
     (SELECT max(version) FROM 'parquet/db_version.parquet'
       WHERE plugin_id = 'org.wcs.smart') AS db_version,

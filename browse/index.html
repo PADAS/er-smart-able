@@ -434,7 +434,7 @@ async function boot() {
 
 // The JSON under site/data/ and this page must agree on shape. The SQL stamps
 // meta.json with data_format; data written before the stamp counts as 1.
-const DATA_FORMAT = 3;
+const DATA_FORMAT = 2;
 function checkDataFormat() {
   const have = D.meta.data_format || 1;
   if (have === DATA_FORMAT) return;
@@ -642,7 +642,7 @@ function rOverview(v) {
   const profN = D.profiles.entities.filter(e => caOk(e.ca)).length || null;
   v.appendChild(el('div', 'tiles',
     tile(patrols.length, 'patrols') + tile(wps.length, 'waypoints') + tile(obsN, 'observations') +
-    (profN !== null ? tile(profN, 'profile entities') : '') + tile(D.emps.length, 'employees in CA table')));
+    (profN !== null ? tile(profN, 'profile entities') : '') + tile(D.emps.filter(e => !e.ca || caOk(e.ca)).length, 'employees in CA table')));
   const p1 = el('div', 'panel');
   p1.appendChild(el('h2', null, 'Waypoints per year'));
   p1.appendChild(yearChart(wps));
@@ -793,31 +793,32 @@ function rangerRows() {
   const today = new Date().toISOString().slice(0, 10);
   const byU = new Map(), byN = new Map(), rows = [];
   // a name matches members only when the data has no uuid for the person (older extractions) and it is not
-  // blank; the first row of a name takes them. Each row's key `k` is its own, so homonyms stay apart.
-  const add = r => { r.k = r.u || 'n' + rows.length; rows.push(r); if (r.u) byU.set(r.u, r); else if (r.n && !byN.has(r.n)) byN.set(r.n, r); return r; };
-  for (const e of D.emps) {
-    if (e.ca && !caOk(e.ca)) continue;   // employees belong to a conservation area (data format 3 on)
-    add({ u: e.u || null, n: e.n || e.id || '(unnamed)', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
-      sd: e.sd || '', ed: e.ed || null, active: !e.ed || e.ed >= today, known: true, patrols: 0, led: 0, first: null, last: null, pus: [] });
-  }
+  // blank; the first row of a name takes them. Each row's key `k` is its own and stable across selections
+  // (the uuid, the employee's place in the file, or the member's name), so homonyms stay apart and a link holds.
+  const add = (r, k) => { r.k = r.u || k; rows.push(r); if (r.u) byU.set(r.u, r); else if (r.n && !byN.has(r.n)) byN.set(r.n, r); return r; };
+  D.emps.forEach((e, i) => add({ u: e.u || null, ca: e.ca || null, n: e.n || e.id || '(unnamed)', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
+    sd: e.sd || '', ed: e.ed || null, active: !e.ed || e.ed >= today, known: true, patrols: 0, led: 0, first: null, last: null, pus: [] }, 'e' + i));
   for (const p of D.patrols) {
     if (!caOk(p.ca)) continue;
     const onThis = new Map();   // member -> led any leg of this patrol
     for (const leg of (p.legs || [])) for (const m of (leg.members || [])) {
       let r = (m.u && byU.get(m.u)) || (m.n && byN.get(m.n));
-      if (!r) r = add({ u: m.u || null, n: m.n || (m.u ? m.u : '(unnamed member)'), id: '', agency: '', rank: '', sd: '', ed: null, active: false, known: false, patrols: 0, led: 0, first: null, last: null, pus: [] });
+      if (!r) r = add({ u: m.u || null, ca: null, n: m.n || (m.u ? m.u : '(unnamed member)'), id: '', agency: '', rank: '', sd: '', ed: null, active: false, known: false, patrols: 0, led: 0, first: null, last: null, pus: [] }, 'm' + encodeURIComponent(m.n || ''));
       onThis.set(r, (onThis.get(r) || false) || !!m.ldr);
     }
     for (const [r, led] of onThis) {   // one patrol counts once, however many legs
       r.patrols++; r.pus.push(p.u);
       if (led) r.led++;
+      const end = p.ed || p.sd;   // a patrol with no end date ends the day it starts
       if (!r.first || p.sd < r.first) r.first = p.sd;
-      if (!r.last || p.ed > r.last) r.last = p.ed;
+      if (!r.last || end > r.last) r.last = end;
     }
   }
-  rows.sort((a, b) => b.patrols - a.patrols || a.n.localeCompare(b.n));
-  rangerCache = { ca: CA, rows };
-  return rows;
+  // the selection's people: its conservation area's employees (all of them when the data has no area)
+  // plus anyone on its patrols, from any area
+  const shown = rows.filter(r => !r.ca || caOk(r.ca) || r.patrols > 0).sort((a, b) => b.patrols - a.patrols || a.n.localeCompare(b.n));
+  rangerCache = { ca: CA, rows: shown };
+  return shown;
 }
 function rRangers(v) {
   v.insertAdjacentHTML('beforeend', '<p class="muted">Everyone in the conservation area\'s employee table, and anyone else named on a patrol leg, with the patrols they appear on. ' +
@@ -879,6 +880,8 @@ function rangerDrawer(id) {
   d.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p, from: { ranger: id } }));
   d.querySelectorAll('button[data-p]').forEach(b => b.onclick = e => { e.stopPropagation(); go({ k: 'patrol', id: b.dataset.p, from: { ranger: id } }); });
 }
+// The viewer is one self-contained file (it is also served from a dataset's folder with no app around it),
+// so this helper is the same as web/static/app.js's rather than shared.
 function downloadCsv(filename, header, rows) {
   // a cell a spreadsheet would read as a formula gets a leading quote; the byte-order mark keeps accented names intact in Excel
   const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -893,6 +896,7 @@ async function ensureTracks() {
   D.tracks = new Map(rows.map(r => [r.p, r.g.map(asGeom)]));
 }
 
+// from: { ranger } when opened from a ranger's drawer
 async function patrolDrawer(pu, from) {
   const p = D.patrolBy.get(pu);
   if (!p) return closeDrawer();
@@ -934,7 +938,7 @@ async function patrolDrawer(pu, from) {
       os.map(obsHtml).join('');
     const ph = photoStrip(D.attBy.wp.get(w.u));
     if (ph) row.appendChild(ph);
-    const open = () => go({ k: 'wp', id: w.u, from: { patrol: pu } });
+    const open = () => go({ k: 'wp', id: w.u, from: { patrol: pu, patrolFrom: from } });
     row.onclick = e => { if (!e.target.closest('.photos')) open(); }; // photos open the preview instead
     row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
     list.appendChild(row);
@@ -1073,7 +1077,7 @@ function wpDrawer(w, from) {
   const d = openDrawer();
   if (from && from.patrol) {
     const p = D.patrolBy.get(from.patrol);
-    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), { k: 'patrol', id: from.patrol });
+    backButton(d, 'Back to patrol ' + esc(p ? p.id : ''), { k: 'patrol', id: from.patrol, from: from.patrolFrom });
   }
   d.insertAdjacentHTML('beforeend', '<h3>Waypoint</h3><div class="kv">' +
     '<div>Time</div><div class="mono">' + w.t + '</div>' +
