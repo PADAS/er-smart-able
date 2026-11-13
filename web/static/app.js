@@ -319,9 +319,10 @@ async function showLoad(id, nav = 'push') {
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); }
-  catch (e) {   // a gone load leaves no entry behind: the one just pushed is popped, another is replaced
+  catch (e) {   // a gone load leaves no entry behind: the entry becomes the list, and a pushed one is also stepped off
     alert(e.message);
-    if (nav === 'push') history.back(); else showDatasets('replace');
+    if (nav === 'push') { history.replaceState({}, '', location.pathname + location.search); history.back(); }
+    else showDatasets('replace');
   }
 }
 

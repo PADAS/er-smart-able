@@ -74,10 +74,11 @@ def test_employees_and_leg_members_carry_the_employee_uuid(tmp_path, monkeypatch
         "employee": [{"uuid": emp, "ca_uuid": ca, "id": "E1", "givenname": "Ana", "familyname": "Cruz"}],
         "patrol": [{"uuid": pat, "ca_uuid": ca, "id": "P-1", "patrol_type": "GROUND", "start_date": "2026-03-04", "end_date": "2026-03-04"}],
         "patrol_leg": [{"uuid": leg, "patrol_uuid": pat, "id": "1", "start_date": "2026-03-04", "end_date": "2026-03-04"}],
-        "patrol_leg_members": [{"patrol_leg_uuid": leg, "employee_uuid": emp, "is_leader": True}],
+        "patrol_leg_members": [{"patrol_leg_uuid": leg, "employee_uuid": emp, "is_leader": True},
+                               {"patrol_leg_uuid": leg, "employee_uuid": "d" * 32, "is_leader": False}],   # record deleted in SMART
     })
     employees = json.loads((data / "employees.json").read_text())
     assert employees == [{"u": emp, "ca": "ALPHA", "n": "Ana Cruz", "id": "E1", "agency": "", "rank": "", "sd": None, "ed": None}]
     assert json.loads((data / "meta.json").read_text())[0]["data_format"] == 2   # additive fields: older data still renders
     patrols = json.loads((data / "patrols.json").read_text())
-    assert patrols[0]["legs"][0]["members"] == [{"u": emp, "n": "Ana Cruz", "ldr": True}]
+    assert patrols[0]["legs"][0]["members"] == [{"u": emp, "n": "Ana Cruz", "ldr": True}, {"u": "d" * 32, "n": "", "ldr": False}]

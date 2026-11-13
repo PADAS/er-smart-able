@@ -88,9 +88,10 @@ COPY (
         ed := strftime(leg.end_date, '%Y-%m-%d'),
         tr := coalesce(ltr.label, ''),
         md := coalesce(lmd.label, ''),
-        members := (SELECT list(struct_pack(u := m.employee_uuid, n := e.name, ldr := m.is_leader))
+        -- a member whose employee record SMART no longer has keeps its uuid and an empty name
+        members := (SELECT list(struct_pack(u := m.employee_uuid, n := coalesce(e.name, ''), ldr := m.is_leader))
                     FROM 'parquet/patrol_leg_members.parquet' m
-                    JOIN emp e ON e.uuid = m.employee_uuid
+                    LEFT JOIN emp e ON e.uuid = m.employee_uuid
                     WHERE m.patrol_leg_uuid = leg.uuid),
         days := (SELECT list(struct_pack(
                      d := strftime(pld.patrol_day, '%Y-%m-%d'),
