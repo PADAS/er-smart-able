@@ -192,7 +192,7 @@ table.rangers { margin-top: 6px; }
 a.dataset-card { display: flex; justify-content: space-between; gap: 16px; color: inherit; text-decoration: none; }
 a.dataset-card:hover { border-color: var(--er-ui-cta-primary); }
 .dataset-card .card-meta { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.dataset-card .card-error { color: var(--er-ui-status-error-destructive); }
+.card-error { color: var(--er-ui-status-error-destructive); }
 .dataset-card .card-side { text-align: right; white-space: nowrap; }
 .dataset-card .shared-mark { text-transform: uppercase; letter-spacing: 0.04em; }
 .stack { display: flex; flex-direction: column; gap: 12px; }

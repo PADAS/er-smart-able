@@ -5,7 +5,7 @@ let CONFIG = null, ME = null, pollTimer = null;
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
   if (r.status === 401) { showSignIn(); throw new Error('Sign in required'); }
-  if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} throw new Error(d || r.statusText); }
+  if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} const err = new Error(d || r.statusText); err.status = r.status; throw err; }
   return r.status === 204 ? null : r.json();
 }
 
@@ -185,6 +185,9 @@ async function showDataset(route) {
   try { d = await api('/api/datasets/' + route.id); }
   catch (e) {
     if (!current()) return;
+    if (e.status !== 404) { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+    // the dead route's entry becomes the list's address, so Back never lands on it; the page stays the not-found notice
+    history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
     setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
     mountPage(renderNotFound());
     return;
@@ -219,7 +222,7 @@ function bindDataset(d, tab, route, extra) {
     try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { alert(e.message); }
   };
   document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
-  const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d);
+  const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d, (d.export.find(hasBundle) || {}).dir);
   if (tab === 'rangers' && extra.load) bindRangers($('#tabBody'), extra.load);
 }
 
