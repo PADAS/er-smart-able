@@ -3,7 +3,7 @@ const test = require('node:test'); const assert = require('node:assert/strict');
 const P = load();
 test('every status maps to a token class', () => {
   const m = { running: 'running', continuing: 'running', queued: 'pending', planning: 'pending', uploading: 'pending', planned: 'ready',
-              needs_attention: 'warning', done: 'success', ready: 'success', failed: 'error', interrupted: 'interrupted', whatever: 'pending' };
+              needs_attention: 'warning', stopped: 'warning', done: 'success', ready: 'success', failed: 'error', interrupted: 'interrupted', whatever: 'pending' };
   for (const [s, c] of Object.entries(m)) assert.equal(P.statusClass(s), c, s);
   assert.equal(P.pill('needs_attention'), '<span class="pill st-warning">needs attention</span>');
   assert.equal(P.pill('done', 'Done'), '<span class="pill st-success">Done</span>');

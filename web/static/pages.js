@@ -29,7 +29,7 @@ function routeHash(route) {
 var STATUS_CLASS = {
   running: 'running', continuing: 'running', extracting: 'running',
   done: 'success', ready: 'success', success: 'success',
-  needs_attention: 'warning', warning: 'warning',
+  needs_attention: 'warning', warning: 'warning', stopped: 'warning',
   failed: 'error', blocking: 'error', error: 'error',
   planned: 'ready',
   queued: 'pending', planning: 'pending', uploading: 'pending', pending: 'pending',
