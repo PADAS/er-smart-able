@@ -81,7 +81,8 @@ class FakeMigration:
                 progress({"phase": phase, "total": len(PATROLS), "done": i + 1,
                           "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0,
                           "phase_skipped": self.phase_skipped.get(phase, 0) if i + 1 >= len(PATROLS) else 0})
-        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False}
+        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False,
+                "counts": {"events_created": 9, "events_existing": 2, "events_reported_by": 10, "events_reported_by_backfilled": 2}}
 
 
 class Clock:
@@ -475,7 +476,8 @@ def test_stages_record_status_times_and_metrics(env):
     assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
     assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
     assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
-    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0}
+    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0, "events_on_site": 11,
+                                       "events_reported_by": 10, "events_reported_by_backfilled": 2}
 
 
 def test_the_rangers_are_recorded_after_patrol_setup_even_when_the_run_stops(env):
@@ -554,7 +556,8 @@ def test_the_log_tail_is_recorded_as_the_job_goes(env, monkeypatch):
 def test_failed_patrols_leave_the_import_row_done(env):
     rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "boom"}), "queued")
     assert load["status"] == "needs_attention"
-    assert load["stages"]["import"]["status"] == "done" and load["stages"]["import"]["metrics"] == {"imported": 2, "failed": 1, "skipped": 0}
+    assert load["stages"]["import"]["status"] == "done"
+    assert {k: load["stages"]["import"]["metrics"][k] for k in ("imported", "failed", "skipped")} == {"imported": 2, "failed": 1, "skipped": 0}
 
 
 def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):

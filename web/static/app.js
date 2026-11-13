@@ -536,7 +536,10 @@ function importSummary(l, live) {
   const row = (l.stages || {}).import || {};
   if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
     const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
-    return of + (secs != null ? ' · ' + fmtDur(secs) : '');
+    const m = row.metrics || {};
+    const reported = m.events_on_site ? ' · ' + m.events_reported_by.toLocaleString() + ' of ' + m.events_on_site.toLocaleString() + ' events report who made them' +
+      (m.events_reported_by_backfilled ? ' (' + m.events_reported_by_backfilled.toLocaleString() + ' filled in on events from an earlier load)' : '') : '';
+    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + reported;
   }
   // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
   const since = p.phase ? p.phase_started_at : row.started_at;

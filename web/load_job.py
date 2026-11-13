@@ -358,7 +358,12 @@ class Runner:
         progress = {"patrols_total": total, "done": imported + len(failed), "failed": len(failed),
                     "skipped": last.get("already_imported", 0), "events": counts.get("observations", 0),
                     "track_points": counts.get("track_points", 0)}
-        self.stages["import"]["metrics"] = {"imported": imported, "failed": len(failed), "skipped": progress["skipped"]}
+        c = result.get("counts") or {}
+        self.stages["import"]["metrics"] = {"imported": imported, "failed": len(failed), "skipped": progress["skipped"],
+                                            # who the events say reported them: the observer's subject, else the leg's leader
+                                            "events_on_site": c.get("events_created", 0) + c.get("events_existing", 0),
+                                            "events_reported_by": c.get("events_reported_by", 0),
+                                            "events_reported_by_backfilled": c.get("events_reported_by_backfilled", 0)}
         if not result.get("stopped_early"):
             self.stages["import"].update(status="done", finished_at=now())   # it ran to its end; failed patrols are findings
         self._log(f"import: {imported} imported, {len(failed)} failed"
@@ -551,7 +556,8 @@ class ErSmartSyncMigration:
         result = patrol_import.run_import(self.api, self.bundle, endpoint=self.endpoint, ledger=self.ledger, opts=opts,
                                           ns=self.ns, importer_version=pkg_version("er-smart-sync"),
                                           report=getattr(self, "_report", None), progress=progress, stop=stop, **extra)
-        return {"imported": list(result.imported), "failed": dict(result.failed), "stopped_early": result.stopped_early}
+        return {"imported": list(result.imported), "failed": dict(result.failed), "stopped_early": result.stopped_early,
+                "counts": dict(result.counts)}
 
 
 def make_migration(**kw):

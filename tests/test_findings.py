@@ -121,7 +121,7 @@ def test_plan_mode_adjust_marks_what_the_run_creates(findings):
              _pre("teams"), _pre("permissions"), _pre("feature_flag"), _pre("timezone"), _pre("collection_type", "warning"),
              {"stage": "patrol_datamodel", "code": "team", "severity": "blocking", "title": "Create the patrol team A"}]
     out = findings.plan_mode_adjust(given)
-    assert findings.CREATED_BY_RUN == {"event_types", "patrol_types", "segment_schema", "subjects", "choices"}
+    assert findings.CREATED_BY_RUN == {"event_types", "patrol_types", "segment_schema", "subjects", "choices", "observers"}
     assert [f["severity"] for f in out[:5]] == ["info"] * 5
     assert out[0]["title"] == "Will be created by this load: 1 patrol type(s) the legs need are missing or inactive"
     assert out[5:] == given[5:]          # ambiguous, variants and what a run cannot create stay

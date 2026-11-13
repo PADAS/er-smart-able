@@ -113,6 +113,10 @@ A warning. Some waypoints hold several observations, and the site has no active 
 
 A warning, nothing to do. SMART stores some leg dates as a placeholder; the import keeps only the leg days that have a track or a waypoint. To correct the dates, fix the leg in SMART and re-export.
 
+### Observations nobody can be said to have reported {#finding-observers}
+
+A warning. Each imported event names who reported it: the subject of the SMART observer, or, when that person has no subject on the site, the leg's leader, else its first member. The listed observations have none of those, so their events carry no reporter. Nothing to do unless it matters: give the observer an employee record in SMART and re-export. In a plan this is expected for observers whose subjects the run will create.
+
 ### The extraction recorded warnings {#finding-bundle_warnings}
 
 A warning. smart-able noted things about the data when it wrote the bundle. They are listed in the bundle's manifest and explained in *SMART data quirks*.
