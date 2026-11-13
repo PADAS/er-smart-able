@@ -333,6 +333,9 @@ All in the existing single page (`web/templates/index.html`,
      active, a collapsed tail afterwards), and downloads of the files.
 - Polling every few seconds while a load is active, like the dataset list
   during extraction.
+- The dataset list and each load page are browser history entries: Back from
+  a load returns to the list rather than leaving the app, and a load's link
+  (`#load/<id>`) can be shared or reloaded.
 
 ## Infrastructure
 
