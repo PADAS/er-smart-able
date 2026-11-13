@@ -2,7 +2,8 @@
   --brand: #0d5c4b; --brand-ink: #fff; --accent: #c5e5d8; --accent-ink: #0b3d32;
   --bg: #faf2e9; --surface: #fff; --line: #e3dbd0; --chip: #f0ebe3;
   --ink: #1f2a26; --ink-2: #4b5753; --ink-3: #7c8783; --danger: #a33a2a;
-  --sans: Inter, system-ui, sans-serif;
+  --sans: Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Roboto Mono", ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --bg: #141817; --surface: #1d2321; --line: #2f3835; --chip: #262e2b; --ink: #e8ebe9; --ink-2: #b7bfbb; --ink-3: #8a9490; --accent: #1f6a56; --accent-ink: #e8f5ef; }

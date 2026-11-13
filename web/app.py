@@ -57,7 +57,7 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "er-tokens.css", "fonts/roboto.css")}
 
 app = FastAPI(title="smart-able")
 
