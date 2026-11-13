@@ -13,7 +13,7 @@ ROOT = Path(__file__).parent.parent
 
 # the preflight codes are er-smart-sync's (src/er_smart_sync/preflight.py, every Finding.of); the
 # checklist and job codes come from web/findings.py below
-PREFLIGHT_CODES = ["timezone", "language", "time_coverage", "check_failed", "feature_flag", "permissions", "patrol_types",
+PREFLIGHT_CODES = ["timezone", "language", "time_coverage", "check_failed", "observers", "feature_flag", "permissions", "patrol_types",
                    "segment_schema", "choices", "subjects", "inactive_members", "teams", "event_types", "collection_type",
                    "leg_span", "bundle_warnings"]
 

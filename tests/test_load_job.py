@@ -23,7 +23,8 @@ PATROLS = [{"uuid": "u1", "id": "P-1", "start_date": "2019-03-04"}, {"uuid": "u2
 
 
 class FakeMigration:
-    def __init__(self, *, checklist=(), preflight=None, failed=None, per_patrol_seconds=0, clock=None, raise_in=None):
+    def __init__(self, *, checklist=(), preflight=None, failed=None, per_patrol_seconds=0, clock=None, raise_in=None, counts=None):
+        self.import_counts = counts if counts is not None else {"events_created": 9, "events_existing": 2, "events_reported_by": 10, "events_reported_by_backfilled": 2}
         self.dry_calls = []
         self.checklist = list(checklist)
         self.preflight_report = preflight or {"blocking": [], "warnings": []}
@@ -73,7 +74,7 @@ class FakeMigration:
             progress({"phase": phase, "total": len(PATROLS), "done": 0, "failed": 0, "already_imported": 0, "phase_skipped": 0})
             for i, p in enumerate(PATROLS):
                 if stop.is_set():
-                    return {"imported": imported, "failed": dict(self.failed), "stopped_early": True}
+                    return {"imported": imported, "failed": dict(self.failed), "stopped_early": True, "counts": dict(self.import_counts)}
                 if self.clock is not None:
                     self.clock.advance(self.per_patrol_seconds)
                 if phase == "tracks" and p["uuid"] not in self.failed:
@@ -81,7 +82,7 @@ class FakeMigration:
                 progress({"phase": phase, "total": len(PATROLS), "done": i + 1,
                           "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0,
                           "phase_skipped": self.phase_skipped.get(phase, 0) if i + 1 >= len(PATROLS) else 0})
-        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False}
+        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False, "counts": dict(self.import_counts)}
 
 
 class Clock:
@@ -475,7 +476,8 @@ def test_stages_record_status_times_and_metrics(env):
     assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
     assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
     assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
-    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0}
+    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0, "events_written": 9,
+                                       "events_reported_by": 10, "events_reported_by_backfilled": 2}
 
 
 def test_the_rangers_are_recorded_after_patrol_setup_even_when_the_run_stops(env):
@@ -554,7 +556,16 @@ def test_the_log_tail_is_recorded_as_the_job_goes(env, monkeypatch):
 def test_failed_patrols_leave_the_import_row_done(env):
     rc, load, _ = _run(env, "run", FakeMigration(failed={"u2": "boom"}), "queued")
     assert load["status"] == "needs_attention"
-    assert load["stages"]["import"]["status"] == "done" and load["stages"]["import"]["metrics"] == {"imported": 2, "failed": 1, "skipped": 0}
+    assert load["stages"]["import"]["status"] == "done"
+    assert {k: load["stages"]["import"]["metrics"][k] for k in ("imported", "failed", "skipped")} == {"imported": 2, "failed": 1, "skipped": 0}
+
+
+def test_the_import_row_says_what_this_execution_did(env):
+    """A fill-only pass (events from an earlier load given a reporter) shows its work with no event written."""
+    fill = FakeMigration(counts={"events_reported_by_backfilled": 7})
+    rc, load, _ = _run(env, "run", fill, "queued")
+    m = load["stages"]["import"]["metrics"]
+    assert m["events_written"] == 0 and m["events_reported_by"] == 0 and m["events_reported_by_backfilled"] == 7
 
 
 def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):
