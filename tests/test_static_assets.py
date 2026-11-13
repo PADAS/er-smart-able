@@ -23,9 +23,10 @@ def test_the_app_stylesheet_has_no_raw_colour():
 
 def test_fonts_are_self_hosted_with_a_fallback_and_optional_display():
     css = (STATIC / "fonts" / "roboto.css").read_text()
-    for w in (400, 500, 700):
-        assert f"font-weight: {w};" in css and f"roboto-{w}.woff2" in css and (STATIC / "fonts" / f"roboto-{w}.woff2").stat().st_size > 5000
-    assert css.count("font-display: optional;") == 3
+    assert "font-weight: 400 700;" in css and "roboto.woff2" in css
+    assert (STATIC / "fonts" / "roboto.woff2").stat().st_size > 5000
+    assert css.count("font-display: optional;") == 1
+    assert not (STATIC / "fonts" / "roboto-400.woff2").exists()
     app = (STATIC / "app.css").read_text()
     assert 'Roboto, system-ui, "Helvetica Neue", Arial, sans-serif' in app
     html = (ROOT / "web" / "templates" / "index.html").read_text()
