@@ -91,6 +91,11 @@ def test_links_do_not_leave_the_app(help_mod):
     assert '<a target="_blank" rel="noopener" href="https://github.com' in quirks
 
 
+def test_the_rangers_section_has_its_entry(help_mod):
+    loading = next(s for s in help_mod.sections() if s["id"] == "loading")["html"]
+    assert 'id="rangers-accounts"' in loading and "linked subject" in loading
+
+
 def test_every_load_status_has_an_entry(help_mod):
     statuses = next(s for s in help_mod.sections() if s["id"] == "statuses")["html"]
     for st in ["planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"]:

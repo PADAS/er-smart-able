@@ -48,6 +48,10 @@ class FakeMigration:
         (Path(out_dir) / "checklist.md").write_text("# checklist")
         return self.checklist, {"schema_written": True, "subjects_grouped": 1}, [{"kind": "patrol_type", "action": "created", "value": "patrol_foot"}]
 
+    def rangers(self):
+        return [{"name": "Ana Cruz", "smart_employee_id": "E1", "smart_member_id": "m1", "active": True, "patrols": 3, "patrols_total": 3, "deleted": False, "subject_id": "s1"},
+                {"name": "Ben Reyes", "smart_employee_id": "E2", "smart_member_id": "m2", "active": False, "patrols": 1, "patrols_total": 4, "deleted": False, "subject_id": None}]
+
     def preflight(self):
         self._call("preflight"); return self.preflight_report
 
@@ -472,6 +476,32 @@ def test_stages_record_status_times_and_metrics(env):
     assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
     assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
     assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0}
+
+
+def test_the_rangers_are_recorded_after_patrol_setup_even_when_the_run_stops(env):
+    rc, load, _ = _run(env, "run", FakeMigration(checklist=[TEAM]), "queued")
+    assert load["status"] == "needs_attention"
+    assert [r["name"] for r in load["rangers"]] == ["Ana Cruz", "Ben Reyes"] and load["rangers"][0]["patrols"] == 3
+    assert load["rangers_total"] == 2
+    store = env[0]
+    assert store.get_load_file(load["dataset_id"], load["id"], "rangers.json") is not None
+
+
+def test_the_rangers_list_outlives_an_execution_that_stops_before_patrol_setup(env):
+    old = [{"name": "Ana Cruz", "patrols": 3}]
+
+    def reject(host, token):
+        raise sys.modules["er_site"].TokenRejected("401")
+    rc, load, _ = _run(env, "run", FakeMigration(), "queued", check_token=reject, rangers=old, rangers_total=1)
+    assert load["status"] == "needs_attention" and load["rangers"] == old   # per site and bundle, not per execution
+
+
+def test_a_broken_rangers_list_does_not_fail_the_load(env):
+    m = FakeMigration()
+    m.rangers = lambda: (_ for _ in ()).throw(KeyError("members"))
+    rc, load, _ = _run(env, "run", m, "queued")
+    assert load["status"] == "done" and not load.get("rangers")
+    assert "the rangers list could not be made" in _stored_log(env[0], load)
 
 
 def test_a_plan_records_its_stages_too(env):

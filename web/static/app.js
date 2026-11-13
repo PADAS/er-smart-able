@@ -284,7 +284,7 @@ function showDatasets() { clearTimeout(loadTimer); currentLoad = null; document.
 async function showLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
-  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
+  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); } catch (e) { alert(e.message); showDatasets(); }
@@ -345,6 +345,7 @@ async function renderLoad() {
   const planOpen = openState($('#loadPlan'));
   $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
   restoreOpen($('#loadPlan'), planOpen);
+  renderRangers(l);
   const p = l.progress;
   const prevLog = $('#loadProgress details'), prevPre = prevLog && prevLog.querySelector('pre');
   const logOpen = prevLog ? prevLog.open : active;
@@ -352,7 +353,7 @@ async function renderLoad() {
   $('#loadProgress').innerHTML = (p && p.patrols_total && l.mode !== 'plan' ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
     (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
     (l.log_tail ? '<details' + (logOpen ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
-    '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
+    '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'rangers.json', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
   const pre = $('#loadProgress pre.log');
   if (pre) pre.scrollTop = atBottom ? pre.scrollHeight : scrollTop;
   if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
@@ -523,6 +524,37 @@ function renderStages(l, active) {
   if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
     : '<p class="tiny heartbeat">' + (l.continuations ? 'Continuation ' + esc(l.continuations) + ' running for ' : 'Running for ') + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
   return html;
+}
+
+// ---- rangers: the people behind the subjects, for whoever creates their accounts
+function renderRangers(l) {
+  const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
+  if (!rows.length) { host.innerHTML = ''; host.dataset.key = ''; return; }
+  // the rows change only when patrol setup runs: a poll that brings the same list leaves the table alone
+  const key = l.id + ':' + total + ':' + JSON.stringify(rows);
+  if (host.dataset.key === key && host.firstChild) return;
+  host.dataset.key = key;
+  const open = openState(host);
+  host.innerHTML = '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + count(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
+    '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
+    '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
+    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
+    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th><th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th><th>Subject</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '') + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
+    '</tbody></table></details>';
+  restoreOpen(host, open);
+  host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
+  host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
+    rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
+}
+
+function downloadCsv(filename, header, rows) {
+  // a cell that a spreadsheet would read as a formula gets a leading quote (names and ids come from the SMART export)
+  const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  // the byte-order mark makes Excel read the names as UTF-8, so an accented name copies out as it is on the site
+  const blob = new Blob(['\ufeff' + [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function renderPlan(plan) {

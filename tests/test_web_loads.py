@@ -163,7 +163,9 @@ def test_create_load_plans_first(client, launches):
     assert load["options"] == {"language": "en", "configurable_model": None, "roster_group": "Rangers",
                                "event_category": "smart-050500", "scope": "all", "since": None, "until": None}
     assert launches == [(load["id"], "plan")]
-    assert c.get(f"/api/datasets/{ds}/loads").json()[0]["id"] == load["id"]
+    listed = c.get(f"/api/datasets/{ds}/loads").json()[0]
+    assert listed["id"] == load["id"]
+    assert not {"plan", "findings", "rangers", "log_tail", "stages"} & set(listed)   # the list carries a line per load, not its page
     assert c.get(f"/api/loads/{load['id']}").json()["held"] is True
 
 
