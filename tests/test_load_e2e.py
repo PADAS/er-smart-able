@@ -160,7 +160,8 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert all(e["value"] is None for e in plan["subjects"]["create"])
     # the rangers list names the same people, with how many patrols each appears on, for their accounts
     assert sorted(r["name"] for r in load["rangers"]) == ["Ana Cruz", "Ben Reyes"]
-    assert all(r["patrols"] >= 1 and r["subject_id"] is None and not r["deleted"] for r in load["rangers"])   # a plan creates no subjects
+    assert all(r["patrols"] >= 1 and r["patrols_total"] >= r["patrols"] and r["subject_id"] is None and not r["deleted"]
+               for r in load["rangers"])   # a plan creates no subjects
     codes = {f["code"] for f in load["findings"]}
     assert "team" in codes   # Team One is not on the fake site
     # the empty site lacks the data model the run will write, so those preflight findings are info;

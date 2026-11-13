@@ -159,7 +159,7 @@ class Runner:
             self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, plan and progress")
             small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at", "stages", "findings")}
             self._update(status=status, error=(fields.get("error") or "The full outcome could not be recorded; see log.txt")[:2000],
-                         log_tail=None, plan=None, progress=None, rangers=None, **small)   # the findings are what the operator acts on; rangers.json keeps the rows
+                         log_tail=None, plan=None, progress=None, rangers=None, rangers_total=None, **small)   # the findings are what the operator acts on; rangers.json keeps the rows
             self._log(f"load {self.load_id}: {status} recorded without the tail, plan and progress")
             try:   # so log.txt has both attempts
                 self._push_files()
@@ -226,12 +226,12 @@ class Runner:
             stage = "patrol_datamodel"
             self._begin(stage)
             checklist, pd_stats, pd_changes = m.patrol_datamodel(self.load_dir)
-            self.rangers = m.rangers()
-            (self.load_dir / "rangers.json").write_text(json.dumps(self.rangers, indent=1))
-            try:   # a mid-stage write: its failure must not fail the load (the file has the list)
+            try:   # advisory: its failure must not fail a load whose patrol setup succeeded
+                self.rangers = m.rangers()
+                (self.load_dir / "rangers.json").write_text(json.dumps(self.rangers, indent=1))
                 self._update(rangers=self.rangers[:RANGERS_CAP], rangers_total=len(self.rangers))
             except Exception as e:  # noqa: BLE001
-                self._log(f"recording the rangers failed: {type(e).__name__}: {e}; rangers.json has them")
+                self._log(f"the rangers list could not be made or recorded: {type(e).__name__}: {e}")
             (self.load_dir / "checklist.json").write_text(json.dumps(checklist, indent=1))
             findings += F.from_checklist(checklist)
             self._log(f"patrol-datamodel: {len(checklist)} checklist item(s)")
@@ -463,21 +463,26 @@ class ErSmartSyncMigration:
         each appears on: for whoever creates their EarthRanger accounts and
         links each to its subject. Most-patrolled first."""
         from er_smart_sync.smart_to_er_patrol_schema import build_subjects
-        patrols_of: dict = {}   # over this load's window: what the subject will actually hold
-        for p in self._selected():
-            for uuid in {m["employee_uuid"] for leg in p["legs"] for m in leg["members"]}:
-                patrols_of[uuid] = patrols_of.get(uuid, 0) + 1
+        def patrols_per_member(patrols) -> dict:
+            out: dict = {}
+            for p in patrols:
+                for uuid in {m["employee_uuid"] for leg in p.get("legs") or [] for m in leg.get("members") or []}:
+                    out[uuid] = out.get(uuid, 0) + 1
+            return out
+        in_load = patrols_per_member(self._selected())      # what the subject will hold after this load
+        in_all = patrols_per_member(self.bundle.patrols)     # the person's whole history in the dataset
         ids = getattr(self, "_subject_ids", {})
         known = {e.uuid for e in self.bundle.reference.employees}
         out = []
         for plan in build_subjects(self.bundle):
             subject = ids.get(plan.smart_member_id)
             out.append({"name": plan.name, "smart_employee_id": plan.smart_employee_id, "smart_member_id": plan.smart_member_id,
-                        "active": plan.is_active, "patrols": patrols_of.get(plan.smart_member_id, 0),
+                        "active": plan.is_active, "patrols": in_load.get(plan.smart_member_id, 0),
+                        "patrols_total": in_all.get(plan.smart_member_id, 0),
                         # a leg member whose employee record SMART no longer has: a subject named by its uuid
                         "deleted": plan.smart_member_id not in known,
                         "subject_id": None if subject in (None, "dry-run") else subject})
-        return sorted(out, key=lambda r: (-r["patrols"], r["name"]))
+        return sorted(out, key=lambda r: (-r["patrols"], -r["patrols_total"], r["name"]))
 
     def preflight(self) -> dict:
         from er_smart_sync.preflight import render_json, run_preflight
@@ -495,6 +500,11 @@ class ErSmartSyncMigration:
                 "until": date.fromisoformat(o["until"]) if o.get("until") else None}
 
     def _selected(self) -> list:
+        if not hasattr(self, "_selection"):   # the window's patrols, chosen once per execution
+            self._selection = self._select()
+        return self._selection
+
+    def _select(self) -> list:
         from er_smart_sync import patrol_import
         return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
 

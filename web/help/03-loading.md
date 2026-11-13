@@ -52,7 +52,9 @@ If a job is killed outright, by an outage for example, it cannot report. The loa
 
 Patrol setup creates one subject per SMART employee who appears on a patrol or is still employed, and the import puts their patrols, tracks and reports on it. A ranger who then uses EarthRanger Mobile needs a user account **linked to that subject**: a user's tracks go to its linked subject, and the events they report carry it as *reported by*. Without the link, their first login creates a second subject and the history splits.
 
-The load page's **Rangers** section lists every one of those people, most-patrolled first (a still-employed ranger with no patrols yet shows 0), with the name exactly as it is on the site and whether the person is still active in SMART. The CSV download has the same rows plus an empty email column.
+The load page's **Rangers** section lists every one of those people, with the name exactly as it is on the site, whether the person is still active in SMART, and two patrol counts: on the patrols this load imports (its date window, if one was set) and in the whole dataset. A still-employed ranger with no patrols shows 0. The CSV download has the same rows plus an empty email column.
+
+A row marked *employee record deleted in SMART* is a patrol member whose employee record no longer exists; its subject is named by an identifier. Nobody can sign in as it, so it needs no account.
 
 To give a ranger an account, in Django admin open **Users › add**, enter the name as listed, and in the **linked subject** field pick their subject by that name. Do this before they sign in. The link can only be made from the user side today, and only by an admin.
 
