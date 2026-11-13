@@ -297,7 +297,9 @@ function showDatasets(nav = 'auto') {
 }
 
 async function showLoad(id, nav = 'push') {
-  const entry = { load: id, fromList: nav === 'push' && !currentLoad };
+  const was = history.state || {};
+  // a reload keeps where the load was opened from; only a load reached directly lacks a list behind it
+  const entry = { load: id, fromList: nav === 'push' ? !currentLoad : !!(was.load === id && was.fromList) };
   if (nav === 'push') history.pushState(entry, '', '#load/' + id);
   else if (nav === 'replace') history.replaceState(entry, '', '#load/' + id);
   clearTimeout(pollTimer);
@@ -350,7 +352,7 @@ async function renderLoad() {
   $('#loadActions').innerHTML = actions;
   const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets('push'); } catch (e) { alert(e.message); } };   // its entry would 404
+  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets('replace'); } catch (e) { alert(e.message); } };   // the deleted load's entry becomes the list: Back never lands on it
   const RANK = { blocking: 0, warning: 1, info: 2 };
   const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
   $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +

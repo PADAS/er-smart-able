@@ -122,6 +122,8 @@ th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 11.5px;
      text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); }
 td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 tr.click, div.click { cursor: pointer; }
+button.linkish { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+button.linkish:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 tr.click:hover td, div.click:hover { background: var(--chip); }
 .tableWrap { overflow-x: auto; }
 input[type="search"] {
@@ -837,13 +839,14 @@ function rRangers(v) {
   function draw() {
     const list = rows.filter(matches);
     let h = '<table><thead><tr><th>Name</th><th>SMART id</th><th>Agency</th><th>Rank</th><th>Employed</th><th class="num">Patrols</th><th class="num">Led</th><th>First – last patrol</th></tr></thead><tbody>';
-    for (const r of list) h += '<tr class="click" data-r="' + esc(r.u || r.n) + '"><td>' + esc(r.n) + (r.known ? '' : ' <span class="pill">not in employee table</span>') + '</td>' +
+    for (const r of list) h += '<tr class="click" data-r="' + esc(r.u || r.n) + '"><td><button class="linkish" data-r="' + esc(r.u || r.n) + '">' + esc(r.n) + '</button>' + (r.known ? '' : ' <span class="pill">not in employee table</span>') + '</td>' +
       '<td class="mono">' + esc(r.id) + '</td><td>' + esc(r.agency) + '</td><td>' + esc(r.rank) + '</td>' +
       '<td class="num">' + (r.known ? esc(r.sd || '?') + ' → ' + (r.ed ? esc(r.ed) : 'now') : '') + '</td>' +
       '<td class="num">' + fmt(r.patrols) + '</td><td class="num">' + fmt(r.led) + '</td><td class="num">' + (r.first ? esc(r.first) + ' – ' + esc(r.last) : '') + '</td></tr>';
     h += '</tbody></table>';
     wrap.innerHTML = '<p class="tiny">' + fmt(list.length) + (list.length !== rows.length ? ' of ' + fmt(rows.length) : '') + ' people</p>' + h;
     wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'ranger', id: tr.dataset.r }));
+    wrap.querySelectorAll('button[data-r]').forEach(b => b.onclick = e => { e.stopPropagation(); go({ k: 'ranger', id: b.dataset.r }); });
   }
   search.oninput = () => { rangerQuery = search.value.trim().toLowerCase(); draw(); };
   csvB.onclick = () => downloadCsv('rangers' + (CA === 'all' ? '' : '-' + CA) + '.csv',
@@ -868,11 +871,12 @@ function rangerDrawer(id) {
   for (const p of ps) {
     const l0 = (p.legs || [])[0] || {};
     const mine = (p.legs || []).flatMap(l => l.members || []).filter(m => r.u ? m.u === r.u : m.n === r.n);
-    h += '<tr class="click" data-p="' + p.u + '"><td class="mono">' + esc(p.id) + '</td><td class="num">' + p.sd + (p.ed !== p.sd ? ' → ' + p.ed : '') + '</td>' +
+    h += '<tr class="click" data-p="' + p.u + '"><td class="mono"><button class="linkish" data-p="' + p.u + '">' + esc(p.id) + '</button></td><td class="num">' + p.sd + (p.ed !== p.sd ? ' → ' + p.ed : '') + '</td>' +
       '<td>' + esc(l0.md || '') + '</td><td>' + (mine.some(m => m.ldr) ? '<span class="pill lead">leader</span>' : 'member') + '</td><td class="num">' + fmt(p.nwp) + '</td></tr>';
   }
   d.insertAdjacentHTML('beforeend', h + '</tbody></table>');
   d.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p, from: { ranger: id } }));
+  d.querySelectorAll('button[data-p]').forEach(b => b.onclick = e => { e.stopPropagation(); go({ k: 'patrol', id: b.dataset.p, from: { ranger: id } }); });
 }
 function downloadCsv(filename, header, rows) {
   // a cell a spreadsheet would read as a formula gets a leading quote; the byte-order mark keeps accented names intact in Excel
