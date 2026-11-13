@@ -11,13 +11,38 @@ async function api(path, opts = {}) {
 }
 
 function showSignIn(err) {
-  $('#signIn').hidden = false; $('#appUI').hidden = true; $('#who').hidden = true;
+  clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
+  mountHeader(false); setBreadcrumb(null);
+  mountPage(renderSignIn(CONFIG));
+  $('#signInBtn').onclick = signIn;
   $('#signInError').textContent = err || '';
 }
 function showApp() {
-  $('#signIn').hidden = true; $('#appUI').hidden = false; $('#who').hidden = false;
+  mountHeader(true);
   $('#whoEmail').textContent = ME.email;
   navigate(parseRoute(location.hash), 'replace');   // the address says which page; the first entry is that page
+}
+
+// ---- the shell: the header band, the breadcrumb under it, and one page container
+// signed out, the band shows only the lockup, the name and the version
+function mountHeader(signedIn) {
+  $('#helpBtn').hidden = !signedIn; $('#account').hidden = !signedIn;
+  $('#account').open = false;
+}
+function mountPage(html) { $('#page').innerHTML = html; }
+// parts: [{label, hash?}], the last one where the reader is; none hides the bar
+function setBreadcrumb(parts) {
+  const bar = $('#crumbs');
+  bar.hidden = !(parts && parts.length);
+  bar.innerHTML = parts && parts.length ? renderBreadcrumb(parts) : '';
+}
+// 'system' follows the OS (no data-theme); 'light' and 'dark' pin it. The choice is remembered.
+function setTheme(choice) {
+  if (choice !== 'light' && choice !== 'dark') choice = 'system';
+  if (choice === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = choice;
+  try { localStorage.theme = choice; } catch (e) { /* storage blocked: the choice lasts this page */ }
+  document.querySelectorAll('input[name="theme"]').forEach(r => { r.checked = r.value === choice; });
 }
 
 // ---- routes are history entries, so Back and Forward move between pages and a page's link can be
@@ -49,24 +74,27 @@ async function openLegacyLoad(id) {
 window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
 
 async function boot() {
+  let theme = 'system';
+  try { theme = localStorage.theme || 'system'; } catch (e) { /* storage blocked */ }
+  setTheme(theme);   // before the first fetch, so the page never flashes the other theme
   CONFIG = await (await fetch('/api/config')).json();
-  $('#allowedHint').textContent = CONFIG.allowed;
   if (!CONFIG.authDisabled) {
     firebase.initializeApp({ apiKey: CONFIG.apiKey, authDomain: CONFIG.authDomain, projectId: CONFIG.projectId });
     if (CONFIG.authEmulatorUrl) firebase.auth().useEmulator(CONFIG.authEmulatorUrl);
   }
-  $('#signInBtn').onclick = signIn;
   $('#helpBtn').onclick = () => openHelp();
   $('#helpClose').onclick = closeHelp;
   $('#helpBody').onscroll = helpScrolled;
   $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
-  $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
+  document.querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
+  $('#menuSites').onclick = () => { $('#account').open = false; navigate({ page: 'sites' }); };
+  // the menu closes on a click outside it or Escape, like any menu
+  document.addEventListener('click', e => { if ($('#account').open && !$('#account').contains(e.target)) $('#account').open = false; });
+  $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
+  $('#signOut').onclick = async () => { $('#account').open = false; await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
   $('#modalClose').onclick = () => { $('#modal').hidden = true; };
-  $('#uploadForm').onsubmit = upload;
-  $('#siteForm').onsubmit = addSite;
-  $('#loadBack').onclick = () => showDatasets();
   // the title goes home from anywhere in the app; signed in, without reloading the page
   $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); $('#modal').hidden = true; showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
@@ -85,7 +113,6 @@ async function signIn() {
 }
 
 // ---- datasets
-const pill = status => '<span class="pill ' + esc(status) + '">' + esc(String(status).replace(/_/g, ' ')) + '</span>';
 let listGen = 0, listHtml = null;   // which render of the list is current, and what it last drew
 
 async function loadList() {
@@ -314,10 +341,11 @@ function showDatasets(nav = 'auto') {
   }
   navigate({ page: 'home' }, nav);
 }
+// the home page is rebuilt in a later task; until then it holds the old list and sites
 function showHome() {
-  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
-  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false);
-  $('#loadPage').hidden = true;
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null; listHtml = null;
+  setBreadcrumb(null);
+  mountPage('<div class="panel"><h2>Datasets</h2><div id="list"></div></div><div class="panel"><h2>EarthRanger sites</h2><div id="sites"></div></div>');
   loadList(); loadSites();
 }
 
@@ -326,9 +354,9 @@ function showLoad(id, nav = 'push') { navigate({ page: 'legacy-load', load: id }
 async function openLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
-  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
-  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
-  $('#loadPage').hidden = false;
+  // the load page is rebuilt in a later task; until then it keeps its old containers
+  mountPage('<section id="loadPage" class="panel"><h2 id="loadTitle"></h2><div id="loadStages" class="stages"></div><div id="loadActions" class="row"></div>' +
+    '<div id="loadFindings"></div><div id="loadPlan"></div><div id="loadRangers"></div><div id="loadProgress"></div></section>');
   try { await renderLoad(); }
   catch (e) {   // a gone load leaves the list in its place
     alert(e.message);
@@ -575,8 +603,8 @@ function renderStages(l, active) {
     const r = rows[s], status = r ? r.status : 'pending';
     const running = status === 'running' && active;
     const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
-    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td><span class="pill ' + esc(running ? 'running' : status === 'running' ? 'stale' : status) + '">' +
-      esc(running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</span></td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
+    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td>' +
+      pill(running ? 'running' : status === 'running' ? 'interrupted' : status, running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
   }
   html += '</tbody></table>';
   if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'

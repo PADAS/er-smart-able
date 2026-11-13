@@ -7,7 +7,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "web" / "static"
-RAW_COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|\b(?:white|black|red|blue|green|gray|grey)\b")
+# a named colour is a whole word: white-space and --er-greyscale-white are not colours
+RAW_COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(|(?<![\w-])(?:white|black|red|blue|green|gray|grey)(?![\w-])")
 
 
 def test_the_tokens_file_is_the_design_systems():
@@ -16,7 +17,6 @@ def test_the_tokens_file_is_the_design_systems():
     assert "--er-ui-text-primary-text: #0a3235;" in css and '[data-theme="dark"]' in css
 
 
-@pytest.mark.xfail(strict=True, reason="until Task 4")
 def test_the_app_stylesheet_has_no_raw_colour():
     css = (STATIC / "app.css").read_text()
     offenders = [l for l in css.splitlines() if RAW_COLOUR.search(l) and "/*" not in l]

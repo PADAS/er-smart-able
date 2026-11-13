@@ -24,3 +24,38 @@ function routeHash(route) {
     default: return '#/';
   }
 }
+
+// ---- status: every job status maps to one of the design system's status colours (spec §8)
+var STATUS_CLASS = {
+  running: 'running', continuing: 'running', extracting: 'running',
+  done: 'success', ready: 'success', success: 'success',
+  needs_attention: 'warning', warning: 'warning',
+  failed: 'error', blocking: 'error', error: 'error',
+  planned: 'ready',
+  queued: 'pending', planning: 'pending', uploading: 'pending', pending: 'pending',
+  interrupted: 'interrupted',
+};
+function statusClass(status) { return Object.prototype.hasOwnProperty.call(STATUS_CLASS, status) ? STATUS_CLASS[status] : 'pending'; }
+// a pill is text plus colour, never colour alone; the label defaults to the status in words
+function pill(status, label) {
+  return '<span class="pill st-' + statusClass(status) + '">' + esc(label != null ? label : String(status).replace(/_/g, ' ')) + '</span>';
+}
+
+// ---- the frame: a breadcrumb under the header, the last part where the reader is
+function renderBreadcrumb(parts) {
+  return (parts || []).map((p, i, all) => i < all.length - 1 && p.hash
+    ? '<a href="' + esc(p.hash) + '">' + esc(p.label) + '</a>'
+    : '<span>' + esc(p.label) + '</span>').join('<span class="sep" aria-hidden="true">›</span>');
+}
+
+// ---- sign-in: the band without Help or the account menu, and one centred panel
+function renderSignIn(config) {
+  return '<section class="panel signin">' +
+    '<img class="signin-lockup" src="/static/img/er-lockup-h.svg" alt="EarthRanger">' +
+    '<h1>SMART migration</h1>' +
+    '<p>Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.</p>' +
+    '<p class="muted">Sign in with your ' + esc((config || {}).allowed) + ' Google account.</p>' +
+    '<button id="signInBtn" class="btn primary"><span class="mi" aria-hidden="true">login</span>Sign in with Google</button>' +
+    '<p id="signInError" class="tiny"></p>' +
+    '</section>';
+}
