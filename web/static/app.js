@@ -36,13 +36,22 @@ function setBreadcrumb(parts) {
   bar.hidden = !(parts && parts.length);
   bar.innerHTML = parts && parts.length ? renderBreadcrumb(parts) : '';
 }
-// 'system' follows the OS (no data-theme); 'light' and 'dark' pin it. The choice is remembered.
+// data-theme is always 'light' or 'dark'. 'system' resolves it from the OS and follows a switch
+// while the page is open; 'light' and 'dark' pin it. The choice (system|light|dark) is remembered.
+let themeChoice = 'system', themeQuery = null;
 function setTheme(choice) {
   if (choice !== 'light' && choice !== 'dark') choice = 'system';
-  if (choice === 'system') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = choice;
+  themeChoice = choice;
+  if (!themeQuery && window.matchMedia) {   // registered once; it acts only while the choice is system
+    themeQuery = matchMedia('(prefers-color-scheme: dark)');
+    themeQuery.addEventListener('change', () => { if (themeChoice === 'system') applyTheme(); });
+  }
+  applyTheme();
   try { localStorage.theme = choice; } catch (e) { /* storage blocked: the choice lasts this page */ }
   document.querySelectorAll('input[name="theme"]').forEach(r => { r.checked = r.value === choice; });
+}
+function applyTheme() {
+  document.documentElement.dataset.theme = themeChoice !== 'system' ? themeChoice : themeQuery && themeQuery.matches ? 'dark' : 'light';
 }
 
 // ---- routes are history entries, so Back and Forward move between pages and a page's link can be

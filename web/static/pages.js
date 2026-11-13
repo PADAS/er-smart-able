@@ -51,7 +51,8 @@ function renderBreadcrumb(parts) {
 // ---- sign-in: the band without Help or the account menu, and one centred panel
 function renderSignIn(config) {
   return '<section class="panel signin">' +
-    '<img class="signin-lockup" src="/static/img/er-lockup-h.svg" alt="EarthRanger">' +
+    '<img class="signin-lockup light-only" src="/static/img/er-lockup-h.svg" alt="EarthRanger">' +
+    '<img class="signin-lockup dark-only" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger">' +
     '<h1>SMART migration</h1>' +
     '<p>Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.</p>' +
     '<p class="muted">Sign in with your ' + esc((config || {}).allowed) + ' Google account.</p>' +

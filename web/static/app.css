@@ -7,41 +7,6 @@
   --shadow: color-mix(in srgb, var(--er-ui-text-primary-text) 18%, transparent);
   --scrim: color-mix(in srgb, var(--er-ui-cta-secondary) 55%, transparent);
 }
-/* System on a dark OS: er-tokens.css switches only on data-theme="dark", so the same dark values are mirrored here through its primitives */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --er-ui-background-tertiary-background: var(--er-teal-darkest);
-    --er-ui-background-secondary-background: var(--er-teal-darkest);
-    --er-ui-background-elevated-component-0: var(--er-teal-ai2-dark-teal);
-    --er-ui-background-elevated-component: var(--er-teal-ai2-extra-dark-teal);
-    --er-ui-background-primary-background: var(--er-teal-ai2-extra-dark-teal);
-    --er-ui-background-selected-background: var(--er-teal-t100);
-    --er-ui-background-hover-background: var(--er-teal-t100);
-    --er-ui-text-primary-text: var(--er-greyscale-white);
-    --er-ui-text-primary-text-reversed: var(--er-teal-ai2-extra-dark-teal);
-    --er-ui-text-secondary-text: var(--er-teal-t20);
-    --er-ui-text-form-labels: var(--er-greyscale-white);
-    --er-ui-text-tabs: var(--er-greyscale-white);
-    --er-ui-text-disabled: var(--er-greyscale-7);
-    --er-ui-icons: var(--er-teal-t60);
-    --er-ui-field-outline: var(--er-teal-dark-80);
-    --er-ui-divider-lines: var(--er-teal-dark-90);
-    --er-ui-cta-primary: var(--er-green-7);
-    --er-ui-cta-secondary: var(--er-teal-t90);
-    --er-ui-cta-text: var(--er-greyscale-off-white);
-    --er-ui-status-error-destructive: var(--er-red-5);
-    --er-ui-status-success: var(--er-green-4);
-    --er-ui-status-running: var(--er-blue-3);
-    --er-ui-status-warning: var(--er-amber-5);
-    --er-ui-status-disabled: var(--er-greyscale-7);
-    --er-ui-status-bg-synced-bg: var(--er-green-8);
-    --er-ui-status-bg-pending-sync-bg: var(--er-greyscale-5);
-    --er-ui-status-bg-error-bg: var(--er-red-1);
-    --er-ui-status-bg-draft-bg: var(--er-blue-5);
-    --er-ui-status-bg-active-bg: var(--er-indigo-4);
-    --er-ui-status-bg-warning-bg: var(--er-amber-1);
-  }
-}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; } /* display:flex below would otherwise defeat the hidden attribute */
 body { margin: 0; background: var(--er-ui-background-secondary-background); color: var(--er-ui-text-primary-text); font: 14px/21px var(--sans); }
@@ -67,14 +32,14 @@ code, pre, kbd, .mono { font-family: var(--mono); }
 .empty .btn { margin-top: 10px; }
 
 /* ---- header and menu */
-header { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; background: var(--er-ui-cta-secondary); color: var(--er-ui-text-primary-text-reversed); }
+header { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; background: var(--er-ui-cta-secondary); color: var(--er-ui-cta-text); }
 header .mi { color: inherit; }
 #home { display: flex; align-items: center; }
 #home img { height: 26px; display: block; }
 #appName { font-size: 18px; font-weight: 500; white-space: nowrap; }
 #version { color: inherit; opacity: 0.8; white-space: nowrap; }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
-header .btn.ghost { color: var(--er-ui-text-primary-text-reversed); }
+header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
 #account { position: relative; min-width: 0; }
 #account summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 8px; font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #account summary::-webkit-details-marker { display: none; }
@@ -105,7 +70,7 @@ button:hover, .btn:hover { background: var(--er-ui-background-hover-background);
 .btn.danger .mi, button.danger .mi { color: inherit; }
 .btn.ghost, button.ghost { background: none; border-color: transparent; color: var(--er-ui-cta-secondary); }
 .btn.ghost:hover, button.ghost:hover { background: var(--er-ui-background-hover-background); }
-header .btn.ghost:hover { background: color-mix(in srgb, var(--er-ui-text-primary-text-reversed) 14%, transparent); }
+header .btn.ghost:hover, #account summary:hover { background: color-mix(in srgb, var(--er-ui-cta-text) 14%, transparent); }
 button:disabled, .btn:disabled { opacity: 0.5; cursor: default; }
 input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="search"], select, textarea {
   padding: 7px 10px; border: 1px solid var(--er-ui-field-outline); border-radius: 8px; background: var(--er-ui-background-primary-background); color: var(--er-ui-text-primary-text); font: inherit; }
@@ -129,6 +94,10 @@ button.help .mi { font-size: 16px; color: inherit; }
 .panel.signin { max-width: 480px; margin: 56px auto; padding: 32px 28px; text-align: center; font-size: 16px; line-height: 25.6px; }
 .panel.signin h1 { font-size: 32px; line-height: 1.25; margin: 20px 0 12px; }
 .panel.signin .signin-lockup { max-width: 100%; height: 34px; }
+/* the sign-in lockup: dark on a light panel, white on a dark one */
+.dark-only { display: none; }
+[data-theme="dark"] .light-only { display: none; }
+[data-theme="dark"] .dark-only { display: inline; }
 .panel.signin .btn { margin-top: 8px; }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 th { text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--er-ui-text-secondary-text); background: var(--er-ui-background-elevated-component-0); padding: 6px 8px; border-bottom: 1px solid var(--er-ui-divider-lines); }
