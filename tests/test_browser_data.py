@@ -29,8 +29,9 @@ def _schema() -> dict[str, list[tuple[str, str]]]:
     return tables
 
 
-def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]]) -> Path:
-    """Empty Parquet for every table, conservation_area holding `cas`; run both SQL files."""
+def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]], rows: dict | None = None) -> Path:
+    """Empty Parquet for every table, conservation_area holding `cas` and `rows`
+    ({table: [{column: value}]}) in theirs; run both SQL files."""
     parquet = tmp_path / "parquet"
     parquet.mkdir()
     (tmp_path / "site" / "data").mkdir(parents=True)
@@ -45,6 +46,8 @@ def _build(tmp_path: Path, monkeypatch, cas: list[tuple[str, str, str]]) -> Path
             if table == "conservation_area":
                 for u, i, n in cas:
                     con.execute('INSERT INTO "t_conservation_area" (uuid, id, name) VALUES (?, ?, ?)', [u, i, n])
+            for row in (rows or {}).get(table, []):
+                con.execute(f'INSERT INTO "t_{table}" ({", ".join(row)}) VALUES ({", ".join("?" for _ in row)})', list(row.values()))
             con.execute(f"COPY \"t_{table}\" TO '{parquet / table}.parquet' (FORMAT PARQUET)")
         monkeypatch.chdir(tmp_path)  # the SQL reads parquet/ and writes site/data/ relative to the work dir
         con.execute("\n".join(p.read_text() for p in SQL))
@@ -62,3 +65,18 @@ def test_empty_profiles_tables_give_empty_lists(tmp_path, monkeypatch):
 def test_no_conservation_areas_gives_empty_cas(tmp_path, monkeypatch):
     data = _build(tmp_path, monkeypatch, [])
     assert json.loads((data / "meta.json").read_text())[0]["cas"] == []
+
+
+def test_employees_and_leg_members_carry_the_employee_uuid(tmp_path, monkeypatch):
+    """The Rangers tab matches a leg member to an employee by uuid, not by name."""
+    ca, emp, pat, leg = "a" * 32, "e" * 32, "f" * 32, "1" * 32
+    data = _build(tmp_path, monkeypatch, [(ca, "ALPHA", "Alpha")], rows={
+        "employee": [{"uuid": emp, "ca_uuid": ca, "id": "E1", "givenname": "Ana", "familyname": "Cruz"}],
+        "patrol": [{"uuid": pat, "ca_uuid": ca, "id": "P-1", "patrol_type": "GROUND", "start_date": "2026-03-04", "end_date": "2026-03-04"}],
+        "patrol_leg": [{"uuid": leg, "patrol_uuid": pat, "id": "1", "start_date": "2026-03-04", "end_date": "2026-03-04"}],
+        "patrol_leg_members": [{"patrol_leg_uuid": leg, "employee_uuid": emp, "is_leader": True}],
+    })
+    employees = json.loads((data / "employees.json").read_text())
+    assert employees == [{"u": emp, "n": "Ana Cruz", "id": "E1", "agency": "", "rank": "", "sd": None, "ed": None}]
+    patrols = json.loads((data / "patrols.json").read_text())
+    assert patrols[0]["legs"][0]["members"] == [{"u": emp, "n": "Ana Cruz", "ldr": True}]

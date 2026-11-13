@@ -610,7 +610,7 @@ function wallToEpoch(t, tz) {
 const wpsFiltered = () => D.wps.filter(w => caOk(w.ca));
 
 function buildHeader() {
-  const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],
+  const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],['rangers','Rangers','groups'],
     ['map','Map','map'],['observations','Observations','visibility'],['datamodel','Data model','account_tree'],
     ['profiles','Profiles','badge'],['schema','Schema','schema']];
   const nav = $('#tabs'); nav.innerHTML = '';
@@ -629,7 +629,7 @@ function buildHeader() {
 function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
   const v = $('#view'); v.innerHTML = '';
-  ({overview: rOverview, patrols: rPatrols, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
+  ({overview: rOverview, patrols: rPatrols, rangers: rRangers, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
 }
 
 /* ---------------- Overview ---------------- */
@@ -780,6 +780,99 @@ function rPatrols(v) {
     wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p }));
   }
   drawRows();
+}
+
+// ---- Rangers: the people on the patrols, from the employee table and the leg memberships.
+// A member is matched to an employee by uuid when the data carries it (extractions
+// from November 2026 on) and by name before that.
+let rangerQuery = '';
+function rangerRows() {
+  const today = new Date().toISOString().slice(0, 10);
+  const byU = new Map(), byN = new Map(), rows = [];
+  const add = r => { rows.push(r); if (r.u) byU.set(r.u, r); if (r.n) byN.set(r.n, r); return r; };
+  for (const e of D.emps) add({ u: e.u || null, n: e.n || e.id || '', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
+    sd: e.sd || '', ed: e.ed || null, active: !e.ed || e.ed >= today, known: true, patrols: 0, led: 0, first: null, last: null, pus: [] });
+  for (const p of D.patrols) {
+    if (!caOk(p.ca)) continue;
+    const seen = new Set();
+    for (const leg of (p.legs || [])) for (const m of (leg.members || [])) {
+      let r = (m.u && byU.get(m.u)) || byN.get(m.n);
+      if (!r) r = add({ u: m.u || null, n: m.n || m.u || '?', id: '', agency: '', rank: '', sd: '', ed: null, active: false, known: false, patrols: 0, led: 0, first: null, last: null, pus: [] });
+      const key = r.u || r.n;
+      if (seen.has(key)) continue;   // one patrol counts once, however many legs
+      seen.add(key);
+      r.patrols++; r.pus.push(p.u);
+      if (m.ldr) r.led++;
+      if (!r.first || p.sd < r.first) r.first = p.sd;
+      if (!r.last || p.ed > r.last) r.last = p.ed;
+    }
+  }
+  return rows.sort((a, b) => b.patrols - a.patrols || a.n.localeCompare(b.n));
+}
+function rRangers(v) {
+  v.insertAdjacentHTML('beforeend', '<p class="muted">Everyone in the conservation area\'s employee table, and anyone else named on a patrol leg, with the patrols they appear on. ' +
+    'The import creates one EarthRanger subject per employee on a patrol or still employed, named as here; a ranger who uses EarthRanger Mobile needs a user account linked to that subject. ' +
+    'The patrol counts respect the conservation-area selector.</p>');
+  const rows = rangerRows();
+  if (!rows.length) { v.insertAdjacentHTML('beforeend', '<div class="panel"><p class="muted">No employees or patrol members in this backup.</p></div>'); return; }
+  const active = rows.filter(r => r.active).length, onPatrol = rows.filter(r => r.patrols).length, unknown = rows.filter(r => !r.known).length;
+  v.insertAdjacentHTML('beforeend', '<div class="tiles">' + tile(rows.length, 'people') + tile(active, 'still employed') + tile(onPatrol, 'on at least one patrol') +
+    (unknown ? tile(unknown, 'named on a leg but not in the employee table') : '') + '</div>');
+  const bar = el('div', 'filterbar');
+  const { wrap: searchWrap, inp: search } = searchField('rangerSearch', 'Search name, SMART id, agency, rank…', rangerQuery);
+  bar.appendChild(searchWrap);
+  const csvB = el('button', 'ghost'); csvB.style.marginTop = '0';
+  csvB.innerHTML = '<span class="mi" aria-hidden="true">download</span>Download CSV';
+  bar.appendChild(csvB);
+  v.appendChild(bar);
+  const wrap = el('div', 'panel'); v.appendChild(wrap);
+  const matches = r => !rangerQuery || (r.n + ' ' + r.id + ' ' + r.agency + ' ' + r.rank).toLowerCase().includes(rangerQuery);
+  function draw() {
+    const list = rows.filter(matches);
+    let h = '<table><thead><tr><th>Name</th><th>SMART id</th><th>Agency</th><th>Rank</th><th>Employed</th><th class="num">Patrols</th><th class="num">Led</th><th>First – last patrol</th></tr></thead><tbody>';
+    for (const r of list) h += '<tr class="click" data-r="' + esc(r.u || r.n) + '"><td>' + esc(r.n) + (r.known ? '' : ' <span class="pill">not in employee table</span>') + '</td>' +
+      '<td class="mono">' + esc(r.id) + '</td><td>' + esc(r.agency) + '</td><td>' + esc(r.rank) + '</td>' +
+      '<td class="num">' + (r.known ? esc(r.sd || '?') + ' → ' + (r.ed ? esc(r.ed) : 'now') : '') + '</td>' +
+      '<td class="num">' + fmt(r.patrols) + '</td><td class="num">' + fmt(r.led) + '</td><td class="num">' + (r.first ? esc(r.first) + ' – ' + esc(r.last) : '') + '</td></tr>';
+    h += '</tbody></table>';
+    wrap.innerHTML = '<p class="tiny">' + fmt(list.length) + (list.length !== rows.length ? ' of ' + fmt(rows.length) : '') + ' people</p>' + h;
+    wrap.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'ranger', id: tr.dataset.r }));
+  }
+  search.oninput = () => { rangerQuery = search.value.trim().toLowerCase(); draw(); };
+  csvB.onclick = () => downloadCsv('rangers' + (CA === 'all' ? '' : '-' + CA) + '.csv',
+    ['name', 'smart_employee_id', 'smart_member_id', 'agency', 'rank', 'employed_from', 'employed_to', 'active', 'in_employee_table', 'patrols', 'led', 'first_patrol', 'last_patrol', 'email'],
+    rows.filter(matches).map(r => [r.n, r.id, r.u, r.agency, r.rank, r.sd, r.ed, r.active, r.known, r.patrols, r.led, r.first, r.last, '']));
+  draw();
+}
+function rangerDrawer(id) {
+  const r = rangerRows().find(x => (x.u || x.n) === id);
+  if (!r) return closeDrawer();
+  const d = openDrawer();
+  d.insertAdjacentHTML('beforeend', '<h3>' + esc(r.n) + '</h3>');
+  const kv = [['SMART id', r.id || '—'], ['Agency', r.agency || '—'], ['Rank', r.rank || '—'],
+    ['Employed', r.known ? (r.sd || '?') + ' → ' + (r.ed || 'now') + (r.active ? ' (still employed)' : '') : 'not in the employee table'],
+    ['Patrols', fmt(r.patrols) + (r.led ? ', led ' + fmt(r.led) : '')]];
+  if (r.first) kv.push(['First – last patrol', r.first + ' – ' + r.last]);
+  d.insertAdjacentHTML('beforeend', '<div class="kv">' + kv.map(x => '<div>' + esc(x[0]) + '</div><div>' + esc(x[1]) + '</div>').join('') + '</div>');
+  if (!r.pus.length) return;
+  d.insertAdjacentHTML('beforeend', '<h2>Patrols</h2>');
+  const ps = r.pus.map(u => D.patrolBy.get(u)).filter(Boolean).sort((a, b) => a.sd < b.sd ? 1 : -1);
+  let h = '<table><thead><tr><th>Patrol</th><th>Dates</th><th>Mandate</th><th>Role</th><th class="num">Waypoints</th></tr></thead><tbody>';
+  for (const p of ps) {
+    const l0 = (p.legs || [])[0] || {};
+    const me = (p.legs || []).flatMap(l => l.members || []).find(m => (m.u && m.u === r.u) || m.n === r.n);
+    h += '<tr class="click" data-p="' + p.u + '"><td class="mono">' + esc(p.id) + '</td><td class="num">' + p.sd + (p.ed !== p.sd ? ' → ' + p.ed : '') + '</td>' +
+      '<td>' + esc(l0.md || '') + '</td><td>' + (me && me.ldr ? '<span class="pill lead">leader</span>' : 'member') + '</td><td class="num">' + fmt(p.nwp) + '</td></tr>';
+  }
+  d.insertAdjacentHTML('beforeend', h + '</tbody></table>');
+  d.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p, from: { k: 'ranger', id } }));
+}
+function downloadCsv(filename, header, rows) {
+  // a cell a spreadsheet would read as a formula gets a leading quote; the byte-order mark keeps accented names intact in Excel
+  const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const blob = new Blob(['\ufeff' + [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 async function ensureTracks() {
@@ -2036,6 +2129,7 @@ async function showDrawer(dr, scroll) {
   else if (dr.k === 'entity') entityDrawer(+dr.id, f);
   else if (dr.k === 'record') recordDrawer(dr.id, f);
   else if (dr.k === 'help') helpDrawer(dr.id);
+  else if (dr.k === 'ranger') rangerDrawer(dr.id);
   else closeDrawer();
   const gen = drawerGen;
   await done;

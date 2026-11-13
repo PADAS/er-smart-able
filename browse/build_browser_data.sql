@@ -88,7 +88,7 @@ COPY (
         ed := strftime(leg.end_date, '%Y-%m-%d'),
         tr := coalesce(ltr.label, ''),
         md := coalesce(lmd.label, ''),
-        members := (SELECT list(struct_pack(n := e.name, ldr := m.is_leader))
+        members := (SELECT list(struct_pack(u := m.employee_uuid, n := e.name, ldr := m.is_leader))
                     FROM 'parquet/patrol_leg_members.parquet' m
                     JOIN emp e ON e.uuid = m.employee_uuid
                     WHERE m.patrol_leg_uuid = leg.uuid),
@@ -193,7 +193,7 @@ COPY (
 
 -- ----------------------------------------------------------- employees.json
 COPY (
-  SELECT e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
+  SELECT e.uuid AS u, e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
          coalesce(lrk.label, '') AS rank,
          strftime(emp2.startemploymentdate, '%Y-%m-%d') AS sd,
          strftime(emp2.endemploymentdate, '%Y-%m-%d') AS ed
