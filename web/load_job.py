@@ -175,7 +175,7 @@ class Runner:
         self.dataset_id = load["dataset_id"]
         self.stages = {}
         self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode,
-                     stage=None, progress=None)   # nothing of the previous execution shows as this one's
+                     stage=None, progress=None, rangers=None, rangers_total=None)   # nothing of the previous execution shows as this one's
         self.work.mkdir(parents=True, exist_ok=True)
         findings = self.findings
         stage = None
@@ -227,7 +227,10 @@ class Runner:
             checklist, pd_stats, pd_changes = m.patrol_datamodel(self.load_dir)
             self.rangers = m.rangers()
             (self.load_dir / "rangers.json").write_text(json.dumps(self.rangers, indent=1))
-            self._update(rangers=self.rangers[:RANGERS_CAP])
+            try:   # a mid-stage write: its failure must not fail the load (the file has the list)
+                self._update(rangers=self.rangers[:RANGERS_CAP], rangers_total=len(self.rangers))
+            except Exception as e:  # noqa: BLE001
+                self._log(f"recording the rangers failed: {type(e).__name__}: {e}; rangers.json has them")
             (self.load_dir / "checklist.json").write_text(json.dumps(checklist, indent=1))
             findings += F.from_checklist(checklist)
             self._log(f"patrol-datamodel: {len(checklist)} checklist item(s)")
@@ -454,23 +457,19 @@ class ErSmartSyncMigration:
         return result.checklist_dicts(), stats, list(result.stats.changes)
 
     def rangers(self) -> list:
-        """One row per SMART employee who appears on a patrol, as patrol setup
-        named them: for whoever creates their EarthRanger accounts and links
-        each to its subject. Most-patrolled first."""
-        from collections import Counter
-        patrols_of: Counter = Counter()
-        for p in self.bundle.patrols:
-            for uuid in {m["employee_uuid"] for leg in p["legs"] for m in leg["members"]}:
-                patrols_of[uuid] += 1
-        by_uuid = {e.uuid: e for e in self.bundle.reference.employees}
+        """One row per subject patrol setup plans (every employee on a patrol or
+        still employed), named exactly as it names them, with how many patrols
+        each appears on: for whoever creates their EarthRanger accounts and
+        links each to its subject. Most-patrolled first."""
+        from er_smart_sync.preflight import _member_patrols
+        from er_smart_sync.smart_to_er_patrol_schema import build_subjects
+        patrols_of = {uuid: len(ps) for uuid, ps in _member_patrols(self.bundle).items()}
         ids = getattr(self, "_subject_ids", {})
         out = []
-        for uuid, n in patrols_of.items():
-            e = by_uuid.get(uuid)
-            name = (" ".join(x for x in (e.given_name, e.family_name) if x) if e else "") or (e.id if e else None) or uuid
-            subject = ids.get(uuid)
-            out.append({"name": name, "smart_employee_id": e.id if e else None, "smart_member_id": uuid,
-                        "active": e.active if e else None, "patrols": n,
+        for plan in build_subjects(self.bundle):
+            subject = ids.get(plan.smart_member_id)
+            out.append({"name": plan.name, "smart_employee_id": plan.smart_employee_id, "smart_member_id": plan.smart_member_id,
+                        "active": plan.is_active, "patrols": patrols_of.get(plan.smart_member_id, 0),
                         "subject_id": None if subject in (None, "dry-run") else subject})
         return sorted(out, key=lambda r: (-r["patrols"], r["name"]))
 

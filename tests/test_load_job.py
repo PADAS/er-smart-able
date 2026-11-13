@@ -482,6 +482,7 @@ def test_the_rangers_are_recorded_after_patrol_setup_even_when_the_run_stops(env
     rc, load, _ = _run(env, "run", FakeMigration(checklist=[TEAM]), "queued")
     assert load["status"] == "needs_attention"
     assert [r["name"] for r in load["rangers"]] == ["Ana Cruz", "Ben Reyes"] and load["rangers"][0]["patrols"] == 3
+    assert load["rangers_total"] == 2
     store = env[0]
     assert store.get_load_file(load["dataset_id"], load["id"], "rangers.json") is not None
 

@@ -50,9 +50,9 @@ If a job is killed outright, by an outage for example, it cannot report. The loa
 
 ## Giving rangers accounts {#rangers-accounts}
 
-Patrol setup creates one subject per SMART employee who patrolled, and the import puts their patrols, tracks and reports on it. A ranger who then uses EarthRanger Mobile needs a user account **linked to that subject**: a user's tracks go to its linked subject, and the events they report carry it as *reported by*. Without the link, their first login creates a second subject and the history splits.
+Patrol setup creates one subject per SMART employee who appears on a patrol or is still employed, and the import puts their patrols, tracks and reports on it. A ranger who then uses EarthRanger Mobile needs a user account **linked to that subject**: a user's tracks go to its linked subject, and the events they report carry it as *reported by*. Without the link, their first login creates a second subject and the history splits.
 
-The load page's **Rangers** section lists the people behind the subjects, most-patrolled first, with the name as it is on the site and whether the person is still active in SMART. The CSV download has the same rows plus an empty email column.
+The load page's **Rangers** section lists every one of those people, most-patrolled first (a still-employed ranger with no patrols yet shows 0), with the name exactly as it is on the site and whether the person is still active in SMART. The CSV download has the same rows plus an empty email column.
 
 To give a ranger an account, in Django admin open **Users › add**, enter the name as listed, and in the **linked subject** field pick their subject by that name. Do this before they sign in. The link can only be made from the user side today, and only by an admin.
 

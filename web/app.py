@@ -333,6 +333,9 @@ class LoadCreate(BaseModel):
     options: dict = {}
 
 
+LOAD_DETAIL_ONLY = ("plan", "findings", "rangers", "log_tail", "stages")
+
+
 def _load_public(doc: dict, user: dict) -> dict:
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
     out = {k: doc.get(k) for k in LOAD_FIELDS}
@@ -419,7 +422,8 @@ async def list_loads(id: str, user=Depends(current_user)):
     _load(id, user)
     docs = get_store().list_loads(id)
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
-    return [_load_public(d, user) for d in docs]
+    # the list shows a line per load: the page-sized fields stay with GET /api/loads/{id}
+    return [{k: v for k, v in _load_public(d, user).items() if k not in LOAD_DETAIL_ONLY} for d in docs]
 
 
 @app.get("/api/loads/{id}")

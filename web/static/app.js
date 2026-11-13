@@ -521,23 +521,25 @@ function renderStages(l, active) {
 
 // ---- rangers: the people behind the subjects, for whoever creates their accounts
 function renderRangers(l) {
-  const host = $('#loadRangers'), rows = l.rangers || [];
-  const wasOpen = host.querySelector('details') ? host.querySelector('details').open : false;
+  const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
+  const open = openState(host);
   if (!rows.length) { host.innerHTML = ''; return; }
-  host.innerHTML = '<details' + (wasOpen ? ' open' : '') + '><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + rows.length + (rows.length >= 500 ? '+' : '') + ' people on these patrols · for their EarthRanger accounts</span> ' +
+  host.innerHTML = '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + total.toLocaleString() + ' people' + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
     '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
     '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
     '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
     '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th><th>Patrols</th><th>Subject</th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(r.name) + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + esc(r.patrols) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
     '</tbody></table></details>';
+  restoreOpen(host, open);
   host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
   host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'patrols', 'subject_id', 'email'],
     rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, r.patrols, r.subject_id, ''])); };
 }
 
 function downloadCsv(filename, header, rows) {
-  const cell = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  // a cell that a spreadsheet would read as a formula gets a leading quote (names and ids come from the SMART export)
+  const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const blob = new Blob([[header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
