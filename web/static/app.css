@@ -181,3 +181,16 @@ table.rangers { margin-top: 6px; }
 #loadRangers summary { cursor: pointer; margin: 14px 0 4px; }
 .bar { height: 8px; background: var(--er-ui-background-tertiary-background); border-radius: 99px; overflow: hidden; margin: 10px 0 4px; }
 .bar div { height: 100%; width: 0; background: var(--er-ui-cta-primary); transition: width 0.2s; }
+
+/* ---- home: the dataset cards and the upload dialog */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.page-head h1 { margin: 0; }
+.cards { display: flex; flex-direction: column; gap: 10px; }
+a.dataset-card { display: flex; justify-content: space-between; gap: 16px; color: inherit; text-decoration: none; }
+a.dataset-card:hover { border-color: var(--er-ui-cta-primary); }
+.dataset-card .card-meta { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dataset-card .card-error { color: var(--er-ui-status-error, var(--danger)); }
+.dataset-card .card-side { text-align: right; white-space: nowrap; }
+.dataset-card .shared-mark { text-transform: uppercase; letter-spacing: 0.04em; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.stack label { display: flex; flex-direction: column; gap: 4px; }

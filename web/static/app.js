@@ -1,6 +1,5 @@
 // smart-able web: sign in, list datasets, upload + extract, share, open.
 const $ = (s, el = document) => el.querySelector(s);
-const fmtBytes = n => n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(0) + ' MB' : n >= 1e3 ? (n / 1e3).toFixed(0) + ' kB' : n + ' B';
 let CONFIG = null, ME = null, pollTimer = null;
 
 async function api(path, opts = {}) {
@@ -66,6 +65,7 @@ function navigate(route, nav = 'push') {
 }
 // one show* per page; the dataset and sites pages arrive in later tasks
 function renderRoute(route) {
+  clearTimeout(pollTimer); listGen++;   // leaving the home page: its poll and any response in flight stop
   if (route.page === 'home') showHome();
   else if (route.page === 'load') openLoad(route.load);
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
@@ -122,79 +122,34 @@ async function signIn() {
 }
 
 // ---- datasets
-let listGen = 0, listHtml = null;   // which render of the list is current, and what it last drew
+let listGen = 0;   // which render of the home page is current
 
-async function loadList() {
-  const list = await api('/api/datasets');
+// the home page's polling: a fetch is current only while its gen is, so a superseded response is dropped
+async function showHome() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++listGen;
-  // every dataset's loads first, so the table is drawn once, complete: drawing it with
-  // placeholders and filling them one response at a time made it flicker on every poll
-  const loadsOf = await Promise.all(list.map(d => api('/api/datasets/' + d.id + '/loads').catch(() => null)));
-  if (gen !== listGen || currentLoad) return;   // a newer render started, or the reader has moved to a load page
-  const host = $('#list');
-  const html = !list.length ? '<p class="muted">No datasets yet. Upload one above.</p>' :
-    '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
-    list.map((d, i) => '<tr data-id="' + d.id + '">' +
-      '<td><b>' + esc(d.name) + '</b><div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + esc((d.created_at || '').slice(0, 10)) + '</div></td>' +
-      '<td>' + ((d.cas || []).map(c => esc(c.n || c.id)).join('<br>') || '<span class="tiny">—</span>') + (d.db_version ? '<div class="tiny">SMART ' + esc(d.db_version) + '</div>' : '') + '</td>' +
-      '<td>' + pill(d.status) + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
-        (d.counts && d.counts.patrols != null ? '<div class="tiny">' + d.counts.patrols + ' patrols · ' + d.counts.waypoints + ' waypoints</div>' : '') + '</td>' +
-      '<td class="loads">' + loadsCell(loadsOf[i], d.export || []) + '</td>' +
-      '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
-      '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
-      '<td class="actions">' +
-        (d.status === 'ready' ? '<a href="/d/' + d.id + '/"><button><span class="mi" aria-hidden="true">arrow_forward</span>Open</button></a> ' : '') +
-        (d.mine ? '<button data-act="share"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (d.status === 'ready' && (d.export || []).length ? '<button data-act="load" title="Load a conservation area into an EarthRanger site"><span class="mi" aria-hidden="true">cloud_upload</span>Load</button> ' : '') +
-        (d.status === 'ready' && !(d.export || []).length ? '<span class="tiny" title="Run the extraction again to build the migration bundle">re-extract to enable loading</span> ' : '') +
-        (d.mine && !d.extract_held && ['failed', 'uploaded', 'ready', 'uploading', 'queued', 'running'].includes(d.status) ? '<button data-act="extract" title="' + (d.status === 'uploading' ? 'Start the extraction (if the upload completed)' : 'Run the extraction again') + '"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
-        (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
-        (d.mine ? '<button data-act="delete" class="danger" title="Delete this dataset and its files"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
-      '</td></tr>').join('') + '</tbody></table>';
-  if (html !== listHtml || !host.firstChild) {   // nothing changed: leave the page, its focus and its hover alone
-    host.innerHTML = html;
-    listHtml = html;
-    host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => action(b.dataset.act, b.closest('tr').dataset.id, list.find(d => d.id === b.closest('tr').dataset.id)));
-    host.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
-  }
+  setBreadcrumb(null);
+  let list;
+  try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  if (gen !== listGen) return;
+  mountPage(renderHome(list));
+  $('#uploadBtn').onclick = uploadDialog;
+  pollHome(list, gen);
+}
+// while any dataset is queued or running, refetch every 5 s and replace only the card list
+// ('uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes)
+function pollHome(list, gen) {
   clearTimeout(pollTimer);
-  // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
-  if (list.some(d => ['queued', 'running'].includes(d.status)) || loadsOf.some(ls => (ls || []).some(l => l.held)))
-    pollTimer = setTimeout(loadList, 5000);
-}
-
-// what a load writes, in words: empty for the data model and every patrol (the default)
-function loadScope(l) {
-  const o = l.options || {};
-  if (o.scope === 'datamodel') return 'Data model only';
-  if (o.since && o.until) return 'Patrols from ' + o.since + ' to ' + o.until;
-  if (o.since) return 'Patrols from ' + o.since;
-  if (o.until) return 'Patrols up to ' + o.until;
-  return '';
-}
-
-// the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
-function loadsCell(loads, exp) {
-  if (loads === null) return '<span class="tiny">could not load</span>';
-  if (!loads.length) return '<span class="tiny">' + (exp.length ? 'none yet' : '—') + '</span>';
-  return loads.map(l =>
-    '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
-    '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
-    (loadScope(l) ? '<span class="tiny">' + esc(loadScope(l)) + '</span>' : '') +
-    pill(l.status) +
-    (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
-      ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
-    '</button>').join('');
-}
-
-async function action(act, id, d) {
-  try {
-    if (act === 'share') return shareDialog(d);
-    if (act === 'load') return loadDialog(d);
-    if (act === 'extract') { await api('/api/datasets/' + id + '/extract', { method: 'POST' }); return loadList(); }
-    if (act === 'log') { const full = await api('/api/datasets/' + id); return dialog('Extraction log: ' + d.name, '<pre class="log">' + esc(full.log_tail || full.error || '(no output yet)') + '</pre>'); }
-    if (act === 'delete') { if (!confirm('Delete "' + d.name + '" and all its extracted data? This cannot be undone.')) return; await api('/api/datasets/' + id, { method: 'DELETE' }); return loadList(); }
-  } catch (e) { alert(e.message); }
+  if (!list.some(d => ['queued', 'running'].includes(d.status))) return;
+  pollTimer = setTimeout(async () => {
+    let next;
+    try { next = await api('/api/datasets'); } catch (e) { return pollHome(list, gen); }
+    const host = $('#cards');
+    if (gen !== listGen || !host) return;
+    const html = renderCardList(next);
+    if (html !== host.dataset.html) { host.innerHTML = html; host.dataset.html = html; }
+    pollHome(next, gen);
+  }, 5000);
 }
 
 // a form that brings its own Close beside its submit button (data-close) hides the dialog's own
@@ -206,7 +161,7 @@ function dialog(title, bodyHtml) {
 }
 
 function shareDialog(d, base = '/api/datasets/', note) {
-  const refresh = () => base === '/api/sites/' ? loadSites() : loadList();
+  const refresh = () => base === '/api/sites/' ? loadSites() : parseRoute(location.hash).page === 'home' && showHome();
   note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
   const render = shared => {
     dialog('Share "' + d.name + '"',
@@ -220,32 +175,39 @@ function shareDialog(d, base = '/api/datasets/', note) {
 }
 
 // ---- upload: create the dataset, PUT the file where the server says (a signed
-// GCS URL in production, the service itself locally), then start extraction
-async function upload(ev) {
-  ev.preventDefault();
-  const file = $('#dsFile').files[0]; if (!file) return;
-  const btn = $('#uploadBtn'); btn.disabled = true;
-  const prog = $('#progress'), fill = $('#progressFill'), text = $('#progressText');
-  prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
-  try {
-    const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName').value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open(created.upload.method, created.upload.url);
-      for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
-      xhr.withCredentials = created.upload.url.startsWith('/');
-      xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = 'Uploading ' + fmtBytes(e.loaded) + ' of ' + fmtBytes(e.total); } };
-      xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error('Upload failed (' + xhr.status + ')'));
-      xhr.onerror = () => reject(new Error('Upload failed (network)'));
-      xhr.send(file);
-    });
-    text.textContent = 'Uploaded. Starting extraction…';
-    await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
-    text.textContent = 'Extraction started; the list below updates as it runs.';
-    $('#uploadForm').reset();
-    loadList();
-  } catch (e) { text.textContent = e.message; }
-  finally { btn.disabled = false; setTimeout(() => { prog.hidden = true; }, 6000); }
+// GCS URL in production, the service itself locally), then start extraction. The XHR keeps
+// running if the dialog is closed; the elements it updates are then just detached.
+function uploadDialog() {
+  dialog('Upload a backup or export',
+    '<form id="uploadForm" class="stack">' +
+    '<label>Name <input id="dsName" required placeholder="e.g. Lawin R5"></label>' +
+    '<label>File <input id="dsFile" type="file" accept=".zip,.sql,.gz,.bak" required></label>' +
+    '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
+    '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">Upload</button></div></form>');
+  const form = $('#uploadForm');
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const file = $('#dsFile', form).files[0]; if (!file) return;
+    const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
+    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
+    try {
+      const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(created.upload.method, created.upload.url);
+        for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
+        xhr.withCredentials = created.upload.url.startsWith('/');
+        xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = 'Uploading ' + fmtBytes(e.loaded) + ' of ' + fmtBytes(e.total); } };
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error('Upload failed (' + xhr.status + ')'));
+        xhr.onerror = () => reject(new Error('Upload failed (network)'));
+        xhr.send(file);
+      });
+      text.textContent = 'Uploaded. Starting extraction…';
+      await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
+      if ($('#modalBody').contains(form)) $('#modal').hidden = true;   // still on screen: close it
+      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, extracting
+    } catch (e) { text.textContent = e.message; btn.disabled = false; }
+  };
 }
 
 // ---- sites
@@ -350,14 +312,6 @@ function showDatasets(nav = 'auto') {
   }
   navigate({ page: 'home' }, nav);
 }
-// the home page is rebuilt in a later task; until then it holds the old list and sites
-function showHome() {
-  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null; listHtml = null;
-  setBreadcrumb(null);
-  mountPage('<div class="panel"><h2>Datasets</h2><div id="list"></div></div><div class="panel"><h2>EarthRanger sites</h2><div id="sites"></div></div>');
-  loadList(); loadSites();
-}
-
 function showLoad(id, nav = 'push') { navigate({ page: 'legacy-load', load: id }, nav); }
 
 async function openLoad(id) {
@@ -419,7 +373,7 @@ async function renderLoad() {
       await api('/api/loads/' + l.id, { method: 'DELETE' });
       // the deleted load's entry becomes the list, so Back never lands on it; if the reader has moved on
       // meanwhile, the page they are on is left alone and a list they are on is refreshed
-      if (currentLoad === l.id) showDatasets('replace'); else if (!currentLoad) loadList();
+      if (currentLoad === l.id) showDatasets('replace'); else if (parseRoute(location.hash).page === 'home') showHome();
     } catch (e) { alert(e.message); } };
   const RANK = { blocking: 0, warning: 1, info: 2 };
   const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
