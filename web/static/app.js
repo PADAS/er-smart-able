@@ -4,7 +4,7 @@ let CONFIG = null, ME = null, pollTimer = null;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
-  if (r.status === 401) { showSignIn(); throw new Error('Sign in required'); }
+  if (r.status === 401) { showSignIn(); const err = new Error('Sign in required'); err.status = 401; throw err; }
   if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} const err = new Error(d || r.statusText); err.status = r.status; throw err; }
   return r.status === 204 ? null : r.json();
 }
@@ -79,7 +79,7 @@ async function openLegacyLoad(id) {
     const l = await api('/api/loads/' + id);
     if (location.hash !== mine) return;   // the reader moved on while it loaded
     navigate({ page: 'load', id: l.dataset_id, load: id }, 'replace');
-  } catch (e) { if (location.hash === mine) navigate({ page: 'home' }, 'replace'); }
+  } catch (e) { if (e.status !== 401 && location.hash === mine) navigate({ page: 'home' }, 'replace'); }
 }
 window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
 
@@ -131,7 +131,7 @@ async function showHome() {
   const gen = ++listGen;
   setBreadcrumb(null);
   let list;
-  try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
   if (gen !== listGen) return;
   mountPage(renderHome(list));
   $('#uploadBtn').onclick = uploadDialog;
@@ -185,6 +185,7 @@ async function showDataset(route) {
   try { d = await api('/api/datasets/' + route.id); }
   catch (e) {
     if (!current()) return;
+    if (e.status === 401) return;   // the sign-in form is already on the page
     if (e.status !== 404) { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
     // the dead route's entry becomes the list's address, so Back never lands on it; the page stays the not-found notice
     history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
@@ -203,7 +204,7 @@ async function showDataset(route) {
       // the list items carry no rangers: the newest load that has some is found by fetching, newest first
       for (const l of loads) { if (!current()) return; const full = await api('/api/loads/' + l.id); if ((full.rangers || []).length) { extra.load = full; break; } }
     }
-  } catch (e) { if (!current()) return; mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  } catch (e) { if (!current() || e.status === 401) return; mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
   if (!current()) return;
   setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
   mountPage(renderDatasetPage(d, tab, extra));
@@ -375,6 +376,7 @@ async function openLoad(id) {
     '<div id="loadFindings"></div><div id="loadPlan"></div><div id="loadRangers"></div><div id="loadProgress"></div></section>');
   try { await renderLoad(); }
   catch (e) {   // a gone load leaves the list in its place
+    if (e.status === 401) return;   // the sign-in form is already on the page
     alert(e.message);
     navigate({ page: 'home' }, 'replace');
   }
