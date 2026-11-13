@@ -49,7 +49,7 @@ JOIN 'parquet/patrol_leg.parquet' pl ON pld.patrol_leg_uuid = pl.uuid;
 -- data on disk can say so instead of silently showing less.
 COPY (
   SELECT
-    2 AS data_format,
+    3 AS data_format,
     strftime(now(), '%Y-%m-%d') AS generated,
     (SELECT max(version) FROM 'parquet/db_version.parquet'
       WHERE plugin_id = 'org.wcs.smart') AS db_version,
@@ -193,12 +193,13 @@ COPY (
 
 -- ----------------------------------------------------------- employees.json
 COPY (
-  SELECT e.uuid AS u, e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
+  SELECT e.uuid AS u, ca.id AS ca, e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
          coalesce(lrk.label, '') AS rank,
          strftime(emp2.startemploymentdate, '%Y-%m-%d') AS sd,
          strftime(emp2.endemploymentdate, '%Y-%m-%d') AS ed
   FROM emp e
   JOIN 'parquet/employee.parquet' emp2 ON emp2.uuid = e.uuid
+  LEFT JOIN 'parquet/conservation_area.parquet' ca ON ca.uuid = emp2.ca_uuid
   LEFT JOIN lbl lag ON lag.element_uuid = emp2.agency_uuid
   LEFT JOIN lbl lrk ON lrk.element_uuid = emp2.rank_uuid
   ORDER BY e.name

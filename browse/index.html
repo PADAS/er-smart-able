@@ -432,7 +432,7 @@ async function boot() {
 
 // The JSON under site/data/ and this page must agree on shape. The SQL stamps
 // meta.json with data_format; data written before the stamp counts as 1.
-const DATA_FORMAT = 2;
+const DATA_FORMAT = 3;
 function checkDataFormat() {
   const have = D.meta.data_format || 1;
   if (have === DATA_FORMAT) return;
@@ -785,29 +785,36 @@ function rPatrols(v) {
 // ---- Rangers: the people on the patrols, from the employee table and the leg memberships.
 // A member is matched to an employee by uuid when the data carries it (extractions
 // from November 2026 on) and by name before that.
-let rangerQuery = '';
+let rangerQuery = '', rangerCache = null;   // rows for the current conservation-area selection
 function rangerRows() {
+  if (rangerCache && rangerCache.ca === CA) return rangerCache.rows;
   const today = new Date().toISOString().slice(0, 10);
   const byU = new Map(), byN = new Map(), rows = [];
-  const add = r => { rows.push(r); if (r.u) byU.set(r.u, r); if (r.n) byN.set(r.n, r); return r; };
-  for (const e of D.emps) add({ u: e.u || null, n: e.n || e.id || '', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
-    sd: e.sd || '', ed: e.ed || null, active: !e.ed || e.ed >= today, known: true, patrols: 0, led: 0, first: null, last: null, pus: [] });
+  // a name is a key only when the data has no uuid for the person (older extractions) and it is not blank
+  const add = r => { rows.push(r); if (r.u) byU.set(r.u, r); else if (r.n) byN.set(r.n, r); return r; };
+  for (const e of D.emps) {
+    if (e.ca && !caOk(e.ca)) continue;   // employees belong to a conservation area (data format 3 on)
+    add({ u: e.u || null, n: e.n || e.id || '(unnamed)', id: e.id || '', agency: e.agency || '', rank: e.rank || '',
+      sd: e.sd || '', ed: e.ed || null, active: !e.ed || e.ed >= today, known: true, patrols: 0, led: 0, first: null, last: null, pus: [] });
+  }
   for (const p of D.patrols) {
     if (!caOk(p.ca)) continue;
-    const seen = new Set();
+    const onThis = new Map();   // member -> led any leg of this patrol
     for (const leg of (p.legs || [])) for (const m of (leg.members || [])) {
-      let r = (m.u && byU.get(m.u)) || byN.get(m.n);
-      if (!r) r = add({ u: m.u || null, n: m.n || m.u || '?', id: '', agency: '', rank: '', sd: '', ed: null, active: false, known: false, patrols: 0, led: 0, first: null, last: null, pus: [] });
-      const key = r.u || r.n;
-      if (seen.has(key)) continue;   // one patrol counts once, however many legs
-      seen.add(key);
+      let r = (m.u && byU.get(m.u)) || (m.n && byN.get(m.n));
+      if (!r) r = add({ u: m.u || null, n: m.n || (m.u ? m.u : '(unnamed member)'), id: '', agency: '', rank: '', sd: '', ed: null, active: false, known: false, patrols: 0, led: 0, first: null, last: null, pus: [] });
+      onThis.set(r, (onThis.get(r) || false) || !!m.ldr);
+    }
+    for (const [r, led] of onThis) {   // one patrol counts once, however many legs
       r.patrols++; r.pus.push(p.u);
-      if (m.ldr) r.led++;
+      if (led) r.led++;
       if (!r.first || p.sd < r.first) r.first = p.sd;
       if (!r.last || p.ed > r.last) r.last = p.ed;
     }
   }
-  return rows.sort((a, b) => b.patrols - a.patrols || a.n.localeCompare(b.n));
+  rows.sort((a, b) => b.patrols - a.patrols || a.n.localeCompare(b.n));
+  rangerCache = { ca: CA, rows };
+  return rows;
 }
 function rRangers(v) {
   v.insertAdjacentHTML('beforeend', '<p class="muted">Everyone in the conservation area\'s employee table, and anyone else named on a patrol leg, with the patrols they appear on. ' +
@@ -860,12 +867,12 @@ function rangerDrawer(id) {
   let h = '<table><thead><tr><th>Patrol</th><th>Dates</th><th>Mandate</th><th>Role</th><th class="num">Waypoints</th></tr></thead><tbody>';
   for (const p of ps) {
     const l0 = (p.legs || [])[0] || {};
-    const me = (p.legs || []).flatMap(l => l.members || []).find(m => (m.u && m.u === r.u) || m.n === r.n);
+    const mine = (p.legs || []).flatMap(l => l.members || []).filter(m => r.u ? m.u === r.u : m.n === r.n);
     h += '<tr class="click" data-p="' + p.u + '"><td class="mono">' + esc(p.id) + '</td><td class="num">' + p.sd + (p.ed !== p.sd ? ' → ' + p.ed : '') + '</td>' +
-      '<td>' + esc(l0.md || '') + '</td><td>' + (me && me.ldr ? '<span class="pill lead">leader</span>' : 'member') + '</td><td class="num">' + fmt(p.nwp) + '</td></tr>';
+      '<td>' + esc(l0.md || '') + '</td><td>' + (mine.some(m => m.ldr) ? '<span class="pill lead">leader</span>' : 'member') + '</td><td class="num">' + fmt(p.nwp) + '</td></tr>';
   }
   d.insertAdjacentHTML('beforeend', h + '</tbody></table>');
-  d.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p, from: { k: 'ranger', id } }));
+  d.querySelectorAll('tr.click').forEach(tr => tr.onclick = () => go({ k: 'patrol', id: tr.dataset.p, from: { ranger: id } }));
 }
 function downloadCsv(filename, header, rows) {
   // a cell a spreadsheet would read as a formula gets a leading quote; the byte-order mark keeps accented names intact in Excel
@@ -881,10 +888,14 @@ async function ensureTracks() {
   D.tracks = new Map(rows.map(r => [r.p, r.g.map(asGeom)]));
 }
 
-async function patrolDrawer(pu) {
+async function patrolDrawer(pu, from) {
   const p = D.patrolBy.get(pu);
   if (!p) return closeDrawer();
   const d = openDrawer(), gen = drawerGen;
+  if (from && from.ranger) {
+    const r = rangerRows().find(x => (x.u || x.n) === from.ranger);
+    backButton(d, 'Back to ' + esc(r ? r.n : 'ranger'), { k: 'ranger', id: from.ranger });
+  }
   d.insertAdjacentHTML('beforeend', '<h3>Patrol <span class="mono">' + esc(p.id) + '</span></h3>');
   const kv = [['Conservation area', (D.caById.get(p.ca) || {}).n || p.ca],
     ['Dates', p.sd + ' → ' + p.ed], ['Type', p.ty], ['Armed', p.armed ? 'yes' : 'no'],
@@ -2106,7 +2117,7 @@ function backButton(d, label, dr) {
    for its "Back to …" button), parent is the key of the entry it was pushed
    from, and scroll is where the drawer was when the view was left. The hash
    carries tab and drawer too (#patrols/patrol/<uuid>), so a link reopens it. */
-const TABS = ['overview','patrols','map','observations','datamodel','profiles','schema'];
+const TABS = ['overview','patrols', 'rangers','map','observations','datamodel','profiles','schema'];
 const viewKey = dr => dr ? dr.k + '/' + dr.id : '';
 const viewHash = (tab, dr) => '#' + tab + (dr ? '/' + viewKey(dr) : '');
 const curView = () => history.state || { tab: TAB, dr: null };
@@ -2123,7 +2134,7 @@ function viewFromHash() {
 async function showDrawer(dr, scroll) {
   const f = dr.from;
   let done;
-  if (dr.k === 'patrol') done = patrolDrawer(dr.id);
+  if (dr.k === 'patrol') done = patrolDrawer(dr.id, f);
   else if (dr.k === 'wp') wpDrawer(D.wpBy.get(dr.id), f);
   else if (dr.k === 'obs') { const [wu, i] = String(dr.id).split('.'); obsDrawer((D.obsByWp.get(wu) || [])[+i], f); }
   else if (dr.k === 'entity') entityDrawer(+dr.id, f);

@@ -77,6 +77,7 @@ def test_employees_and_leg_members_carry_the_employee_uuid(tmp_path, monkeypatch
         "patrol_leg_members": [{"patrol_leg_uuid": leg, "employee_uuid": emp, "is_leader": True}],
     })
     employees = json.loads((data / "employees.json").read_text())
-    assert employees == [{"u": emp, "n": "Ana Cruz", "id": "E1", "agency": "", "rank": "", "sd": None, "ed": None}]
+    assert employees == [{"u": emp, "ca": "ALPHA", "n": "Ana Cruz", "id": "E1", "agency": "", "rank": "", "sd": None, "ed": None}]
+    assert json.loads((data / "meta.json").read_text())[0]["data_format"] == 3
     patrols = json.loads((data / "patrols.json").read_text())
     assert patrols[0]["legs"][0]["members"] == [{"u": emp, "n": "Ana Cruz", "ldr": True}]

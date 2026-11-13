@@ -21,7 +21,7 @@ function showApp() {
   // a load link (#load/<id>) opens that load; otherwise the list is the first history entry
   const m = LOAD_HASH.exec(location.hash);
   if (m) showLoad(m[1], 'replace');
-  else { history.replaceState({}, '', location.pathname); loadList(); loadSites(); }
+  else { history.replaceState({}, '', location.pathname + location.search); loadList(); loadSites(); }
 }
 
 // ---- the list and a load page are history entries, so Back and Forward move between them
@@ -288,8 +288,8 @@ let loadTimer = null, currentLoad = null;
 function showDatasets(nav = 'auto') {
   const s = history.state || {};
   if (nav === 'auto' && s.load && s.fromList) { history.back(); return; }   // popstate shows the list
-  if (nav === 'auto' || nav === 'push') history.pushState({}, '', location.pathname);
-  else if (nav === 'replace') history.replaceState({}, '', location.pathname);
+  if ((nav === 'auto' && s.load) || nav === 'push') history.pushState({}, '', location.pathname + location.search);   // already on the list: no entry
+  else if (nav === 'replace') history.replaceState({}, '', location.pathname + location.search);
   clearTimeout(loadTimer); currentLoad = null;
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false);
   $('#loadPage').hidden = true;
