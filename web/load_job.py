@@ -159,7 +159,7 @@ class Runner:
             self._log(f"recording the outcome failed: {type(e).__name__}: {e}; retrying without the tail, plan and progress")
             small = {k: v for k, v in fields.items() if k in ("stage", "continuations", "claimed_at", "stages", "findings")}
             self._update(status=status, error=(fields.get("error") or "The full outcome could not be recorded; see log.txt")[:2000],
-                         log_tail=None, plan=None, progress=None, **small)   # the findings are what the operator acts on
+                         log_tail=None, plan=None, progress=None, rangers=None, **small)   # the findings are what the operator acts on; rangers.json keeps the rows
             self._log(f"load {self.load_id}: {status} recorded without the tail, plan and progress")
             try:   # so log.txt has both attempts
                 self._push_files()
@@ -175,7 +175,8 @@ class Runner:
         self.dataset_id = load["dataset_id"]
         self.stages = {}
         self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode,
-                     stage=None, progress=None, rangers=None, rangers_total=None)   # nothing of the previous execution shows as this one's
+                     stage=None, progress=None)   # nothing of the previous execution shows as this one's (the rangers list
+                                                   # is per site and bundle, so it stays until patrol setup rewrites it)
         self.work.mkdir(parents=True, exist_ok=True)
         findings = self.findings
         stage = None
@@ -461,15 +462,20 @@ class ErSmartSyncMigration:
         still employed), named exactly as it names them, with how many patrols
         each appears on: for whoever creates their EarthRanger accounts and
         links each to its subject. Most-patrolled first."""
-        from er_smart_sync.preflight import _member_patrols
         from er_smart_sync.smart_to_er_patrol_schema import build_subjects
-        patrols_of = {uuid: len(ps) for uuid, ps in _member_patrols(self.bundle).items()}
+        patrols_of: dict = {}   # over this load's window: what the subject will actually hold
+        for p in self._selected():
+            for uuid in {m["employee_uuid"] for leg in p["legs"] for m in leg["members"]}:
+                patrols_of[uuid] = patrols_of.get(uuid, 0) + 1
         ids = getattr(self, "_subject_ids", {})
+        known = {e.uuid for e in self.bundle.reference.employees}
         out = []
         for plan in build_subjects(self.bundle):
             subject = ids.get(plan.smart_member_id)
             out.append({"name": plan.name, "smart_employee_id": plan.smart_employee_id, "smart_member_id": plan.smart_member_id,
                         "active": plan.is_active, "patrols": patrols_of.get(plan.smart_member_id, 0),
+                        # a leg member whose employee record SMART no longer has: a subject named by its uuid
+                        "deleted": plan.smart_member_id not in known,
                         "subject_id": None if subject in (None, "dry-run") else subject})
         return sorted(out, key=lambda r: (-r["patrols"], r["name"]))
 
