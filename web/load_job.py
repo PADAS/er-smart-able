@@ -469,7 +469,6 @@ class ErSmartSyncMigration:
         still employed), named exactly as it names them, with how many patrols
         each appears on: for whoever creates their EarthRanger accounts and
         links each to its subject. Most-patrolled first."""
-        from er_smart_sync.smart_to_er_patrol_schema import build_subjects
         def patrols_per_member(patrols) -> dict:
             out: dict = {}
             for p in patrols:
@@ -481,7 +480,7 @@ class ErSmartSyncMigration:
         ids = getattr(self, "_subject_ids", {})
         known = {e.uuid for e in self.bundle.reference.employees}
         out = []
-        for plan in build_subjects(self.bundle):
+        for plan in self._subject_plans():
             subject = ids.get(plan.smart_member_id)
             out.append({"name": plan.name, "smart_employee_id": plan.smart_employee_id, "smart_member_id": plan.smart_member_id,
                         "active": plan.is_active, "patrols": in_load.get(plan.smart_member_id, 0),
@@ -491,29 +490,43 @@ class ErSmartSyncMigration:
                         "subject_id": None if subject in (None, "dry-run") else subject})
         return sorted(out, key=lambda r: (-r["patrols"], -r["patrols_total"], r["name"]))
 
+    def _subject_plans(self) -> list:
+        """The subjects patrol setup plans for this bundle, computed once."""
+        if not hasattr(self, "_plans"):
+            from er_smart_sync.smart_to_er_patrol_schema import build_subjects
+            self._plans = build_subjects(self.bundle)
+        return self._plans
+
     def preflight(self) -> dict:
-        from er_smart_sync.preflight import render_json, run_preflight
+        from er_smart_sync.preflight import ALL_CHECKS, check_observers, render_json, run_preflight
+        # a plan's site has none of the subjects setup will create, so its observers check runs apart, after setup
+        checks = [c for c in ALL_CHECKS if c is not check_observers] if self.dry else None
         report = run_preflight(self.api, self._window_bundle(), timezone=self.bundle.manifest.timezone.get("name"),
-                               event_type_prefix=self.event_type_prefix, event_type_version="v2")
+                               event_type_prefix=self.event_type_prefix, event_type_version="v2", checks=checks)
         self._report = report
         out = json.loads(render_json(report))
         if self.dry:
-            out["warnings"] = [f for f in out["warnings"] if f.get("code") != "observers"] + self._observers_after_setup()
+            for f in self._observers_after_setup():
+                out["blocking" if f.get("level") == "blocking" else "warnings"].append(f)
         return out
 
     def _observers_after_setup(self) -> list:
-        """A plan's site has none of the subjects patrol setup will create, so
-        preflight's observers check names every observation. Run the same
-        check against the subjects setup plans: what is left is what the run
-        cannot resolve either, and that alone is worth a warning."""
-        from er_smart_sync.preflight import PreflightContext, check_observers, subjects_by_member
-        from er_smart_sync.smart_to_er_patrol_schema import build_subjects
+        """Preflight's observers check against the subjects the site has plus
+        the ones setup plans: what is left is what the run cannot resolve
+        either, and that alone is worth a warning. A failure becomes a
+        check_failed finding, as a failed check inside run_preflight does."""
+        from er_smart_sync.preflight import BLOCKING, Finding, PreflightContext, check_observers, subjects_by_member
 
         bundle = self._window_bundle()
-        on_site = subjects_by_member(PreflightContext(api=self.api, bundle=bundle))   # from an earlier load, say
-        planned = {s.smart_member_id: True for s in build_subjects(self.bundle)}
-        ctx = PreflightContext(api=self.api, bundle=bundle, cache={"subjects": {**on_site, **planned}})
-        return [f.to_dict() for f in check_observers(ctx)]
+        try:
+            on_site = subjects_by_member(PreflightContext(api=self.api, bundle=bundle))   # from an earlier load, say
+            planned = {s.smart_member_id: True for s in self._subject_plans()}
+            ctx = PreflightContext(api=self.api, bundle=bundle, cache={"subjects": {**on_site, **planned}})
+            return [f.to_dict() for f in check_observers(ctx)]
+        except Exception as e:  # noqa: BLE001
+            return [Finding.of("check_failed", BLOCKING, f"check_observers (after setup) could not run: {type(e).__name__}: {e}",
+                               "Fix the cause (often access or connectivity) and plan again.", [],
+                               affected=[p["uuid"] for p in bundle.patrols]).to_dict()]
 
     def _window(self) -> dict:
         """The load's date window as er-smart-sync's ImportOptions fields: patrols that
@@ -562,7 +575,8 @@ class ErSmartSyncMigration:
         return {"observations": obs, "track_points": points}
 
     def ledger_done(self) -> set:
-        return {p["uuid"] for p in self._selected() if {"patrol", "events", "tracks"} <= self.ledger.stages(p["uuid"])}
+        done = {"patrol", "events", "reporters", "tracks"}   # as er-smart-sync 0.10.1+ counts a patrol done
+        return {p["uuid"] for p in self._selected() if done <= self.ledger.stages(p["uuid"])}
 
     def import_patrols(self, progress, stop) -> dict:
         from importlib.metadata import version as pkg_version

@@ -177,3 +177,33 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     team = [f for f in load["findings"] if f["code"] == "team"]
     assert team and all(f["severity"] == "blocking" for f in team)
     assert store.get_load_file(ds, load_id, "plan.json") and store.get_load_file(ds, load_id, "checklist.md")
+
+
+def test_a_plan_keeps_only_the_observers_setup_cannot_resolve(smart_parquet, tmp_path, monkeypatch):
+    """The plan's observers check runs against the subjects setup plans: an
+    observation whose observer is unknown on a leg with no members survives as
+    a warning; a failure of the check is a check_failed finding, not a crash."""
+    _plan(smart_parquet, tmp_path, monkeypatch)
+    load_job = importlib.import_module("load_job")
+    m = load_job.ErSmartSyncMigration(bundle_dir=smart_parquet.parent / "export" / "ALPHA" / "bundle", load_dir=tmp_path / "ld",
+                                      host="fake.pamdas.org", token="t", options={"language": "en"}, dry_run=True,
+                                      ca_identifier="smart-050500", er_client=FakeER())
+    leg = m.bundle.patrols[0]["legs"][0]
+    leg["members"] = []
+    n = 0
+    for w in leg["waypoints"]:
+        for g in w["observation_groups"]:
+            for o in g["observations"]:
+                o["employee_uuid"] = "0" * 32   # nobody SMART knows
+                n += 1
+    assert n > 0
+    (f,) = m._observers_after_setup()
+    assert f["code"] == "observers" and f["level"] == "warning" and f["count"] == n
+    assert m.bundle.patrols[0]["uuid"] in f["affected_patrols"]
+    # the whole plan's preflight carries it, through the dry-mode path
+    report = m.preflight()
+    assert [f["code"] for f in report["warnings"] if f["code"] == "observers"] == ["observers"]
+    # a site read that fails inside the extra check is a finding the operator can act on
+    m.api.list_subjects = lambda: (_ for _ in ()).throw(RuntimeError("502 from ER"))
+    (f,) = m._observers_after_setup()
+    assert f["code"] == "check_failed" and "502 from ER" in f["message"]

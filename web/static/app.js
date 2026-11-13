@@ -537,11 +537,13 @@ function importSummary(l, live) {
   if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
     const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
     const m = row.metrics || {};
-    // what this execution did (a continuation's counts are its own): the events it wrote, how many of the
-    // events it handled report who made them, and the ones from an earlier load it gave a reporter
-    const wrote = m.events_written != null ? ' · wrote ' + count(m.events_written, 'event') + (m.events_reported_by ? ', ' + m.events_reported_by.toLocaleString() + ' reporting who made them' : '') : '';
-    const filled = m.events_reported_by_backfilled ? ' · ' + m.events_reported_by_backfilled.toLocaleString() + ' events from an earlier load given who made them' : '';
-    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + wrote + filled;
+    // what this execution did (a continuation's counts are its own, not the load's): the events it wrote,
+    // how many of the events it handled (written or already there) report who made them, and the ones
+    // from an earlier load it gave a reporter
+    const did = m.events_written != null ? ' · this execution wrote ' + count(m.events_written, 'event') +
+      (m.events_reported_by ? '; ' + m.events_reported_by.toLocaleString() + ' of the events it handled report who made them' : '') +
+      (m.events_reported_by_backfilled ? ', ' + m.events_reported_by_backfilled.toLocaleString() + ' of them from an earlier load, given one now' : '') : '';
+    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + did;
   }
   // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
   const since = p.phase ? p.phase_started_at : row.started_at;

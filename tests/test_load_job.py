@@ -560,7 +560,7 @@ def test_failed_patrols_leave_the_import_row_done(env):
     assert {k: load["stages"]["import"]["metrics"][k] for k in ("imported", "failed", "skipped")} == {"imported": 2, "failed": 1, "skipped": 0}
 
 
-def test_the_import_row_says_what_this_execution_did(env, monkeypatch):
+def test_the_import_row_says_what_this_execution_did(env):
     """A fill-only pass (events from an earlier load given a reporter) shows its work with no event written."""
     fill = FakeMigration(counts={"events_reported_by_backfilled": 7})
     rc, load, _ = _run(env, "run", fill, "queued")
