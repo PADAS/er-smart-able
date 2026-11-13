@@ -13,7 +13,7 @@ DETAIL_LINES = 200   # a finding's detail on the load doc; the full list is in f
 # writes nothing, so its preflight reports these as missing; the run writes
 # them and preflights again. Teams, the roster group, the preview feature,
 # permissions, the timezone and the collection type are not created by a run.
-CREATED_BY_RUN = frozenset({"event_types", "patrol_types", "segment_schema", "subjects", "choices", "observers"})
+CREATED_BY_RUN = frozenset({"event_types", "patrol_types", "segment_schema", "subjects", "choices"})
 CREATED_PREFIX = "Will be created by this load: "
 BLOCKING_CHECKLIST = ("enable_patrol_schemas", "permission_patrol_types", "permission_segment_schema",
                       "permission_subjects", "permission_patrol_config", "permission_subject_group", "team",

@@ -170,6 +170,8 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     # only the missing team blocks (nothing a load creates)
     blocking_preflight = {f["code"] for f in load["findings"] if f["stage"] == "preflight" and f["severity"] == "blocking"}
     assert blocking_preflight == {"teams"}, blocking_preflight   # the first patrol's team
+    # every observation's reporter resolves through the subjects the run creates: no observers warning in the plan
+    assert "observers" not in {f["code"] for f in load["findings"]}
     created = {f["code"] for f in load["findings"] if f["title"].startswith("Will be created by this load: ")}
     assert {"patrol_types", "segment_schema", "subjects", "event_types"} <= created
     team = [f for f in load["findings"] if f["code"] == "team"]

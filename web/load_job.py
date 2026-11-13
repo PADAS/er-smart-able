@@ -174,8 +174,10 @@ class Runner:
             return 2
         self.dataset_id = load["dataset_id"]
         self.stages = {}
+        # a continuation goes on with the same load's event totals; any other execution starts them afresh
+        self.event_totals = dict(load.get("event_totals") or {}) if load.get("status") == "continuing" else {}
         self._update(status="running", error=None, started_at=now(), stages=self.stages, mode=self.mode,
-                     stage=None, progress=None)   # nothing of the previous execution shows as this one's (the rangers list
+                     stage=None, progress=None, event_totals=self.event_totals or None)   # nothing of the previous execution shows as this one's (the rangers list
                                                    # is per site and bundle, so it stays until patrol setup rewrites it)
         self.work.mkdir(parents=True, exist_ok=True)
         findings = self.findings
@@ -358,12 +360,16 @@ class Runner:
         progress = {"patrols_total": total, "done": imported + len(failed), "failed": len(failed),
                     "skipped": last.get("already_imported", 0), "events": counts.get("observations", 0),
                     "track_points": counts.get("track_points", 0)}
+        # er-smart-sync's counts are this invocation's work; the load's totals add up across its continuations
         c = result.get("counts") or {}
+        for k in ("events_created", "events_existing", "events_reported_by", "events_reported_by_backfilled"):
+            self.event_totals[k] = self.event_totals.get(k, 0) + c.get(k, 0)
+        t = self.event_totals
         self.stages["import"]["metrics"] = {"imported": imported, "failed": len(failed), "skipped": progress["skipped"],
                                             # who the events say reported them: the observer's subject, else the leg's leader
-                                            "events_on_site": c.get("events_created", 0) + c.get("events_existing", 0),
-                                            "events_reported_by": c.get("events_reported_by", 0),
-                                            "events_reported_by_backfilled": c.get("events_reported_by_backfilled", 0)}
+                                            "events_on_site": t.get("events_created", 0) + t.get("events_existing", 0),
+                                            "events_reported_by": t.get("events_reported_by", 0),
+                                            "events_reported_by_backfilled": t.get("events_reported_by_backfilled", 0)}
         if not result.get("stopped_early"):
             self.stages["import"].update(status="done", finished_at=now())   # it ran to its end; failed patrols are findings
         self._log(f"import: {imported} imported, {len(failed)} failed"
@@ -377,14 +383,16 @@ class Runner:
             if last_live.get("phase"):
                 # still live: keep the phase it stopped in, so the bar does not drop to the whole run's count
                 progress = dict(last_live)
-            self._finish("continuing", stage="import", findings=findings, progress=progress, continuations=n, claimed_at=now())
+            self._finish("continuing", stage="import", findings=findings, progress=progress, continuations=n, claimed_at=now(),
+                         event_totals=self.event_totals)
             execution = self.store.start_load(self.load_id, "run")
             try:
                 self._update(execution=execution)
             except Exception as e:  # noqa: BLE001  the continuation may already be running
                 self._log(f"recording the continuation's execution failed: {type(e).__name__}: {e}")
             return 0
-        self._finish("needs_attention" if F.has_blocking(findings) else "done", stage="import", findings=findings, progress=progress)
+        self._finish("needs_attention" if F.has_blocking(findings) else "done", stage="import", findings=findings, progress=progress,
+                     event_totals=self.event_totals)
         return 0
 
     def _watch_deadline(self, stop: threading.Event):
@@ -494,7 +502,30 @@ class ErSmartSyncMigration:
         report = run_preflight(self.api, self._window_bundle(), timezone=self.bundle.manifest.timezone.get("name"),
                                event_type_prefix=self.event_type_prefix, event_type_version="v2")
         self._report = report
-        return json.loads(render_json(report))
+        out = json.loads(render_json(report))
+        if self.dry:
+            out["warnings"] = [f for f in out["warnings"] if f.get("code") != "observers"] + self._observers_after_setup()
+        return out
+
+    def _observers_after_setup(self) -> list:
+        """A plan's site has none of the subjects patrol setup will create, so
+        preflight's observers check names every observation. Run the same
+        check against the subjects setup plans: what is left is what the run
+        cannot resolve either, and that alone is worth a warning."""
+        from er_smart_sync.preflight import check_observers
+        from er_smart_sync.smart_to_er_patrol_schema import build_subjects
+
+        bundle = self._window_bundle()
+        planned = {s.smart_member_id: True for s in build_subjects(self.bundle)}
+
+        class Planned:   # the check reads the site's subjects through ctx.once("subjects", ...)
+            def __init__(self, b):
+                self.bundle = b
+
+            def once(self, key, build):
+                return planned if key == "subjects" else build()
+
+        return [f.to_dict() for f in check_observers(Planned(bundle))]
 
     def _window(self) -> dict:
         """The load's date window as er-smart-sync's ImportOptions fields: patrols that

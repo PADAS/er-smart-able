@@ -23,7 +23,8 @@ PATROLS = [{"uuid": "u1", "id": "P-1", "start_date": "2019-03-04"}, {"uuid": "u2
 
 
 class FakeMigration:
-    def __init__(self, *, checklist=(), preflight=None, failed=None, per_patrol_seconds=0, clock=None, raise_in=None):
+    def __init__(self, *, checklist=(), preflight=None, failed=None, per_patrol_seconds=0, clock=None, raise_in=None, counts=None):
+        self.import_counts = counts if counts is not None else {"events_created": 9, "events_existing": 2, "events_reported_by": 10, "events_reported_by_backfilled": 2}
         self.dry_calls = []
         self.checklist = list(checklist)
         self.preflight_report = preflight or {"blocking": [], "warnings": []}
@@ -73,7 +74,7 @@ class FakeMigration:
             progress({"phase": phase, "total": len(PATROLS), "done": 0, "failed": 0, "already_imported": 0, "phase_skipped": 0})
             for i, p in enumerate(PATROLS):
                 if stop.is_set():
-                    return {"imported": imported, "failed": dict(self.failed), "stopped_early": True}
+                    return {"imported": imported, "failed": dict(self.failed), "stopped_early": True, "counts": dict(self.import_counts)}
                 if self.clock is not None:
                     self.clock.advance(self.per_patrol_seconds)
                 if phase == "tracks" and p["uuid"] not in self.failed:
@@ -81,8 +82,7 @@ class FakeMigration:
                 progress({"phase": phase, "total": len(PATROLS), "done": i + 1,
                           "failed": sum(1 for u in self.failed if u in [q["uuid"] for q in PATROLS[:i + 1]]), "already_imported": 0,
                           "phase_skipped": self.phase_skipped.get(phase, 0) if i + 1 >= len(PATROLS) else 0})
-        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False,
-                "counts": {"events_created": 9, "events_existing": 2, "events_reported_by": 10, "events_reported_by_backfilled": 2}}
+        return {"imported": imported, "failed": dict(self.failed), "stopped_early": False, "counts": dict(self.import_counts)}
 
 
 class Clock:
@@ -558,6 +558,33 @@ def test_failed_patrols_leave_the_import_row_done(env):
     assert load["status"] == "needs_attention"
     assert load["stages"]["import"]["status"] == "done"
     assert {k: load["stages"]["import"]["metrics"][k] for k in ("imported", "failed", "skipped")} == {"imported": 2, "failed": 1, "skipped": 0}
+
+
+def test_event_totals_add_up_across_a_continuation_and_start_afresh_otherwise(env, monkeypatch):
+    store = env[0]
+    monkeypatch.setattr(store, "start_load", lambda id, mode: "exec-2")
+    clock = Clock()
+    first = {"events_created": 4, "events_existing": 0, "events_reported_by": 4, "events_reported_by_backfilled": 0}
+    rc, load, _ = _run(env, "run", FakeMigration(per_patrol_seconds=60, clock=clock, counts=first), "queued", clock=clock)
+    assert load["status"] == "continuing" and load["event_totals"] == first
+    # the continuation's invocation counts only its own work; the load's totals add it on
+    cont = FakeMigration(counts={"events_created": 5, "events_existing": 1, "events_reported_by": 6, "events_reported_by_backfilled": 0})
+    store.update_load(load["id"], status="continuing")
+    runner = sys.modules["load_job"].Runner(store, load["id"], "run", work=env[4] / "work2", migration_factory=lambda **kw: cont,
+                                            check_token=lambda h, t: "ops", env={"LOAD_SOFT_DEADLINE_SECONDS": "100"})
+    assert runner.run() == 0
+    done = store.get_load(load["id"])
+    assert done["status"] == "done" and done["event_totals"] == {"events_created": 9, "events_existing": 1, "events_reported_by": 10, "events_reported_by_backfilled": 0}
+    assert done["stages"]["import"]["metrics"]["events_on_site"] == 10 and done["stages"]["import"]["metrics"]["events_reported_by"] == 10
+    # a fresh run (not a continuation) starts the totals again: a fill-only pass has only the filled count
+    fill = FakeMigration(counts={"events_reported_by_backfilled": 7})
+    store.update_load(load["id"], status="queued")
+    runner = sys.modules["load_job"].Runner(store, load["id"], "run", work=env[4] / "work3", migration_factory=lambda **kw: fill,
+                                            check_token=lambda h, t: "ops", env={"LOAD_SOFT_DEADLINE_SECONDS": "100"})
+    assert runner.run() == 0
+    again = store.get_load(load["id"])
+    assert again["event_totals"] == {"events_created": 0, "events_existing": 0, "events_reported_by": 0, "events_reported_by_backfilled": 7}
+    assert again["stages"]["import"]["metrics"]["events_on_site"] == 0 and again["stages"]["import"]["metrics"]["events_reported_by_backfilled"] == 7
 
 
 def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):

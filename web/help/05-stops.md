@@ -115,7 +115,7 @@ A warning, nothing to do. SMART stores some leg dates as a placeholder; the impo
 
 ### Observations nobody can be said to have reported {#finding-observers}
 
-A warning. Each imported event names who reported it: the subject of the SMART observer, or, when that person has no subject on the site, the leg's leader, else its first member. The listed observations have none of those, so their events carry no reporter. Nothing to do unless it matters: give the observer an employee record in SMART and re-export. In a plan this is expected for observers whose subjects the run will create.
+A warning. Each imported event names who reported it: the subject of the SMART observer, or, when that person has no subject on the site, the leg's leader, else its first member. The listed observations have none of those, so their events carry no reporter. Nothing to do unless it matters: give the observer an employee record in SMART and re-export. A plan lists only the observations the run's own subjects cannot resolve.
 
 ### The extraction recorded warnings {#finding-bundle_warnings}
 
