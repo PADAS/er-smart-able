@@ -1,4 +1,6 @@
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -31,3 +33,10 @@ def test_fonts_are_self_hosted_with_a_fallback_and_optional_display():
     assert 'Roboto, system-ui, "Helvetica Neue", Arial, sans-serif' in app
     html = (ROOT / "web" / "templates" / "index.html").read_text()
     assert "fonts.googleapis.com/css2?family=Inter" not in html and "/static/fonts/roboto.css" in html and "/static/er-tokens.css" in html
+
+
+def test_the_page_builders_pass_their_node_tests():
+    if not shutil.which("node"):
+        pytest.skip("node is not installed")
+    r = subprocess.run(["node", "--test", "tests/js/*.test.js"], cwd=ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
