@@ -18,9 +18,24 @@ function showSignIn(err) {
 function showApp() {
   $('#signIn').hidden = true; $('#appUI').hidden = false; $('#who').hidden = false;
   $('#whoEmail').textContent = ME.email;
-  loadList();
-  loadSites();
+  // a load link (#load/<id>) opens that load; otherwise the list is the first history entry
+  const m = LOAD_HASH.exec(location.hash);
+  if (m) showLoad(m[1], 'replace');
+  else { history.replaceState({}, '', location.pathname + location.search); loadList(); loadSites(); }
 }
+
+// ---- the list and a load page are history entries, so Back and Forward move between them
+// and a load's link can be shared or reloaded
+const LOAD_HASH = /^#load\/([A-Za-z0-9]+)$/;
+window.addEventListener('popstate', e => {
+  if (!ME) return;
+  const s = e.state || {};
+  if (s.load) showLoad(s.load, 'none');
+  else {
+    const m = !e.state && LOAD_HASH.exec(location.hash);   // a hand-edited address: the URL says which view
+    if (m) showLoad(m[1], 'replace'); else showDatasets('none');
+  }
+});
 
 async function boot() {
   CONFIG = await (await fetch('/api/config')).json();
@@ -40,7 +55,7 @@ async function boot() {
   $('#modalClose').onclick = () => { $('#modal').hidden = true; };
   $('#uploadForm').onsubmit = upload;
   $('#siteForm').onsubmit = addSite;
-  $('#loadBack').onclick = showDatasets;
+  $('#loadBack').onclick = () => showDatasets();
   // the title goes home from anywhere in the app; signed in, without reloading the page
   $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); $('#modal').hidden = true; showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
@@ -279,15 +294,36 @@ async function loadDialog(d) {
 
 // ---- the load page
 let loadTimer = null, currentLoad = null;
-function showDatasets() { clearTimeout(loadTimer); currentLoad = null; document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false); $('#loadPage').hidden = true; loadList(); loadSites(); }
+// nav: how the history changes. 'auto' steps back to the list entry a load was opened from, or
+// pushes one; 'push' and 'replace' say so; 'none' is for Back and Forward, which moved already.
+function showDatasets(nav = 'auto') {
+  const s = history.state || {};
+  if (nav === 'auto' && s.load && s.fromList) { history.back(); return; }   // popstate shows the list
+  if ((nav === 'auto' && s.load) || nav === 'push') history.pushState({}, '', location.pathname + location.search);   // already on the list: no entry
+  else if (nav === 'replace') history.replaceState({}, '', location.pathname + location.search);
+  clearTimeout(loadTimer); currentLoad = null;
+  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false);
+  $('#loadPage').hidden = true;
+  loadList(); loadSites();
+}
 
-async function showLoad(id) {
+async function showLoad(id, nav = 'push') {
+  const was = history.state || {};
+  // a reload keeps where the load was opened from; only a load reached directly lacks a list behind it
+  const entry = { load: id, fromList: nav === 'push' ? !currentLoad : !!(was.load === id && was.fromList) };
+  if (nav === 'push') history.pushState(entry, '', '#load/' + id);
+  else if (nav === 'replace') history.replaceState(entry, '', '#load/' + id);
   clearTimeout(pollTimer);
   currentLoad = id;
   ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
-  try { await renderLoad(); } catch (e) { alert(e.message); showDatasets(); }
+  try { await renderLoad(); }
+  catch (e) {   // a gone load leaves no entry behind: the entry becomes the list, and a pushed one is also stepped off
+    alert(e.message);
+    if (nav === 'push') { history.replaceState({}, '', location.pathname + location.search); history.back(); }
+    else showDatasets('replace');
+  }
 }
 
 const STAGES = ['datamodel', 'patrol_datamodel', 'preflight', 'import'];
@@ -332,7 +368,12 @@ async function renderLoad() {
   $('#loadActions').innerHTML = actions;
   const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
   const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try { await api('/api/loads/' + l.id, { method: 'DELETE' }); showDatasets(); } catch (e) { alert(e.message); } };
+  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try {
+      await api('/api/loads/' + l.id, { method: 'DELETE' });
+      // the deleted load's entry becomes the list, so Back never lands on it; if the reader has moved on
+      // meanwhile, the page they are on is left alone and a list they are on is refreshed
+      if (currentLoad === l.id) showDatasets('replace'); else if (!currentLoad) loadList();
+    } catch (e) { alert(e.message); } };
   const RANK = { blocking: 0, warning: 1, info: 2 };
   const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
   $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +

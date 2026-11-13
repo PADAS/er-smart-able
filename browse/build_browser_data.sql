@@ -88,9 +88,10 @@ COPY (
         ed := strftime(leg.end_date, '%Y-%m-%d'),
         tr := coalesce(ltr.label, ''),
         md := coalesce(lmd.label, ''),
-        members := (SELECT list(struct_pack(n := e.name, ldr := m.is_leader))
+        -- a member whose employee record SMART no longer has keeps its uuid and an empty name
+        members := (SELECT list(struct_pack(u := m.employee_uuid, n := coalesce(e.name, ''), ldr := m.is_leader))
                     FROM 'parquet/patrol_leg_members.parquet' m
-                    JOIN emp e ON e.uuid = m.employee_uuid
+                    LEFT JOIN emp e ON e.uuid = m.employee_uuid
                     WHERE m.patrol_leg_uuid = leg.uuid),
         days := (SELECT list(struct_pack(
                      d := strftime(pld.patrol_day, '%Y-%m-%d'),
@@ -193,12 +194,13 @@ COPY (
 
 -- ----------------------------------------------------------- employees.json
 COPY (
-  SELECT e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
+  SELECT e.uuid AS u, ca.id AS ca, e.name AS n, emp2.id, coalesce(lag.label, '') AS agency,
          coalesce(lrk.label, '') AS rank,
          strftime(emp2.startemploymentdate, '%Y-%m-%d') AS sd,
          strftime(emp2.endemploymentdate, '%Y-%m-%d') AS ed
   FROM emp e
   JOIN 'parquet/employee.parquet' emp2 ON emp2.uuid = e.uuid
+  LEFT JOIN 'parquet/conservation_area.parquet' ca ON ca.uuid = emp2.ca_uuid
   LEFT JOIN lbl lag ON lag.element_uuid = emp2.agency_uuid
   LEFT JOIN lbl lrk ON lrk.element_uuid = emp2.rank_uuid
   ORDER BY e.name
