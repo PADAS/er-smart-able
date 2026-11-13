@@ -476,7 +476,7 @@ def test_stages_record_status_times_and_metrics(env):
     assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
     assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
     assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
-    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0, "events_on_site": 11,
+    assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0, "events_written": 9,
                                        "events_reported_by": 10, "events_reported_by_backfilled": 2}
 
 
@@ -560,31 +560,12 @@ def test_failed_patrols_leave_the_import_row_done(env):
     assert {k: load["stages"]["import"]["metrics"][k] for k in ("imported", "failed", "skipped")} == {"imported": 2, "failed": 1, "skipped": 0}
 
 
-def test_event_totals_add_up_across_a_continuation_and_start_afresh_otherwise(env, monkeypatch):
-    store = env[0]
-    monkeypatch.setattr(store, "start_load", lambda id, mode: "exec-2")
-    clock = Clock()
-    first = {"events_created": 4, "events_existing": 0, "events_reported_by": 4, "events_reported_by_backfilled": 0}
-    rc, load, _ = _run(env, "run", FakeMigration(per_patrol_seconds=60, clock=clock, counts=first), "queued", clock=clock)
-    assert load["status"] == "continuing" and load["event_totals"] == first
-    # the continuation's invocation counts only its own work; the load's totals add it on
-    cont = FakeMigration(counts={"events_created": 5, "events_existing": 1, "events_reported_by": 6, "events_reported_by_backfilled": 0})
-    store.update_load(load["id"], status="continuing")
-    runner = sys.modules["load_job"].Runner(store, load["id"], "run", work=env[4] / "work2", migration_factory=lambda **kw: cont,
-                                            check_token=lambda h, t: "ops", env={"LOAD_SOFT_DEADLINE_SECONDS": "100"})
-    assert runner.run() == 0
-    done = store.get_load(load["id"])
-    assert done["status"] == "done" and done["event_totals"] == {"events_created": 9, "events_existing": 1, "events_reported_by": 10, "events_reported_by_backfilled": 0}
-    assert done["stages"]["import"]["metrics"]["events_on_site"] == 10 and done["stages"]["import"]["metrics"]["events_reported_by"] == 10
-    # a fresh run (not a continuation) starts the totals again: a fill-only pass has only the filled count
+def test_the_import_row_says_what_this_execution_did(env, monkeypatch):
+    """A fill-only pass (events from an earlier load given a reporter) shows its work with no event written."""
     fill = FakeMigration(counts={"events_reported_by_backfilled": 7})
-    store.update_load(load["id"], status="queued")
-    runner = sys.modules["load_job"].Runner(store, load["id"], "run", work=env[4] / "work3", migration_factory=lambda **kw: fill,
-                                            check_token=lambda h, t: "ops", env={"LOAD_SOFT_DEADLINE_SECONDS": "100"})
-    assert runner.run() == 0
-    again = store.get_load(load["id"])
-    assert again["event_totals"] == {"events_created": 0, "events_existing": 0, "events_reported_by": 0, "events_reported_by_backfilled": 7}
-    assert again["stages"]["import"]["metrics"]["events_on_site"] == 0 and again["stages"]["import"]["metrics"]["events_reported_by_backfilled"] == 7
+    rc, load, _ = _run(env, "run", fill, "queued")
+    m = load["stages"]["import"]["metrics"]
+    assert m["events_written"] == 0 and m["events_reported_by"] == 0 and m["events_reported_by_backfilled"] == 7
 
 
 def test_a_continuation_leaves_the_import_row_running(env, monkeypatch):
