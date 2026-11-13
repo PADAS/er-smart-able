@@ -17,24 +17,36 @@ function showSignIn(err) {
 function showApp() {
   $('#signIn').hidden = true; $('#appUI').hidden = false; $('#who').hidden = false;
   $('#whoEmail').textContent = ME.email;
-  // a load link (#load/<id>) opens that load; otherwise the list is the first history entry
-  const m = LOAD_HASH.exec(location.hash);
-  if (m) showLoad(m[1], 'replace');
-  else { history.replaceState({}, '', location.pathname + location.search); loadList(); loadSites(); }
+  navigate(parseRoute(location.hash), 'replace');   // the address says which page; the first entry is that page
 }
 
-// ---- the list and a load page are history entries, so Back and Forward move between them
-// and a load's link can be shared or reloaded
-const LOAD_HASH = /^#load\/([A-Za-z0-9]+)$/;
-window.addEventListener('popstate', e => {
-  if (!ME) return;
-  const s = e.state || {};
-  if (s.load) showLoad(s.load, 'none');
-  else {
-    const m = !e.state && LOAD_HASH.exec(location.hash);   // a hand-edited address: the URL says which view
-    if (m) showLoad(m[1], 'replace'); else showDatasets('none');
-  }
-});
+// ---- routes are history entries, so Back and Forward move between pages and a page's link can be
+// shared or reloaded. The hash is the truth; history.state.from is the hash of the page the reader
+// came from, so a Back button can step back when that is its parent, and navigate there otherwise.
+// nav: 'push' adds an entry, 'replace' rewrites this one (keeping its from), 'none' leaves history alone.
+function navigate(route, nav = 'push') {
+  const hash = routeHash(route);
+  if (nav === 'push') history.pushState({ from: location.hash || '#/' }, '', location.pathname + location.search + hash);
+  else if (nav === 'replace') history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + hash);
+  renderRoute(route);
+}
+// one show* per page; the dataset and sites pages arrive in later tasks
+function renderRoute(route) {
+  if (route.page === 'home') showHome();
+  else if (route.page === 'load') openLoad(route.load);
+  else if (route.page === 'legacy-load') openLegacyLoad(route.load);
+  else console.log('no page built yet for', route);
+}
+// an old #load/<id> link: look up the load's dataset and swap the entry for the load's route
+async function openLegacyLoad(id) {
+  const mine = routeHash({ page: 'legacy-load', load: id });
+  try {
+    const l = await api('/api/loads/' + id);
+    if (location.hash !== mine) return;   // the reader moved on while it loaded
+    navigate({ page: 'load', id: l.dataset_id, load: id }, 'replace');
+  } catch (e) { if (location.hash === mine) navigate({ page: 'home' }, 'replace'); }
+}
+window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
 
 async function boot() {
   CONFIG = await (await fetch('/api/config')).json();
@@ -293,35 +305,34 @@ async function loadDialog(d) {
 
 // ---- the load page
 let loadTimer = null, currentLoad = null;
-// nav: how the history changes. 'auto' steps back to the list entry a load was opened from, or
-// pushes one; 'push' and 'replace' say so; 'none' is for Back and Forward, which moved already.
+// 'auto' steps back to the list when a load was opened from it, else goes to it; 'push' and 'replace'
+// say so. showLoad (replaced by the load page in a later task) goes through navigate as well.
 function showDatasets(nav = 'auto') {
-  const s = history.state || {};
-  if (nav === 'auto' && s.load && s.fromList) { history.back(); return; }   // popstate shows the list
-  if ((nav === 'auto' && s.load) || nav === 'push') history.pushState({}, '', location.pathname + location.search);   // already on the list: no entry
-  else if (nav === 'replace') history.replaceState({}, '', location.pathname + location.search);
-  clearTimeout(loadTimer); currentLoad = null;
+  if (nav === 'auto') {
+    if (currentLoad && (history.state || {}).from === '#/') { history.back(); return; }   // popstate shows the list
+    nav = currentLoad ? 'push' : 'replace';   // already on the list: no entry
+  }
+  navigate({ page: 'home' }, nav);
+}
+function showHome() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false);
   $('#loadPage').hidden = true;
   loadList(); loadSites();
 }
 
-async function showLoad(id, nav = 'push') {
-  const was = history.state || {};
-  // a reload keeps where the load was opened from; only a load reached directly lacks a list behind it
-  const entry = { load: id, fromList: nav === 'push' ? !currentLoad : !!(was.load === id && was.fromList) };
-  if (nav === 'push') history.pushState(entry, '', '#load/' + id);
-  else if (nav === 'replace') history.replaceState(entry, '', '#load/' + id);
+function showLoad(id, nav = 'push') { navigate({ page: 'legacy-load', load: id }, nav); }
+
+async function openLoad(id) {
   clearTimeout(pollTimer);
   currentLoad = id;
   ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
   document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
   $('#loadPage').hidden = false;
   try { await renderLoad(); }
-  catch (e) {   // a gone load leaves no entry behind: the entry becomes the list, and a pushed one is also stepped off
+  catch (e) {   // a gone load leaves the list in its place
     alert(e.message);
-    if (nav === 'push') { history.replaceState({}, '', location.pathname + location.search); history.back(); }
-    else showDatasets('replace');
+    navigate({ page: 'home' }, 'replace');
   }
 }
 
