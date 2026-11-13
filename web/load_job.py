@@ -469,8 +469,7 @@ class ErSmartSyncMigration:
                 for uuid in {m["employee_uuid"] for leg in p.get("legs") or [] for m in leg.get("members") or []}:
                     out[uuid] = out.get(uuid, 0) + 1
             return out
-        # what the subject will hold after this load: nothing for a data-model-only load, which imports no patrols
-        in_load = {} if self.options.get("scope") == "datamodel" else patrols_per_member(self._selected())
+        in_load = patrols_per_member(self._selected())      # what the subject will hold after this load
         in_all = patrols_per_member(self.bundle.patrols)     # the person's whole history in the dataset
         ids = getattr(self, "_subject_ids", {})
         known = {e.uuid for e in self.bundle.reference.employees}
@@ -506,6 +505,9 @@ class ErSmartSyncMigration:
         return self._selection
 
     def _select(self) -> list:
+        """What this load imports: nothing for a data-model-only load, else the window's patrols."""
+        if self.options.get("scope") == "datamodel":
+            return []
         from er_smart_sync import patrol_import
         return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
 

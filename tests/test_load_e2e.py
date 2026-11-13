@@ -111,8 +111,7 @@ def test_a_data_model_plan_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert load["plan"]["event_types"]["create"] and load["plan"]["patrol_types"]["create"]
     assert "preflight" not in load["stages"]
     # the rangers are listed, with no patrols from this load (it imports none) but their whole history
-    assert sorted(r["name"] for r in load["rangers"]) == ["Ana Cruz", "Ben Reyes"]
-    assert all(r["patrols"] == 0 and r["patrols_total"] >= 1 for r in load["rangers"])
+    assert {r["name"]: (r["patrols"], r["patrols_total"]) for r in load["rangers"]} == {"Ana Cruz": (0, 2), "Ben Reyes": (0, 1)}
 
 
 def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
@@ -162,9 +161,9 @@ def test_plan_mode_end_to_end(smart_parquet, tmp_path, monkeypatch):
     assert sorted(e["label"] for e in plan["subjects"]["create"]) == ["Ana Cruz", "Ben Reyes"]
     assert all(e["value"] is None for e in plan["subjects"]["create"])
     # the rangers list names the same people, with how many patrols each appears on, for their accounts
-    assert sorted(r["name"] for r in load["rangers"]) == ["Ana Cruz", "Ben Reyes"]
-    assert all(r["patrols"] >= 1 and r["patrols_total"] >= r["patrols"] and r["subject_id"] is None and not r["deleted"]
-               for r in load["rangers"])   # a plan creates no subjects
+    # Ana is on both patrols, Ben on one; a plan creates no subjects
+    assert {r["name"]: (r["patrols"], r["patrols_total"]) for r in load["rangers"]} == {"Ana Cruz": (2, 2), "Ben Reyes": (1, 1)}
+    assert all(r["subject_id"] is None and not r["deleted"] for r in load["rangers"])
     codes = {f["code"] for f in load["findings"]}
     assert "team" in codes   # Team One is not on the fake site
     # the empty site lacks the data model the run will write, so those preflight findings are info;
