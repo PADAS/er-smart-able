@@ -1,63 +1,115 @@
 // smart-able web: sign in, list datasets, upload + extract, share, open.
 const $ = (s, el = document) => el.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtBytes = n => n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(0) + ' MB' : n >= 1e3 ? (n / 1e3).toFixed(0) + ' kB' : n + ' B';
 let CONFIG = null, ME = null, pollTimer = null;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
-  if (r.status === 401) { showSignIn(); throw new Error('Sign in required'); }
-  if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} throw new Error(d || r.statusText); }
+  if (r.status === 401) { showSignIn(); const err = new Error('Sign in required'); err.status = 401; throw err; }
+  if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} const err = new Error(d || r.statusText); err.status = r.status; throw err; }
   return r.status === 204 ? null : r.json();
 }
 
 function showSignIn(err) {
-  $('#signIn').hidden = false; $('#appUI').hidden = true; $('#who').hidden = true;
+  clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
+  listGen++; datasetGen++; loadGen++; sitesGen++;   // a page fetch still in flight cannot paint over the form
+  mountHeader(false); setBreadcrumb(null);
+  mountPage(renderSignIn(CONFIG));
+  $('#signInBtn').onclick = signIn;
   $('#signInError').textContent = err || '';
 }
 function showApp() {
-  $('#signIn').hidden = true; $('#appUI').hidden = false; $('#who').hidden = false;
-  $('#whoEmail').textContent = ME.email;
-  // a load link (#load/<id>) opens that load; otherwise the list is the first history entry
-  const m = LOAD_HASH.exec(location.hash);
-  if (m) showLoad(m[1], 'replace');
-  else { history.replaceState({}, '', location.pathname + location.search); loadList(); loadSites(); }
+  mountHeader(true);
+  $('#whoEmail').textContent = ME.email; $('#menuEmail').textContent = ME.email;   // the menu shows it where the band has no room
+  navigate(parseRoute(location.hash), 'replace');   // the address says which page; the first entry is that page
 }
 
-// ---- the list and a load page are history entries, so Back and Forward move between them
-// and a load's link can be shared or reloaded
-const LOAD_HASH = /^#load\/([A-Za-z0-9]+)$/;
-window.addEventListener('popstate', e => {
-  if (!ME) return;
-  const s = e.state || {};
-  if (s.load) showLoad(s.load, 'none');
-  else {
-    const m = !e.state && LOAD_HASH.exec(location.hash);   // a hand-edited address: the URL says which view
-    if (m) showLoad(m[1], 'replace'); else showDatasets('none');
+// ---- the shell: the header band, the breadcrumb under it, and one page container
+// signed out, the band shows only the lockup, the name and the version
+function mountHeader(signedIn) {
+  $('#helpBtn').hidden = !signedIn; $('#account').hidden = !signedIn;
+  $('#account').open = false;
+}
+function mountPage(html) { $('#page').innerHTML = html; }
+// parts: [{label, hash?}], the last one where the reader is; none hides the bar
+function setBreadcrumb(parts) {
+  const bar = $('#crumbs');
+  bar.hidden = !(parts && parts.length);
+  bar.innerHTML = parts && parts.length ? renderBreadcrumb(parts) : '';
+}
+// data-theme is always 'light' or 'dark'. 'system' resolves it from the OS and follows a switch
+// while the page is open; 'light' and 'dark' pin it. The choice (system|light|dark) is remembered.
+let themeChoice = 'system', themeQuery = null;
+function setTheme(choice) {
+  if (choice !== 'light' && choice !== 'dark') choice = 'system';
+  themeChoice = choice;
+  if (!themeQuery && window.matchMedia) {   // registered once; it acts only while the choice is system
+    themeQuery = matchMedia('(prefers-color-scheme: dark)');
+    themeQuery.addEventListener('change', () => { if (themeChoice === 'system') applyTheme(); });
   }
-});
+  applyTheme();
+  try { localStorage.theme = choice; } catch (e) { /* storage blocked: the choice lasts this page */ }
+  document.querySelectorAll('input[name="theme"]').forEach(r => { r.checked = r.value === choice; });
+}
+function applyTheme() {
+  document.documentElement.dataset.theme = themeChoice !== 'system' ? themeChoice : themeQuery && themeQuery.matches ? 'dark' : 'light';
+}
+
+// ---- routes are history entries, so Back and Forward move between pages and a page's link can be
+// shared or reloaded. The hash is the truth; history.state.from is the hash of the page the reader
+// came from, so a Back button can step back when that is its parent, and navigate there otherwise.
+// nav: 'push' adds an entry, 'replace' rewrites this one (keeping its from), 'none' leaves history alone.
+function navigate(route, nav = 'push') {
+  const hash = routeHash(route);
+  if (nav === 'push') history.pushState({ from: location.hash || '#/' }, '', location.pathname + location.search + hash);
+  else if (nav === 'replace') history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + hash);
+  renderRoute(route);
+}
+// one show* per page
+function renderRoute(route) {
+  clearTimeout(pollTimer); clearTimeout(loadTimer); listGen++;   // leaving a page: its poll and any response in flight stop
+  if (route.page === 'home') showHome();
+  else if (route.page === 'dataset') showDataset(route);
+  else if (route.page === 'load') showLoad(route);
+  else if (route.page === 'sites') showSites();
+  else if (route.page === 'legacy-load') openLegacyLoad(route.load);
+  else console.log('no page built yet for', route);
+}
+// an old #load/<id> link: look up the load's dataset and swap the entry for the load's route
+async function openLegacyLoad(id) {
+  const mine = routeHash({ page: 'legacy-load', load: id });
+  try {
+    const l = await api('/api/loads/' + id);
+    if (location.hash !== mine) return;   // the reader moved on while it loaded
+    navigate({ page: 'load', id: l.dataset_id, load: id }, 'replace');
+  } catch (e) { if (e.status !== 401 && location.hash === mine) navigate({ page: 'home' }, 'replace'); }
+}
+window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
 
 async function boot() {
+  let theme = 'system';
+  try { theme = localStorage.theme || 'system'; } catch (e) { /* storage blocked */ }
+  setTheme(theme);   // before the first fetch, so the page never flashes the other theme
   CONFIG = await (await fetch('/api/config')).json();
-  $('#allowedHint').textContent = CONFIG.allowed;
   if (!CONFIG.authDisabled) {
     firebase.initializeApp({ apiKey: CONFIG.apiKey, authDomain: CONFIG.authDomain, projectId: CONFIG.projectId });
     if (CONFIG.authEmulatorUrl) firebase.auth().useEmulator(CONFIG.authEmulatorUrl);
   }
-  $('#signInBtn').onclick = signIn;
   $('#helpBtn').onclick = () => openHelp();
   $('#helpClose').onclick = closeHelp;
   $('#helpBody').onscroll = helpScrolled;
   $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
-  $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
-  $('#modalClose').onclick = () => { $('#modal').hidden = true; };
-  $('#uploadForm').onsubmit = upload;
-  $('#siteForm').onsubmit = addSite;
-  $('#loadBack').onclick = () => showDatasets();
+  // an open dialog takes the keys first (it sits above the help drawer); Escape closes one layer at a time
+  document.addEventListener('keydown', e => { if (!$('#modal').hidden) modalKeydown(e); else if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
+  document.querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
+  $('#menuSites').onclick = () => { $('#account').open = false; navigate({ page: 'sites' }); };
+  // the menu closes on a click outside it or Escape, like any menu
+  document.addEventListener('click', e => { if ($('#account').open && !$('#account').contains(e.target)) $('#account').open = false; });
+  $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
+  $('#signOut').onclick = async () => { $('#account').open = false; await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
+  $('#modalClose').onclick = closeDialog;
   // the title goes home from anywhere in the app; signed in, without reloading the page
-  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); $('#modal').hidden = true; showDatasets(); } };
+  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); if (!$('#modal').hidden) closeDialog(); showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
 }
 
@@ -74,97 +126,95 @@ async function signIn() {
 }
 
 // ---- datasets
-const pill = status => '<span class="pill ' + esc(status) + '">' + esc(String(status).replace(/_/g, ' ')) + '</span>';
-let listGen = 0, listHtml = null;   // which render of the list is current, and what it last drew
+let listGen = 0;   // which render of the home page is current
 
-async function loadList() {
-  const list = await api('/api/datasets');
+// the home page's polling: a fetch is current only while its gen is, so a superseded response is dropped
+async function showHome() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++listGen;
-  // every dataset's loads first, so the table is drawn once, complete: drawing it with
-  // placeholders and filling them one response at a time made it flicker on every poll
-  const loadsOf = await Promise.all(list.map(d => api('/api/datasets/' + d.id + '/loads').catch(() => null)));
-  if (gen !== listGen || currentLoad) return;   // a newer render started, or the reader has moved to a load page
-  const host = $('#list');
-  const html = !list.length ? '<p class="muted">No datasets yet. Upload one above.</p>' :
-    '<table><thead><tr><th>Dataset</th><th>Conservation area(s)</th><th>Status</th><th>Loads</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
-    list.map((d, i) => '<tr data-id="' + d.id + '">' +
-      '<td><b>' + esc(d.name) + '</b><div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + esc((d.created_at || '').slice(0, 10)) + '</div></td>' +
-      '<td>' + ((d.cas || []).map(c => esc(c.n || c.id)).join('<br>') || '<span class="tiny">—</span>') + (d.db_version ? '<div class="tiny">SMART ' + esc(d.db_version) + '</div>' : '') + '</td>' +
-      '<td>' + pill(d.status) + (d.error ? '<div class="tiny">' + esc(d.error) + '</div>' : '') +
-        (d.counts && d.counts.patrols != null ? '<div class="tiny">' + d.counts.patrols + ' patrols · ' + d.counts.waypoints + ' waypoints</div>' : '') + '</td>' +
-      '<td class="loads">' + loadsCell(loadsOf[i], d.export || []) + '</td>' +
-      '<td>' + (d.mine ? 'you' : esc(d.owner_email)) + '</td>' +
-      '<td>' + ((d.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
-      '<td class="actions">' +
-        (d.status === 'ready' ? '<a href="/d/' + d.id + '/"><button><span class="mi" aria-hidden="true">arrow_forward</span>Open</button></a> ' : '') +
-        (d.mine ? '<button data-act="share"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (d.status === 'ready' && (d.export || []).length ? '<button data-act="load" title="Load a conservation area into an EarthRanger site"><span class="mi" aria-hidden="true">cloud_upload</span>Load</button> ' : '') +
-        (d.status === 'ready' && !(d.export || []).length ? '<span class="tiny" title="Run the extraction again to build the migration bundle">re-extract to enable loading</span> ' : '') +
-        (d.mine && !d.extract_held && ['failed', 'uploaded', 'ready', 'uploading', 'queued', 'running'].includes(d.status) ? '<button data-act="extract" title="' + (d.status === 'uploading' ? 'Start the extraction (if the upload completed)' : 'Run the extraction again') + '"><span class="mi" aria-hidden="true">refresh</span></button> ' : '') +
-        (d.mine && (d.status === 'failed' || d.status === 'running') ? '<button data-act="log" title="Extraction log"><span class="mi" aria-hidden="true">receipt_long</span></button> ' : '') +
-        (d.mine ? '<button data-act="delete" class="danger" title="Delete this dataset and its files"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
-      '</td></tr>').join('') + '</tbody></table>';
-  if (html !== listHtml || !host.firstChild) {   // nothing changed: leave the page, its focus and its hover alone
-    host.innerHTML = html;
-    listHtml = html;
-    host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => action(b.dataset.act, b.closest('tr').dataset.id, list.find(d => d.id === b.closest('tr').dataset.id)));
-    host.querySelectorAll('button[data-load]').forEach(b => b.onclick = () => showLoad(b.dataset.load));
-  }
+  setBreadcrumb(null);
+  let list;
+  try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  if (gen !== listGen) return;
+  mountPage(renderHome(list));
+  $('#uploadBtn').onclick = uploadDialog;
+  pollHome(list, gen);
+}
+// while any dataset is queued or running, refetch every 5 s and replace only the card list
+// ('uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes)
+function pollHome(list, gen, fails = 0) {
   clearTimeout(pollTimer);
-  // 'uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes
-  if (list.some(d => ['queued', 'running'].includes(d.status)) || loadsOf.some(ls => (ls || []).some(l => l.held)))
-    pollTimer = setTimeout(loadList, 5000);
+  if (!list.some(d => ['queued', 'running'].includes(d.status))) return;
+  pollTimer = setTimeout(async () => {
+    let next;
+    try { next = await api('/api/datasets'); }
+    catch (e) {
+      if (gen !== listGen || e.status === 401) return;
+      retryNote($('#page .page-head'), fails + 1 >= 2);
+      return pollHome(list, gen, fails + 1);
+    }
+    const host = $('#cards');
+    if (gen !== listGen || !host) return;
+    retryNote($('#page .page-head'), false);
+    const html = renderCardList(next);
+    if (html !== host.dataset.html) { host.innerHTML = html; host.dataset.html = html; }
+    pollHome(next, gen);
+  }, 5000);
+}
+// a poll that fails keeps the last render and retries; from the second failure in a row a note under `after` says so
+function retryNote(after, show) {
+  if (!after) return;
+  const next = after.nextElementSibling, shown = !!(next && next.hasAttribute('data-retry'));
+  if (show && !shown) after.insertAdjacentHTML('afterend', '<p class="tiny" data-retry>Could not refresh; retrying…</p>');
+  else if (!show && shown) next.remove();
 }
 
-// what a load writes, in words: empty for the data model and every patrol (the default)
-function loadScope(l) {
-  const o = l.options || {};
-  if (o.scope === 'datamodel') return 'Data model only';
-  if (o.since && o.until) return 'Patrols from ' + o.since + ' to ' + o.until;
-  if (o.since) return 'Patrols from ' + o.since;
-  if (o.until) return 'Patrols up to ' + o.until;
-  return '';
-}
-
-// the Loads column: each load is a button that opens its page, so a new reader sees it as a place to go
-function loadsCell(loads, exp) {
-  if (loads === null) return '<span class="tiny">could not load</span>';
-  if (!loads.length) return '<span class="tiny">' + (exp.length ? 'none yet' : '—') + '</span>';
-  return loads.map(l =>
-    '<button class="loadlink" data-load="' + esc(l.id) + '" title="Open this load"><span class="mi" aria-hidden="true">arrow_forward</span>' +
-    '<span class="loadlink-what"><b>' + esc(((exp || []).find(e => e.dir === l.ca_id) || {}).name || l.ca_id) + '</b> → ' + esc(l.site ? l.site.name || l.site.url : 'removed site') + '</span>' +
-    (loadScope(l) ? '<span class="tiny">' + esc(loadScope(l)) + '</span>' : '') +
-    pill(l.status) +
-    (l.progress && l.progress.patrols_total != null && ['running', 'continuing', 'needs_attention', 'done'].includes(l.status)
-      ? '<span class="tiny">' + esc(Number(l.progress.done || 0).toLocaleString()) + ' of ' + esc(Number(l.progress.patrols_total).toLocaleString()) + ' patrols</span>' : '') +
-    '</button>').join('');
-}
-
-async function action(act, id, d) {
-  try {
-    if (act === 'share') return shareDialog(d);
-    if (act === 'load') return loadDialog(d);
-    if (act === 'extract') { await api('/api/datasets/' + id + '/extract', { method: 'POST' }); return loadList(); }
-    if (act === 'log') { const full = await api('/api/datasets/' + id); return dialog('Extraction log: ' + d.name, '<pre class="log">' + esc(full.log_tail || full.error || '(no output yet)') + '</pre>'); }
-    if (act === 'delete') { if (!confirm('Delete "' + d.name + '" and all its extracted data? This cannot be undone.')) return; await api('/api/datasets/' + id, { method: 'DELETE' }); return loadList(); }
-  } catch (e) { alert(e.message); }
-}
-
-// a form that brings its own Close beside its submit button (data-close) hides the dialog's own
+// a form that brings its own Close beside its submit button (data-close) hides the dialog's own.
+// Focus moves to the first field, Tab stays inside, Escape is the visible Close, and closing returns
+// focus to what opened it. A dialog that replaces an open one (a re-render, the add-a-site detour)
+// keeps the first opener. Closing only hides: an upload in flight carries on.
+let modalOpener = null;
 function dialog(title, bodyHtml) {
+  if ($('#modal').hidden) modalOpener = document.activeElement;
   $('#modalTitle').textContent = title; $('#modalBody').innerHTML = bodyHtml;
   const own = $('#modalBody').querySelector('[data-close]');
-  $('#modalFoot').hidden = !!own; if (own) own.onclick = () => { $('#modal').hidden = true; };
+  $('#modalFoot').hidden = !!own; if (own) own.onclick = closeDialog;
   $('#modal').hidden = false;
+  const first = modalFocusables()[0]; if (first) first.focus();
+}
+function closeDialog() {
+  $('#modal').hidden = true;
+  const back = modalOpener; modalOpener = null;
+  if (back && back.focus && document.contains(back)) back.focus();
+}
+function modalFocusables() {
+  return Array.from($('#modal').querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(x => !x.disabled && x.offsetParent !== null);
+}
+function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus that has strayed outside
+  if (e.key === 'Escape') {
+    e.preventDefault(); e.stopPropagation();
+    ($('#modalBody').querySelector('[data-close]') || $('#modalClose')).click();   // the site dialog's onCancel rides on its Close
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const f = modalFocusables();
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1], inside = $('#modal').contains(document.activeElement);
+  if (!inside) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 function shareDialog(d, base = '/api/datasets/', note) {
-  const refresh = () => base === '/api/sites/' ? loadSites() : loadList();
+  const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
+  const allowed = Array.isArray(CONFIG.allowed) ? CONFIG.allowed : CONFIG.allowed ? [CONFIG.allowed] : [];
+  const domain = allowed.find(e => e.startsWith('@'));   // the placeholder's suggestion; whole addresses give none
   const render = shared => {
     dialog('Share "' + d.name + '"',
-      '<p class="muted tiny">' + esc(note) + ' Addresses must be ' + esc(CONFIG.allowed) + '.</p>' +
-      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(CONFIG.allowed.startsWith('@') ? CONFIG.allowed : '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
+      '<p class="muted tiny">' + esc(note) + (allowed.length ? ' Addresses must be ' + (allowed.length === 1 ? esc(allowed[0]) : 'one of ' + allowed.map(esc).join(', ')) + '.' : '') + '</p>' +
+      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(domain || '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
       '<div class="shared"><ul>' + (shared.length ? shared.map(e => '<li><span class="mi" aria-hidden="true">person</span>' + esc(e) + ' <button class="ghost" data-unshare="' + esc(e) + '" title="Remove"><span class="mi" aria-hidden="true">close</span></button></li>').join('') : '<li class="tiny">Not shared with anyone yet.</li>') + '</ul></div>');
     $('#shareForm').onsubmit = async ev => { ev.preventDefault(); try { const r = await api(base + d.id + '/share', { method: 'POST', body: JSON.stringify({ email: $('#shareEmail').value }) }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } };
     $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } });
@@ -172,70 +222,152 @@ function shareDialog(d, base = '/api/datasets/', note) {
   render(d.shared_with || []);
 }
 
+// a dataset or load the reader cannot open: the dead route's entry becomes the list's address, so Back
+// never lands on it; the page stays the not-found notice
+function showNotFound(what) {
+  history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
+  mountPage(renderNotFound(what));
+}
+
+// ---- the dataset page: the dataset, the tab's data, the actions; polls while it extracts
+let datasetGen = 0;
+async function showDataset(route) {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
+  const gen = ++datasetGen, mine = routeHash(route);
+  const current = () => gen === datasetGen && location.hash === mine;
+  let d;
+  try { d = await api('/api/datasets/' + route.id); }
+  catch (e) {
+    if (!current()) return;
+    if (e.status === 401) return;   // the sign-in form is already on the page
+    if (e.status === 404) showNotFound('dataset'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
+    return;
+  }
+  if (!current()) return;
+  let tab = route.tab;
+  if (tab !== 'overview' && !hasLoadTabs(d)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
+  const extra = {};
+  try {
+    if (tab === 'loads') extra.loads = await api('/api/datasets/' + d.id + '/loads');
+    else if (tab === 'rangers') {
+      const loads = (await api('/api/datasets/' + d.id + '/loads')).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      // the list items carry no rangers: the newest load that has some is found by fetching, newest first
+      for (const l of loads) { if (!current()) return; const full = await api('/api/loads/' + l.id); if ((full.rangers || []).length) { extra.load = full; break; } }
+    }
+  } catch (e) { if (!current() || e.status === 401) return; mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  if (!current()) return;
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
+  mountPage(renderDatasetPage(d, tab, extra));
+  bindDataset(d, tab, route, extra);
+  if (['running', 'queued', 'pending'].includes(d.status) || (tab === 'loads' && (extra.loads || []).some(l => l.held)))
+    pollTimer = setTimeout(() => { if (current()) showDataset(route); }, 5000);
+}
+function bindDataset(d, tab, route, extra) {
+  document.querySelectorAll('.tabs [aria-disabled="true"]').forEach(a => { a.onclick = ev => ev.preventDefault(); });
+  const share = $('#shareBtn'); if (share) share.onclick = () => shareDialog(d);
+  const ex = $('#extractBtn'); if (ex) ex.onclick = async () => {
+    try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { alert(e.message); }
+  };
+  const del = $('#deleteBtn'); if (del) del.onclick = async () => {
+    if (!confirm('Delete "' + d.name + '" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.')) return;
+    try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { alert(e.message); }
+  };
+  document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
+  const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d, (d.export.find(hasBundle) || {}).dir);
+  if (tab === 'rangers' && extra.load) bindRangers($('#tabBody'), extra.load);
+}
+
 // ---- upload: create the dataset, PUT the file where the server says (a signed
-// GCS URL in production, the service itself locally), then start extraction
-async function upload(ev) {
-  ev.preventDefault();
-  const file = $('#dsFile').files[0]; if (!file) return;
-  const btn = $('#uploadBtn'); btn.disabled = true;
-  const prog = $('#progress'), fill = $('#progressFill'), text = $('#progressText');
-  prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
-  try {
-    const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName').value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open(created.upload.method, created.upload.url);
-      for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
-      xhr.withCredentials = created.upload.url.startsWith('/');
-      xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = 'Uploading ' + fmtBytes(e.loaded) + ' of ' + fmtBytes(e.total); } };
-      xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error('Upload failed (' + xhr.status + ')'));
-      xhr.onerror = () => reject(new Error('Upload failed (network)'));
-      xhr.send(file);
-    });
-    text.textContent = 'Uploaded. Starting extraction…';
-    await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
-    text.textContent = 'Extraction started; the list below updates as it runs.';
-    $('#uploadForm').reset();
-    loadList();
-  } catch (e) { text.textContent = e.message; }
-  finally { btn.disabled = false; setTimeout(() => { prog.hidden = true; }, 6000); }
+// GCS URL in production, the service itself locally), then start extraction. The XHR keeps
+// running if the dialog is closed; the elements it updates are then just detached.
+function uploadDialog() {
+  dialog('Upload a backup or export',
+    '<form id="uploadForm" class="stack">' +
+    '<label>Name <input id="dsName" required placeholder="e.g. Lawin R5"></label>' +
+    '<label>File <input id="dsFile" type="file" accept=".zip,.sql,.gz,.bak" required></label>' +
+    '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
+    '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">Upload</button></div></form>');
+  const form = $('#uploadForm');
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const file = $('#dsFile', form).files[0]; if (!file) return;
+    const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
+    const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
+    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
+    try {
+      const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
+      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(created.upload.method, created.upload.url);
+        for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
+        xhr.withCredentials = created.upload.url.startsWith('/');
+        xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = 'Uploading ' + fmtBytes(e.loaded) + ' of ' + fmtBytes(e.total); } };
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error('Upload failed (' + xhr.status + ')'));
+        xhr.onerror = () => reject(new Error('Upload failed (network)'));
+        xhr.send(file);
+      });
+      text.textContent = 'Uploaded. Starting extraction…';
+      await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
+      if (onScreen()) closeDialog();                                   // still on screen: close it
+      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, extracting
+    } catch (e) {
+      if (onScreen()) { text.textContent = e.message; btn.disabled = false; }
+      else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
+    }
+  };
 }
 
-// ---- sites
-async function loadSites() {
-  const list = await api('/api/sites');
-  const host = $('#sites');
-  if (!list.length) { host.innerHTML = '<p class="muted tiny">No sites yet.</p>'; return list; }
-  host.innerHTML = '<table><thead><tr><th>Site</th><th>Host</th><th>Token</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
-    list.map(s => '<tr data-id="' + esc(s.id) + '">' +
-      '<td><b>' + esc(s.name) + '</b></td><td>' + esc(s.url) + '</td>' +
-      '<td class="tiny">…' + esc(s.token_hint) + ' as ' + esc(s.checked_as) + '</td>' +
-      '<td>' + (s.mine ? 'you' : esc(s.owner_email)) + '</td>' +
-      '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
-      '<td class="actions">' +
-        (s.mine ? '<button data-act="siteShare"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (s.mine ? '<button data-act="siteDelete" class="danger" title="Remove this site and its token"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
-      '</td></tr>').join('') + '</tbody></table>';
-  host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => siteAction(b.dataset.act, list.find(s => s.id === b.closest('tr').dataset.id)));
-  return list;
+// ---- the sites page
+let sitesGen = 0;
+async function showSites() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
+  const gen = ++sitesGen, mine = routeHash({ page: 'sites' });
+  const current = () => gen === sitesGen && location.hash === mine;
+  let list;
+  try { list = await api('/api/sites'); }
+  catch (e) {
+    if (!current() || e.status === 401) return;
+    setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return;
+  }
+  if (!current()) return;
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'EarthRanger sites' }]);
+  mountPage(renderSites(list));
+  $('#addSiteBtn').onclick = () => siteDialog();
+  $('#page').querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
+    const s = list.find(x => x.id === b.dataset.id);
+    try {
+      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/', 'People you share with can load datasets into this site using your token.');
+      if (!confirm('Remove "' + s.name + '"? Loads that reference this site stay readable but cannot be continued; register the site again to load into it.')) return;
+      await api('/api/sites/' + s.id, { method: 'DELETE' }); showSites();
+    } catch (e) { if (e.status !== 401) alert(e.message); }
+  });
 }
 
-async function siteAction(act, s) {
-  try {
-    if (act === 'siteShare') return shareDialog(s, '/api/sites/', 'People you share with can load datasets into this site using your token.');
-    if (act === 'siteDelete') { if (!confirm('Remove "' + s.name + '"? Loads already made keep their records but cannot be continued.')) return; await api('/api/sites/' + s.id, { method: 'DELETE' }); return loadSites(); }
-  } catch (e) { alert(e.message); }
-}
-
-async function addSite(ev) {
-  ev.preventDefault();
-  const btn = $('#siteBtn'); btn.disabled = true; $('#siteError').textContent = 'Checking the token…';
-  try {
-    await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
-    $('#siteForm').reset(); $('#siteError').textContent = '';
-    loadSites();
-  } catch (e) { $('#siteError').textContent = e.message; }
-  finally { btn.disabled = false; }
+// the add-site dialog. The token is read from the field on submit and goes only to the POST.
+// onCreated(site) runs after a successful save; onCancel runs when the reader closes the dialog instead.
+function siteDialog(onCreated, onCancel) {
+  dialog('Add an EarthRanger site',
+    '<p class="muted tiny">The token is checked against the site before it is saved.</p>' +
+    '<form id="siteForm" class="col" autocomplete="off">' +
+    '<label class="field"><span>Name</span><input type="text" id="siteName" required placeholder="phinney"></label>' +
+    '<label class="field"><span>Host</span><input type="text" id="siteUrl" required placeholder="example.pamdas.org"></label>' +
+    '<label class="field"><span>Token</span><input type="password" id="siteToken" autocomplete="off" required></label>' +
+    '<p class="tiny" id="siteError" role="alert"></p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary" id="siteBtn">Add site</button></div></form>');
+  const close = $('#modalBody').querySelector('[data-close]'), plain = close.onclick;
+  close.onclick = () => { plain(); if (onCancel) onCancel(); };
+  $('#siteForm').onsubmit = async ev => {
+    ev.preventDefault();
+    const btn = $('#siteBtn'), err = $('#siteError'); btn.disabled = true; err.textContent = 'Checking the token…';
+    try {
+      const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
+      closeDialog();
+      if (parseRoute(location.hash).page === 'sites') showSites();
+      if (onCreated) onCreated(site);
+    } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
+  };
 }
 
 // mirrors findings.ca_identifier: smart-<ca id>, 2-30 chars of [A-Za-z0-9_-]
@@ -244,12 +376,17 @@ function defaultEventCategory(caId) {
   return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
 }
 
-async function loadDialog(d) {
-  const sites = await api('/api/sites');
-  if (!sites.length) return alert('Register an EarthRanger site first.');
-  let lastDefault = null;
+// keep: the form's values and site choice, when the dialog is reopened after the add-a-site detour
+async function loadDialog(d, caId, keep) {
+  let sites;
+  try { sites = await api('/api/sites'); } catch (e) { if (e.status !== 401) alert(e.message); return; }   // 401: the sign-in form is up
+  if (!sites.length) return siteDialog(() => loadDialog(d, caId));
+  const addSite = kept => siteDialog(site => loadDialog(d, kept.ca || caId, { ...kept, site: site.id }), () => loadDialog(d, kept.ca || caId, kept));
+  let lastDefault = null, autoDm = false;
   const render = () => {
     const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
+    // an area with no patrols has only its data model to load; leaving it for one with patrols undoes that choice
+    if (!ca.patrols) { $('#ldScope').value = 'datamodel'; autoDm = true; } else if (autoDm) { $('#ldScope').value = 'all'; autoDm = false; }
     const def = defaultEventCategory(ca.ca_id);   // what the server defaults to
     if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
     lastDefault = def;
@@ -260,7 +397,7 @@ async function loadDialog(d) {
     '<p class="muted tiny">First a plan is made without writing anything. You confirm it before the site is changed.</p>' +
     '<form id="ldForm" class="col">' +
     '<label>Conservation area <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + esc(e.name || e.ca_id) + ' (' + esc(e.patrols) + ' patrols)</option>').join('') + '</select></label>' +
-    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '</select></label>' +
+    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">Add a site…</option></select></label>' +
     '<label>Label language <select id="ldLang"></select></label>' +
     '<label>Configurable model <select id="ldCm"></select></label>' +
     '<p class="muted tiny">none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.</p>' +
@@ -278,7 +415,19 @@ async function loadDialog(d) {
       ? 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.'
       : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
   };
-  render(); scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
+  if (caId) $('#ldCa').value = caId;
+  const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
+  if (keep && keep.ca) $('#ldCa').value = keep.ca;
+  render();
+  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; lastDefault = $('#ldCategory').value; }
+  scopeChanged(); $('#ldCa').onchange = () => { render(); scopeChanged(); }; $('#ldScope').onchange = scopeChanged;
+  let prevSite = $('#ldSite').value;
+  $('#ldSite').onchange = () => {
+    if ($('#ldSite').value !== '__add__') { prevSite = $('#ldSite').value; return; }
+    const kept = { ca: $('#ldCa').value, site: prevSite, ldLang: $('#ldLang').value, ldCm: $('#ldCm').value };
+    ids.forEach(i => { kept[i] = $('#' + i).value; });
+    addSite(kept);
+  };
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
     const dm = $('#ldScope').value === 'datamodel', since = dm ? '' : $('#ldSince').value, until = dm ? '' : $('#ldUntil').value;
@@ -287,117 +436,116 @@ async function loadDialog(d) {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
-      $('#modal').hidden = true; showLoad(l.id);
+      closeDialog(); navigate({ page: 'load', id: d.id, load: l.id });
     } catch (e) { alert(e.message); }
   };
 }
 
 // ---- the load page
-let loadTimer = null, currentLoad = null;
-// nav: how the history changes. 'auto' steps back to the list entry a load was opened from, or
-// pushes one; 'push' and 'replace' say so; 'none' is for Back and Forward, which moved already.
-function showDatasets(nav = 'auto') {
-  const s = history.state || {};
-  if (nav === 'auto' && s.load && s.fromList) { history.back(); return; }   // popstate shows the list
-  if ((nav === 'auto' && s.load) || nav === 'push') history.pushState({}, '', location.pathname + location.search);   // already on the list: no entry
-  else if (nav === 'replace') history.replaceState({}, '', location.pathname + location.search);
-  clearTimeout(loadTimer); currentLoad = null;
-  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = false);
-  $('#loadPage').hidden = true;
-  loadList(); loadSites();
+let loadTimer = null, currentLoad = null, loadGen = 0;
+// the home link: from any other page it steps back when that page was opened from the list, else pushes
+// the list, so Back returns to the page; on the list itself it only rewrites the entry
+function showDatasets() {
+  const onHome = parseRoute(location.hash).page === 'home';
+  if (!onHome && (history.state || {}).from === '#/') { history.back(); return; }   // popstate shows the list
+  navigate({ page: 'home' }, onHome ? 'replace' : 'push');
 }
 
-async function showLoad(id, nav = 'push') {
-  const was = history.state || {};
-  // a reload keeps where the load was opened from; only a load reached directly lacks a list behind it
-  const entry = { load: id, fromList: nav === 'push' ? !currentLoad : !!(was.load === id && was.fromList) };
-  if (nav === 'push') history.pushState(entry, '', '#load/' + id);
-  else if (nav === 'replace') history.replaceState(entry, '', '#load/' + id);
-  clearTimeout(pollTimer);
-  currentLoad = id;
-  ['#loadTitle', '#loadStages', '#loadActions', '#loadFindings', '#loadPlan', '#loadRangers', '#loadProgress'].forEach(s => { $(s).innerHTML = ''; });
-  document.querySelectorAll('#appUI > .panel:not(#loadPage)').forEach(p => p.hidden = true);
-  $('#loadPage').hidden = false;
-  try { await renderLoad(); }
-  catch (e) {   // a gone load leaves no entry behind: the entry becomes the list, and a pushed one is also stepped off
-    alert(e.message);
-    if (nav === 'push') { history.replaceState({}, '', location.pathname + location.search); history.back(); }
-    else showDatasets('replace');
-  }
-}
-
-const STAGES = ['datamodel', 'patrol_datamodel', 'preflight', 'import'];
-const STAGE_LABEL = { datamodel: 'Event types', patrol_datamodel: 'Patrol setup', preflight: 'Preflight', import: 'Patrols' };
-const ACTIVE = ['planning', 'queued', 'running', 'continuing'];
-
-async function renderLoad() {
-  const id = currentLoad;
-  clearTimeout(loadTimer);
+// the load, its dataset's name for the breadcrumb, then the page; polls every 4 s while the load is held
+async function showLoad(route) {
+  clearTimeout(loadTimer); clearTimeout(pollTimer);
+  currentLoad = route.load;
+  const gen = ++loadGen, mine = routeHash(route);
+  const current = () => gen === loadGen && location.hash === mine;
   let l;
-  try { l = await api('/api/loads/' + id); }
+  try { l = await api('/api/loads/' + route.load); }
   catch (e) {
-    if (currentLoad !== id) return;
-    if (/not found/i.test(e.message)) throw e;
-    $('#loadActions').insertAdjacentHTML('beforeend', '<div class="tiny" data-retry>Could not refresh; retrying…</div>');
-    loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+    if (!current() || e.status === 401) return;   // on 401 the sign-in form is already on the page
+    if (e.status === 404) showNotFound('load'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
     return;
   }
-  if (currentLoad !== id) return;
-  const active = !!l.held;
-  const stale = !active && ACTIVE.includes(l.status);
-  $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
-    (loadScope(l) ? ' <span class="scope">' + esc(loadScope(l)) + '</span>' : '') +
-    ' ' + pill(l.status) +
-    ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
-  $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
-  $('#loadStages').innerHTML = renderStages(l, active);
-  const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
-  let actions = '';
-  if (!active && l.site) {
-    // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
-    if (l.status === 'planned') actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' +
-      (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button> ';
-    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Continue</button> ';
-    if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button> ';
+  if (!current()) return;
+  if (l.dataset_id !== route.id) { navigate({ page: 'load', id: l.dataset_id, load: l.id }, 'replace'); return; }   // the address names the wrong dataset
+  let name = l.dataset_id;   // without the dataset's name the crumb shows its id rather than failing the page
+  try { name = (await api('/api/datasets/' + l.dataset_id)).name || name; } catch (e) { if (e.status === 401) return; }
+  if (!current()) return;
+  const up = { page: 'dataset', id: l.dataset_id, tab: 'loads' };
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: name, hash: routeHash(up) }, { label: loadName(l) }]);
+  // the dataset crumb steps back when the reader came from that dataset's page, so Back after it does not return here
+  const crumb = $('#crumbs a[href="' + routeHash(up) + '"]');
+  if (crumb) crumb.onclick = ev => {
+    ev.preventDefault();
+    const from = parseRoute((history.state || {}).from);
+    if (from.page === 'dataset' && from.id === l.dataset_id) history.back(); else navigate(up);
+  };
+  let fails = 0;
+  const refresh = async () => {
+    clearTimeout(loadTimer);
+    let next;
+    try { next = await api('/api/loads/' + route.load); }
+    catch (e) {
+      if (!current() || e.status === 401) return;
+      if (e.status === 404) { showNotFound('load'); return; }
+      // a failed poll keeps the last render and retries; from the second in a row a note says so
+      retryNote($('#loadPage .title-block'), ++fails >= 2);
+      clearTimeout(loadTimer); loadTimer = setTimeout(refresh, 4000);
+      return;
+    }
+    if (!current()) return;
+    fails = 0;
+    paint(next);
+  };
+  const paint = x => {
+    paintLoad(x, refresh, up);
+    clearTimeout(loadTimer);   // a click's refresh and a poll can both land: one timer stays
+    if (x.held) loadTimer = setTimeout(refresh, 4000);
+  };
+  paint(l);
+}
+
+// swaps in a fresh render: open sections stay open, the log keeps its place, and a rangers table whose rows
+// are unchanged is left as it is (its rows change only when patrol setup runs)
+function paintLoad(l, refresh, up) {
+  const active = !!l.held, prev = $('#loadPage'), old = prev && prev.dataset.load === l.id ? prev : null;   // another load's page carries nothing over
+  const box = document.createElement('div'); box.innerHTML = renderLoadPage(l, active);
+  const page = box.firstElementChild;
+  page.dataset.load = l.id;
+  const rows = l.rangers || [], key = rows.length ? l.id + ':' + (l.rangers_total || rows.length) + ':' + JSON.stringify(rows) : '';
+  let newRangers = true;
+  const oldPre = old && $('#loadProgress pre.log', old);
+  const atBottom = !oldPre || oldPre.scrollHeight - oldPre.scrollTop - oldPre.clientHeight < 12, scrollTop = oldPre ? oldPre.scrollTop : 0;
+  if (old) {
+    restoreOpen($('#loadPlan', page), openState($('#loadPlan', old)));
+    const oldLog = $('#loadProgress details', old), log = $('#loadProgress details', page);
+    if (oldLog && log) log.open = oldLog.open;
+    const oldR = $('#loadRangers', old), r = $('#loadRangers', page);
+    if (key && oldR.dataset.key === key && oldR.firstChild) { r.replaceWith(oldR); newRangers = false; }
+    else restoreOpen(r, openState(oldR));
   }
-  if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';
-  if (!active && l.site && l.status === 'planned' && blocking) actions += '<div class="tiny">The run will write what the plan lists, then stop at the ' +
-    (blocking === 1 ? 'blocking finding' : blocking + ' blocking findings') + ' below until they are fixed.</div>';
-  if (stale) actions += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
-  if (l.error) actions += '<div class="tiny" style="color:var(--danger)">' + esc(l.error) + '</div>';
-  $('#loadActions').innerHTML = actions;
-  const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try {
-      await api('/api/loads/' + l.id, { method: 'DELETE' });
-      // the deleted load's entry becomes the list, so Back never lands on it; if the reader has moved on
-      // meanwhile, the page they are on is left alone and a list they are on is refreshed
-      if (currentLoad === l.id) showDatasets('replace'); else if (!currentLoad) loadList();
-    } catch (e) { alert(e.message); } };
-  const RANK = { blocking: 0, warning: 1, info: 2 };
-  const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
-  $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
-    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="Copy to clipboard"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
-    (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
-    (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
-  $('#loadFindings').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
-  $('#loadFindings').querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
-  // the page re-renders on every poll: what the reader opened stays open, and the log keeps its place
-  const planOpen = openState($('#loadPlan'));
-  $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
-  restoreOpen($('#loadPlan'), planOpen);
-  renderRangers(l);
-  const p = l.progress;
-  const prevLog = $('#loadProgress details'), prevPre = prevLog && prevLog.querySelector('pre');
-  const logOpen = prevLog ? prevLog.open : active;
-  const atBottom = !prevPre || prevPre.scrollHeight - prevPre.scrollTop - prevPre.clientHeight < 12, scrollTop = prevPre ? prevPre.scrollTop : 0;
-  $('#loadProgress').innerHTML = (p && p.patrols_total && l.mode !== 'plan' ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
-    (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
-    (l.log_tail ? '<details' + (logOpen ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
-    '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'rangers.json', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
-  const pre = $('#loadProgress pre.log');
+  $('#loadRangers', page).dataset.key = key;
+  $('#page').replaceChildren(page);
+  const pre = $('#loadProgress pre.log', page);
   if (pre) pre.scrollTop = atBottom ? pre.scrollHeight : scrollTop;
-  if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+  bindLoad(page, l, refresh, up, newRangers);
+}
+
+function bindLoad(page, l, refresh, up, newRangers) {
+  $('.title-block [data-help]', page).onclick = () => openHelp('help-statuses');
+  const run = $('[data-run]', page); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
+  const re = $('[data-replan]', page); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
+  const del = $('[data-del]', page); if (del) del.onclick = async () => {
+    if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return;
+    try {
+      await api('/api/loads/' + l.id, { method: 'DELETE' });
+      // the deleted load's entry becomes its dataset's loads, so Back never lands on it; if the reader has
+      // moved on meanwhile, the page they are on is left alone and a list they are on is refreshed
+      if (location.hash === routeHash({ page: 'load', id: up.id, load: l.id })) navigate(up, 'replace');
+      else { const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); }
+    } catch (e) { alert(e.message); }
+  };
+  $('#loadFindings', page).querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
+  $('#loadFindings', page).querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
+  if (newRangers && (l.rangers || []).length) bindRangers($('#loadRangers', page), l);
 }
 
 const openState = host => Array.from(host.querySelectorAll('details')).map(d => d.open);
@@ -482,121 +630,13 @@ function helpKeydown(e) {   // a dialog keeps Tab inside it
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
-// ---- the stage table: one row per stage, what it did, and how long it took
-const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; };
-const secondsSince = iso => iso ? (Date.now() - Date.parse(iso)) / 1000 : null;
-const count = (n, one, many) => n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's'));
-
-const notStarted = l => ['queued', 'planning'].includes(l.status);   // claimed, but the job has not reset the rows yet
-
-function stageRows(l) {
-  if (notStarted(l)) return {};
-  if (l.mode) return l.stages || {};   // written by a job that records rows; empty means it has not begun one
-  // loads from before the stage table have only `stage` and `status`
-  if (l.stages && Object.keys(l.stages).length) return l.stages;
-  const rows = {}, idx = STAGES.indexOf(l.stage);
-  STAGES.forEach((s, i) => {
-    if (i < idx || (i === idx && ['done', 'planned'].includes(l.status))) rows[s] = { status: 'done', metrics: {} };
-    else if (i === idx) rows[s] = { status: l.status === 'failed' ? 'failed' : l.status === 'needs_attention' ? 'stopped' : 'running', metrics: {} };
-  });
-  return rows;
-}
-
-function stageSummary(stage, row, l, active) {
-  const m = row.metrics || {}, dry = l.mode === 'plan' || (!l.mode && ['planning', 'planned'].includes(l.status));
-  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate', migrated: 'to migrate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated', migrated: 'migrated' };
-  v.skipped_by_mode = 'skipped by mode'; v.skipped_by_conflict = 'skipped on conflict'; v.errored = 'errored';
-  const tally = (prefix, keys) => keys.filter(k => m[prefix + k]).map(k => m[prefix + k] + ' ' + (v[k] || k));
-  const parts = [];
-  if (stage === 'datamodel') {
-    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'errored']);
-    if (cats.length) parts.push('categories: ' + cats.join(', '));
-    if (types.length) parts.push('event types: ' + types.join(', '));
-    if (ch.length) parts.push('choices: ' + ch.join(', '));
-  } else if (stage === 'patrol_datamodel') {
-    const types = tally('types_', ['created', 'updated', 'unchanged']), subs = tally('subjects_', ['created', 'updated', 'deactivated', 'unchanged']);
-    if (types.length) parts.push('patrol types: ' + types.join(', '));
-    if (subs.length) parts.push('subjects: ' + subs.join(', '));
-    if (m.subjects_grouped) parts.push(m.subjects_grouped + ' in the roster group');
-    if (m.schema_written) parts.push(dry ? 'patrol fields to write' : 'patrol fields written');
-    else if (m.schema_skipped) parts.push('patrol fields skipped: ' + m.schema_skipped);
-  } else if (stage === 'preflight') {
-    if ('blocking' in m) parts.push(count(m.blocking, 'blocking finding') + ', ' + count(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + count(m.patrols, 'patrol') + ' checked' : ''));
-  } else if (stage === 'import') {
-    if (dry) { if ('planned' in m) parts.push(count(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
-    else if (l.progress && l.progress.patrols_total) parts.push(importSummary(l, active && row.status === 'running'));
-  }
-  return parts.join(' · ');
-}
-
-function importSummary(l, live) {
-  const p = l.progress;
-  const counts = (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
-  const of = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + counts;
-  const row = (l.stages || {}).import || {};
-  if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
-    const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
-    const m = row.metrics || {};
-    // what this execution did (a continuation's counts are its own, not the load's): the events it wrote,
-    // how many of the events it handled (written or already there) report who made them, and the ones
-    // from an earlier load it gave a reporter
-    const did = m.events_written != null ? ' · this execution wrote ' + count(m.events_written, 'event') +
-      (m.events_reported_by ? '; ' + m.events_reported_by.toLocaleString() + ' of the events it handled report who made them' : '') +
-      (m.events_reported_by_backfilled ? ', ' + m.events_reported_by_backfilled.toLocaleString() + ' of them from an earlier load, given one now' : '') : '';
-    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + did;
-  }
-  // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
-  const since = p.phase ? p.phase_started_at : row.started_at;
-  let s = p.phase ? (p.phase === 'tracks' ? 'Tracks: ' : 'Events: ') + of : of;
-  const mins = since ? (Date.now() - Date.parse(since)) / 60000 : null;
-  const written = p.done - ((p.phase ? p.phase_skipped : p.skipped) || 0);   // skips take no time; a phase also skips what a stopped run left half done
-  if (mins && mins > 0.5 && written > 0) {
-    const rate = written / mins;
-    s += ' · ' + rate.toFixed(1) + ' per minute';
-    if (p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left' + (p.phase === 'events' ? ' in this phase, then tracks' : '');
-  }
-  return s;
-}
-
-function renderStages(l, active) {
-  const rows = stageRows(l);
-  let html = '<table class="stagetable"><thead><tr><th>Stage</th><th>Status</th><th>Took</th><th>What happened</th></tr></thead><tbody>';
-  for (const s of ((l.options || {}).scope === 'datamodel' ? STAGES.slice(0, 2) : STAGES)) {
-    const r = rows[s], status = r ? r.status : 'pending';
-    const running = status === 'running' && active;
-    const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
-    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td><span class="pill ' + esc(running ? 'running' : status === 'running' ? 'stale' : status) + '">' +
-      esc(running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</span></td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
-  }
-  html += '</tbody></table>';
-  if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
-    : '<p class="tiny heartbeat">' + (l.continuations ? 'Continuation ' + esc(l.continuations) + ' running for ' : 'Running for ') + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
-  return html;
-}
-
-// ---- rangers: the people behind the subjects, for whoever creates their accounts
-function renderRangers(l) {
-  const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
-  const dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
-  if (!rows.length) { host.innerHTML = ''; host.dataset.key = ''; return; }
-  // the rows change only when patrol setup runs: a poll that brings the same list leaves the table alone
-  const key = l.id + ':' + total + ':' + JSON.stringify(rows);
-  if (host.dataset.key === key && host.firstChild) return;
-  host.dataset.key = key;
-  const open = openState(host);
-  host.innerHTML = '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + count(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
-    '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
-    '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
-    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
-    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th>' + (dmOnly ? '<th title="In the whole dataset; this load imports no patrols">Patrols (all)</th>' : '<th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th>') + '<th>Subject</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
-    '</tbody></table></details>';
-  restoreOpen(host, open);
+// ---- rangers: the markup is renderRangersSection (pages.js); this binds its help and CSV buttons
+function bindRangers(host, l) {
+  const rows = l.rangers || [];
   host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
   host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
     rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
 }
-
 function downloadCsv(filename, header, rows) {
   // a cell that a spreadsheet would read as a formula gets a leading quote (names and ids come from the SMART export)
   const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -604,27 +644,6 @@ function downloadCsv(filename, header, rows) {
   const blob = new Blob(['\ufeff' + [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-function renderPlan(plan) {
-  // opts.noIdOnCreate: the group's creates have no identifier yet (plans saved before that rule carried a placeholder there)
-  const group = (title, g, opts = {}) => {
-    if (!g) return '';
-    const parts = [];
-    for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length) {
-      const more = typeof g.more === 'object' && g.more ? g.more[k] || 0 : (g.more || 0);   // per list now; a number in older plans
-      const showValue = e => e.value && e.value !== e.label && !(opts.noIdOnCreate && k === 'create');
-      parts.push('<details><summary>' + k + ' ' + g[k].length + (more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (showValue(e) ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (more ? '<li class="tiny">and ' + esc(more) + ' more</li>' : '') + '</ul></details>');
-    }
-    if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
-    return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
-  };
-  const p = plan.patrols;   // absent from a data-model-only plan
-  return group('Event categories', plan.event_categories) + group('Event types', plan.event_types) + group('Patrol types', plan.patrol_types) +
-    '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects, { noIdOnCreate: true }) +
-    '<div><b>Roster</b> ' + (plan.roster && plan.roster.group ? esc(plan.roster.group) + ': ' : '') + esc((plan.roster || {}).add || 0) + ' to add</div>' +
-    (!p ? '<div><b>Patrols</b> <span class="tiny">none: this load is the data model only</span></div>' :
-    '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>');
 }
 
 boot();

@@ -4,71 +4,42 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>smart-able</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
+  <link rel="stylesheet" href="/static/er-tokens.css?v={{ assets['er-tokens.css'] }}">
+  <link rel="stylesheet" href="/static/fonts/roboto.css?v={{ assets['fonts/roboto.css'] }}">
   <link rel="stylesheet" href="/static/app.css?v={{ assets['app.css'] }}">
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
   <header>
-    <div class="brand"><h1><a id="home" href="/" title="Back to the dataset list">smart-able</a></h1><span class="tiny" id="version">{{ version }}</span></div>
-    <div id="who" class="who" hidden><span id="whoEmail"></span><button class="ghost" id="helpBtn" title="Help"><span class="mi" aria-hidden="true">help</span>Help</button><button class="ghost" id="signOut">Sign out</button></div>
+    <a id="home" href="#/" title="Back to the dataset list"><img src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger"></a><span id="appName">SMART migration</span><span id="version" class="tiny">{{ version }}</span>
+    <div class="header-right">
+      <button id="helpBtn" class="btn ghost" title="Help" aria-label="Help" hidden><span class="mi" aria-hidden="true">help</span><span class="label">Help</span></button>
+      <details id="account" hidden>
+        <summary id="whoEmail"></summary>
+        <div id="accountMenu">
+          <p id="menuEmail" class="menu-email"></p>
+          <button id="menuSites" class="menu-item"><span class="mi" aria-hidden="true">dns</span>EarthRanger sites</button>
+          <fieldset class="menu-theme">
+            <legend>Theme</legend>
+            <label><input type="radio" name="theme" value="system">System</label>
+            <label><input type="radio" name="theme" value="light">Light</label>
+            <label><input type="radio" name="theme" value="dark">Dark</label>
+          </fieldset>
+          <button id="signOut" class="menu-item"><span class="mi" aria-hidden="true">logout</span>Sign out</button>
+          <p class="tiny menu-version">{{ version }}</p>
+        </div>
+      </details>
+    </div>
   </header>
+  <div id="crumbs" class="crumbs" hidden></div>
 
-  <main class="wrap">
-    <section id="signIn" class="panel center" hidden>
-      <h2>Sign in</h2>
-      <p class="muted">smart-able opens SMART conservation-area backups. Sign in with your <span id="allowedHint">@earthranger.com</span> Google account.</p>
-      <button id="signInBtn" class="primary"><span class="mi" aria-hidden="true">login</span>Sign in with Google</button>
-      <p class="tiny" id="signInError"></p>
-    </section>
-
-    <section id="appUI" hidden>
-      <div class="panel">
-        <h2>Upload a backup or export</h2>
-        <p class="muted">A SMART system backup zip, a zipped SMART Desktop install folder, or a Conservation Area export (File → Export Conservation Area). The dataset is yours; share it afterwards with colleagues.</p>
-        <form id="uploadForm" class="row">
-          <input type="text" id="dsName" placeholder="Dataset name (e.g. Region 5 – Camarines Norte, Oct 2026)" required>
-          <input type="file" id="dsFile" accept=".zip,.bak" required>
-          <button type="submit" class="primary" id="uploadBtn"><span class="mi" aria-hidden="true">upload</span>Upload and extract</button>
-        </form>
-        <div id="progress" hidden><div class="bar"><div id="progressFill"></div></div><span class="tiny" id="progressText"></span></div>
-      </div>
-
-      <div class="panel">
-        <h2>EarthRanger sites</h2>
-        <p class="muted tiny">Sites a dataset can be loaded into. A site you share lets that person write to it with your token.</p>
-        <form id="siteForm" class="row">
-          <input type="text" id="siteName" placeholder="Name (e.g. phinney staging)" required>
-          <input type="text" id="siteUrl" placeholder="site.pamdas.org" required>
-          <input type="password" id="siteToken" placeholder="API token" required autocomplete="off">
-          <button type="submit" class="primary" id="siteBtn"><span class="mi" aria-hidden="true">add</span>Add site</button>
-        </form>
-        <p class="tiny" id="siteError"></p>
-        <div id="sites"></div>
-      </div>
-
-      <div class="panel">
-        <h2>Datasets</h2>
-        <p class="muted tiny">What you own and what has been shared with you. Extraction takes a few minutes; the list refreshes itself while a job runs.</p>
-        <div id="list"></div>
-      </div>
-
-      <section id="loadPage" class="panel" hidden>
-        <div class="row"><button class="ghost" id="loadBack"><span class="mi" aria-hidden="true">arrow_back</span>Datasets</button><h2 id="loadTitle"></h2></div>
-        <div id="loadStages" class="stages"></div>
-        <div id="loadActions" class="row"></div>
-        <div id="loadFindings"></div>
-        <div id="loadPlan"></div>
-        <div id="loadRangers"></div>
-        <div id="loadProgress"></div>
-      </section>
-    </section>
-  </main>
+  <main id="page" class="wrap"></main>
 
   <div id="helpBackdrop" class="backdrop" hidden></div>
   <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help">
-    <div class="drawer-head"><h2>Help</h2><button class="ghost" id="helpClose" title="Close"><span class="mi" aria-hidden="true">close</span></button></div>
+    <div class="drawer-head"><h2>Help</h2><button class="btn ghost" id="helpClose" title="Close"><span class="mi" aria-hidden="true">close</span></button></div>
     <nav id="helpToc" class="help-toc"></nav>
     <p id="helpNote" class="tiny help-note" hidden></p>
     <div id="helpBody" class="help-body"></div>
@@ -78,10 +49,11 @@
     <div class="dialog">
       <h3 id="modalTitle">Share</h3>
       <div id="modalBody"></div>
-      <div class="row right" id="modalFoot"><button class="ghost" id="modalClose">Close</button></div>
+      <div class="row right" id="modalFoot"><button class="btn ghost" id="modalClose">Close</button></div>
     </div>
   </div>
 
+  <script src="/static/pages.js?v={{ assets['pages.js'] }}"></script>
   <script src="/static/app.js?v={{ assets['app.js'] }}"></script>
 </body>
 </html>

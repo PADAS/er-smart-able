@@ -41,7 +41,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
+from auth import AUTH_DISABLED, allowed_entries, current_user, email_allowed, end_session, start_session
 from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
 from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
@@ -57,7 +57,7 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
 
 app = FastAPI(title="smart-able")
 
@@ -112,7 +112,7 @@ async def config():
     return {"apiKey": os.environ.get("FIREBASE_API_KEY", ""), "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", ""),
             "projectId": os.environ.get("FIREBASE_PROJECT_ID", ""), "authDisabled": AUTH_DISABLED,
             "authEmulatorUrl": os.environ.get("FIREBASE_AUTH_EMULATOR_URL", ""),
-            "allowed": os.environ.get("ALLOWED_EMAILS", "@earthranger.com"), "version": APP_VERSION}
+            "allowed": allowed_entries(), "version": APP_VERSION}
 
 
 # ---------------------------------------------------------------- session

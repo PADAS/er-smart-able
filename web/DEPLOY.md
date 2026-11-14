@@ -19,6 +19,14 @@ GitHub Actions.
 | Loads | one document per load: dataset, site, options, status, stage, per-stage rows with metrics, findings, progress, continuations | Firestore `(default)`, collection `loads` |
 | Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos), `datasets/<id>/loads/<load id>/...` (a load's plan and results) | a private GCS bucket |
 
+Static assets (`web/static/`) ship in the service image and are served by
+the service itself: `app.css` and `er-tokens.css` (the `--er-ui-*` design
+tokens, taken from the EarthRanger design repository's `tokens.css`),
+`pages.js`, `app.js`, the self-hosted Roboto in `fonts/` and the lockups in
+`img/`. Nothing is loaded from a CDN or Google Fonts at run time; to refresh
+the font run `python scripts/fetch_fonts.py`. The dataset viewer
+(`browse/index.html`) is self-contained and keeps its own copy of the token values; keep the two in step.
+
 A dataset is owned by whoever uploaded it. The owner can share it with
 other allowed addresses, re-run the extraction, or delete it; people it is
 shared with can open it. The browser page is served from the checkout, so
@@ -110,7 +118,7 @@ Variables:
 | `GCP_SERVICE_ACCOUNT` | `tofu output deploy_service_account` |
 | `GCP_RUNTIME_SERVICE_ACCOUNT` | `tofu output runtime_service_account` |
 | `GCS_BUCKET` | `tofu output bucket` |
-| `ALLOWED_EMAILS` | `@earthranger.com` (comma-separated emails or `@domain`s) |
+| `ALLOWED_EMAILS` | who may sign in and be shared with: whole addresses and `@domain` suffixes, separated by spaces, commas or semicolons, for example `@earthranger.com @partner.org`. Unset, the deploy uses `@earthranger.com`; an empty value allows any Google account. |
 
 Secrets:
 

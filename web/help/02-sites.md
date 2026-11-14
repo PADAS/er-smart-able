@@ -2,7 +2,7 @@
 
 A site is an EarthRanger host, such as `example.pamdas.org`, and an API token for an EarthRanger user there. Loads write to the site as that user.
 
-**Registering a site.** Enter a name, the host and the token. smart-able calls the site's `/user/me` with the token before saving anything, so a wrong host or a dead token is refused on the spot. The site card shows the last characters of the token and the user it works as.
+**Registering a site.** Enter a name, the host and the token. smart-able calls the site's `/user/me` with the token before saving anything, so a wrong host or a dead token is refused on the spot. The site's row on the EarthRanger sites page shows the last characters of the token and the user it works as.
 
 **Where the token is kept.** In Google Secret Manager, under a secret named after the site. It is never stored in the database, never written to a log, and never returned by the API. If the token is rotated or revoked, remove the site and register it again; loads that referenced the old site stay readable but cannot be continued.
 

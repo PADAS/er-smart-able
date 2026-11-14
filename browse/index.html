@@ -4,44 +4,228 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>smart-able</title>
+<script>
+// Theme: the app stores its choice under localStorage "theme" (light, dark or system). Read it before first paint;
+// system or nothing leaves data-theme unset so the prefers-color-scheme rules apply.
+try {
+  const t = localStorage.getItem('theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch (e) {}
+// The list of views down the left: open (labels) or closed (icons), remembered under "sidenav";
+// without a choice, narrow screens start closed. Set before first paint so the list does not jump.
+let navState = null;
+try { navState = localStorage.getItem('sidenav'); } catch (e) {}
+if (navState !== 'open' && navState !== 'closed') navState = window.innerWidth < 700 ? 'closed' : 'open';
+document.documentElement.setAttribute('data-nav', navState);
+// Roboto is served by the app; standalone (file://) the fallback stack is used.
+if (/^\/d\/[A-Za-z0-9]+\//.test(location.pathname)) {
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/static/fonts/roboto.css';
+  document.head.appendChild(l);
+}
+</script>
 <style>
-/* Layout: full-height app — brand-teal header band with tabs, scrolling content pane per tab.
+/* Layout: full-height app — brand-teal header band, a collapsible list of views down the left, scrolling content pane per view.
    Theming: EarthRanger design system (DESIGN.md) — semantic tokens, light/dark inverts
    (warm off-white -> deep teal). Data colors use ER's categorical scale (mode-stable).
    Variable names kept; values mapped to ER semantic tokens. */
+/* from web/static/er-tokens.css (design system 0.0.1): keep the two in step */
 :root {
-  --bg: #faf2e9;        /* UI/Background/Secondary (warm off-white) */
-  --surface: #ffffff;   /* UI/Background/Elevated Component */
-  --ink: #0a3235;       /* UI/Text/Primary */
-  --ink-2: #105257;     /* UI/Text/Secondary (Teal T100) */
-  --ink-3: #767676;     /* UI/Text/Disabled, UI/Icons */
-  --line: #dddddd;      /* UI/Divider Lines */
-  --accent: #0f865d;    /* UI/CTA Primary (brand green) */
-  --accent-ink: #ffffff;/* UI/Text/Primary Reversed */
-  --chip: #e7eeee;      /* Teal T10 */
-  --brand: #105257;     /* Teal T100 — nav/header brand accent */
-  --brand-ink: #faf2e9; /* off-white text on brand teal */
-  --track: #e76826;     /* UI/Patrol Status/Track Line */
-  --info: #1c64c8;      /* info blue: links to the docs page */
-  /* ER Data/Categorical 1-10 (mode-stable, used in order) */
-  --cat1: #3e35a3; --cat2: #488a00; --cat3: #00958f; --cat4: #b62879; --cat5: #c6880c;
-  --cat6: #00d0c8; --cat7: #78d811; --cat8: #5c4fe7; --cat9: #f4db20; --cat10: #ed3ea2;
-  --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: "Roboto", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  --head: "PP Telegraf", "Roboto", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --er-ui-background-tertiary-background: #e7eeee;
+  --er-ui-background-secondary-background: #fdf9f4;
+  --er-ui-background-elevated-component-0: #f9f9f9;
+  --er-ui-background-elevated-component: #ffffff;
+  --er-ui-background-primary-background: #ffffff;
+  --er-ui-background-selected-background: #f2f9f9;
+  --er-ui-background-hover-background: #e7eeee;
+  --er-ui-text-primary-text: #0a3235;
+  --er-ui-text-primary-text-reversed: #ffffff;
+  --er-ui-text-secondary-text: #105257;
+  --er-ui-text-secondary-text-reversed: #ffffff;
+  --er-ui-text-form-labels: #105257;
+  --er-ui-text-tabs: #105257;
+  --er-ui-text-disabled: #767676;
+  --er-ui-icons: #407579;
+  --er-ui-field-outline: #b7cbcd;
+  --er-ui-divider-lines: #cfdcdd;
+  --er-ui-cta-primary: #0f865d;
+  --er-ui-cta-secondary: #105257;
+  --er-ui-cta-text: #ffffff;
+  --er-ui-status-error-destructive: #d0031b;
+  --er-ui-status-success: #0f865d;
+  --er-ui-status-running: #0056c7;
+  --er-ui-status-warning: #e76826;
+  --er-ui-status-disabled: #767676;
+  --er-ui-status-ready: #ffb700;
+  --er-ui-status-bg-synced-bg: #f5f7f3;
+  --er-ui-status-bg-pending-sync-bg: #f3f3f3;
+  --er-ui-status-bg-error-bg: #fdf2f4;
+  --er-ui-status-bg-draft-bg: #dde8f8;
+  --er-ui-status-bg-active-bg: #f5f5fa;
+  --er-ui-status-bg-warning-bg: #fef7f4;
+  --er-ui-event-priority-green: #006842;
+  --er-ui-event-priority-red: #d0031b;
+  --er-ui-event-priority-amber: #e76826;
+  --er-ui-event-priority-grey: #888b8d;
+  --er-ui-patrol-status-active: #3e35a3;
+  --er-ui-patrol-status-paused: #c6880c;
+  --er-ui-patrol-status-overdue: #b62879;
+  --er-ui-patrol-status-scheduled: #107283;
+  --er-ui-patrol-status-track-line-mobile: #e76826;
+  --er-ui-patrol-status-done-mobile: #767676;
+  --er-ui-data-categorical-category-1: #00958f;
+  --er-ui-data-categorical-category-2: #3e35a3;
+  --er-ui-data-categorical-category-3: #488a00;
+  --er-ui-data-categorical-category-4: #b62879;
+  --er-ui-data-categorical-category-5: #c6880c;
+  --er-ui-data-categorical-category-6: #00d0c8;
+  --er-ui-data-categorical-category-7: #5c4fe7;
+  --er-ui-data-categorical-category-8: #78d811;
+  --er-ui-data-categorical-category-9: #f4db20;
+  --er-ui-data-categorical-category-10: #ed3ea2;
+  --er-ui-data-tracks-track-1: #3e35a3;
+  --er-ui-data-tracks-track-2: #b62879;
+  --er-ui-data-tracks-track-3: #ff803e;
+  --er-ui-data-tracks-track-4: #ed3ea2;
+  --er-ui-data-tracks-track-5: #3089ff;
+  --er-ui-data-tracks-track-6: #8c1700;
+  --er-ui-data-tracks-track-7: #a100cb;
+  --er-ui-data-tracks-track-8: #004e26;
+  --er-ui-data-tracks-track-9: #002960;
+  --er-ui-data-tracks-track-10: #f23b0e;
+  --er-ui-data-sequential-sequential-1: #f4db20;
+  --er-ui-data-sequential-sequential-2: #ffb700;
+  --er-ui-data-sequential-sequential-3: #ed3ea2;
+  --er-ui-data-sequential-sequential-4: #a100cb;
+  --er-ui-data-sequential-sequential-5: #5c4fe7;
+  --er-ui-data-sequential-sequential-6: #0056c7;
+  --er-ui-data-sequential-sequential-7: #00882e;
+  --er-ui-data-sequential-sequential-8: #78d811;
+  /* the viewer's own names, mapped onto the tokens above so the rules below are unchanged */
+  --bg: var(--er-ui-background-secondary-background);
+  --surface: var(--er-ui-background-elevated-component);
+  --ink: var(--er-ui-text-primary-text);
+  --ink-2: var(--er-ui-text-secondary-text);
+  --ink-3: var(--er-ui-text-disabled);
+  --line: var(--er-ui-divider-lines);
+  --accent: var(--er-ui-cta-primary);
+  --accent-ink: var(--er-ui-text-primary-text-reversed);
+  --chip: var(--er-ui-background-tertiary-background);
+  --brand: var(--er-ui-cta-secondary);
+  --brand-ink: var(--er-ui-cta-text);
+  --track: var(--er-ui-patrol-status-track-line-mobile);
+  --info: var(--er-ui-status-running);
+  --cat1: var(--er-ui-data-categorical-category-1); --cat2: var(--er-ui-data-categorical-category-2);
+  --cat3: var(--er-ui-data-categorical-category-3); --cat4: var(--er-ui-data-categorical-category-4);
+  --cat5: var(--er-ui-data-categorical-category-5); --cat6: var(--er-ui-data-categorical-category-6);
+  --cat7: var(--er-ui-data-categorical-category-7); --cat8: var(--er-ui-data-categorical-category-8);
+  --cat9: var(--er-ui-data-categorical-category-9); --cat10: var(--er-ui-data-categorical-category-10);
+  --mono: "Roboto Mono", ui-monospace, Menlo, monospace;
+  --sans: Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
+  --head: Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
 }
+/* the viewer has no theme resolver in script, so CSS carries the dark values twice: for the OS preference and for data-theme="dark" */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #032629; --surface: #0a3235; --ink: #ffffff; --ink-2: #faf2e9;
-    --ink-3: #888b8d; --line: #63666a; --accent: #0fcb8c; --accent-ink: #0a3235;
-    --chip: #105257; --brand: #0a3235; --brand-ink: #ffffff; --track: #e76826; --info: #7fb2ff;
+    --er-ui-background-tertiary-background: #02191b;
+    --er-ui-background-secondary-background: #02191b;
+    --er-ui-background-elevated-component-0: #0a3235;
+    --er-ui-background-elevated-component: #032629;
+    --er-ui-background-primary-background: #032629;
+    --er-ui-background-selected-background: #105257;
+    --er-ui-background-hover-background: #105257;
+    --er-ui-text-primary-text: #ffffff;
+    --er-ui-text-primary-text-reversed: #032629;
+    --er-ui-text-secondary-text: #cfdcdd;
+    --er-ui-text-form-labels: #ffffff;
+    --er-ui-text-tabs: #ffffff;
+    --er-ui-text-disabled: #888b8d;
+    --er-ui-icons: #70979a;
+    --er-ui-field-outline: #355154;
+    --er-ui-divider-lines: #1c3c3e;
+    --er-ui-cta-primary: #0fcb8c;
+    --er-ui-cta-secondary: #27545f;
+    --er-ui-cta-text: #faf2e9;
+    --er-ui-status-error-destructive: #f06374;
+    --er-ui-status-success: #53aa71;
+    --er-ui-status-running: #76b0ff;
+    --er-ui-status-warning: #fd9964;
+    --er-ui-status-disabled: #888b8d;
+    --er-ui-status-bg-synced-bg: #53693a;
+    --er-ui-status-bg-pending-sync-bg: #63666a;
+    --er-ui-status-bg-error-bg: #3e2125;
+    --er-ui-status-bg-draft-bg: #2a394d;
+    --er-ui-status-bg-active-bg: #57528c;
+    --er-ui-status-bg-warning-bg: #362922;
+    --er-ui-event-priority-green: #83af52;
+    --er-ui-event-priority-red: #f06374;
+    --er-ui-event-priority-amber: #fd9964;
+    --er-ui-patrol-status-active: #867ede;
+    --er-ui-patrol-status-paused: #ffb700;
+    --er-ui-patrol-status-overdue: #e76eb3;
+    --er-ui-patrol-status-scheduled: #62bfd0;
+    --er-ui-patrol-status-done-mobile: #888b8d;
+    --er-ui-data-categorical-category-1: #00d0c8;
+    --er-ui-data-categorical-category-2: #5c4fe7;
+    --er-ui-data-categorical-category-3: #78d811;
+    --er-ui-data-categorical-category-4: #ed3ea2;
+    --er-ui-data-categorical-category-5: #f4db20;
+    --er-ui-data-categorical-category-6: #00958f;
+    --er-ui-data-categorical-category-7: #3e35a3;
+    --er-ui-data-categorical-category-8: #488a00;
+    --er-ui-data-categorical-category-9: #c6880c;
+    --er-ui-data-categorical-category-10: #b62879;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #032629; --surface: #0a3235; --ink: #ffffff; --ink-2: #faf2e9;
-  --ink-3: #888b8d; --line: #63666a; --accent: #0fcb8c; --accent-ink: #0a3235;
-  --chip: #105257; --brand: #0a3235; --brand-ink: #ffffff; --track: #e76826; --info: #7fb2ff;
+  --er-ui-background-tertiary-background: #02191b;
+  --er-ui-background-secondary-background: #02191b;
+  --er-ui-background-elevated-component-0: #0a3235;
+  --er-ui-background-elevated-component: #032629;
+  --er-ui-background-primary-background: #032629;
+  --er-ui-background-selected-background: #105257;
+  --er-ui-background-hover-background: #105257;
+  --er-ui-text-primary-text: #ffffff;
+  --er-ui-text-primary-text-reversed: #032629;
+  --er-ui-text-secondary-text: #cfdcdd;
+  --er-ui-text-form-labels: #ffffff;
+  --er-ui-text-tabs: #ffffff;
+  --er-ui-text-disabled: #888b8d;
+  --er-ui-icons: #70979a;
+  --er-ui-field-outline: #355154;
+  --er-ui-divider-lines: #1c3c3e;
+  --er-ui-cta-primary: #0fcb8c;
+  --er-ui-cta-secondary: #27545f;
+  --er-ui-cta-text: #faf2e9;
+  --er-ui-status-error-destructive: #f06374;
+  --er-ui-status-success: #53aa71;
+  --er-ui-status-running: #76b0ff;
+  --er-ui-status-warning: #fd9964;
+  --er-ui-status-disabled: #888b8d;
+  --er-ui-status-bg-synced-bg: #53693a;
+  --er-ui-status-bg-pending-sync-bg: #63666a;
+  --er-ui-status-bg-error-bg: #3e2125;
+  --er-ui-status-bg-draft-bg: #2a394d;
+  --er-ui-status-bg-active-bg: #57528c;
+  --er-ui-status-bg-warning-bg: #362922;
+  --er-ui-event-priority-green: #83af52;
+  --er-ui-event-priority-red: #f06374;
+  --er-ui-event-priority-amber: #fd9964;
+  --er-ui-patrol-status-active: #867ede;
+  --er-ui-patrol-status-paused: #ffb700;
+  --er-ui-patrol-status-overdue: #e76eb3;
+  --er-ui-patrol-status-scheduled: #62bfd0;
+  --er-ui-patrol-status-done-mobile: #888b8d;
+  --er-ui-data-categorical-category-1: #00d0c8;
+  --er-ui-data-categorical-category-2: #5c4fe7;
+  --er-ui-data-categorical-category-3: #78d811;
+  --er-ui-data-categorical-category-4: #ed3ea2;
+  --er-ui-data-categorical-category-5: #f4db20;
+  --er-ui-data-categorical-category-6: #00958f;
+  --er-ui-data-categorical-category-7: #3e35a3;
+  --er-ui-data-categorical-category-8: #488a00;
+  --er-ui-data-categorical-category-9: #c6880c;
+  --er-ui-data-categorical-category-10: #b62879;
   color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -52,9 +236,8 @@ header {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
   padding: 10px 16px; background: var(--brand); color: var(--brand-ink);
 }
-.brand { display: flex; align-items: center; gap: 9px; }
-.brand svg { width: 22px; height: 22px; display: block; flex: none; }
-.brand .acorn { color: #0fcb8c; } /* acorn mark reads on teal in both modes */
+.brand { display: flex; align-items: center; gap: 16px; }
+.brand .lockup, .brand .lockup-fallback { height: 26px; width: auto; display: block; flex: none; }
 header h1 { font-family: var(--head); font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.1px; }
 header h1 span { color: var(--brand-ink); opacity: 0.6; font-weight: 400; font-family: var(--sans); }
 /* Hosted copies (/d/{id}/) link back to the dataset list and name the dataset */
@@ -63,22 +246,37 @@ header h1 span { color: var(--brand-ink); opacity: 0.6; font-weight: 400; font-f
 .home .mi { color: inherit; font-size: 18px; }
 .home:hover { background: rgba(255,255,255,0.12); opacity: 1; }
 .dsname { font: 500 14px var(--sans); opacity: 0.85; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-nav { display: flex; gap: 2px; flex-wrap: wrap; }
-nav button {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: 0; background: none; color: var(--brand-ink); font: 500 13.5px var(--sans);
-  padding: 7px 11px; border-radius: 7px; cursor: pointer; opacity: 0.8;
+.home { margin-left: auto; }
+/* The views: a list down the left, collapsible to icons; html[data-nav] carries the state */
+#shell { display: flex; flex: 1; min-height: 0; position: relative; }
+#sidenav { width: 196px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 8px; box-sizing: border-box;
+  background: var(--surface); border-right: 1px solid var(--line); overflow: hidden auto; transition: width .15s ease; }
+#tabs { display: flex; flex-direction: column; gap: 2px; }
+#sidenav button {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  border: 0; background: none; color: var(--ink); font: 500 13.5px var(--sans); text-align: left;
+  padding: 8px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap;
 }
-nav button .mi { color: inherit; font-size: 18px; }
-nav button:hover { background: rgba(255,255,255,0.12); opacity: 1; }
-nav button.on { background: var(--accent); color: var(--accent-ink); opacity: 1; }
-#caSel {
-  margin-left: auto; background: rgba(255,255,255,0.12); color: var(--brand-ink);
-  border: 1px solid rgba(255,255,255,0.25); border-radius: 7px; padding: 6px 8px; font: 13px var(--sans);
-  color-scheme: dark; /* teal header is dark-ish in both modes -> legible dropdown */
-}
+#sidenav button .mi { color: var(--ink-2); font-size: 20px; flex: none; }
+#sidenav button:hover { background: var(--chip); }
+#sidenav button.on { background: var(--accent); color: var(--accent-ink); }
+#sidenav button.on .mi { color: inherit; }
+#caSel { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 8px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 13px var(--sans); }
 #caSel option { color: var(--ink); background: var(--surface); }
-main { flex: 1; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
+#sidenav #caIcon { display: none; }
+#navToggle { margin-top: auto; color: var(--ink-2); }
+html[data-nav="closed"] #sidenav { width: 52px; }
+html[data-nav="closed"] #sidenav button { padding: 8px; justify-content: center; }
+html[data-nav="closed"] #sidenav .label, html[data-nav="closed"] #caSel { display: none; }
+html[data-nav="closed"] #sidenav #caIcon { display: flex; }
+#scrim { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 4; }
+@media (max-width: 700px) {
+  .brand h1 { display: none; }   /* the band keeps the lockup, the dataset name and the way back */
+  html[data-nav="open"] #sidenav { position: absolute; top: 0; bottom: 0; left: 0; z-index: 5; box-shadow: 4px 0 16px rgba(0,0,0,0.2); }
+  html[data-nav="open"] #scrim { display: block; }
+}
+main { flex: 1; min-width: 0; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
 .wrap { max-width: 1200px; margin: 0 auto; }
 h2 { font-family: var(--head); font-size: 15px; font-weight: 700; margin: 22px 0 10px; }
 h2:first-child { margin-top: 0; }
@@ -257,20 +455,19 @@ pre.mermaid { overflow-x: auto; }
 #modal .count { color: rgba(255,255,255,0.7); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
 code { font-family: var(--mono); font-size: 12px; background: var(--chip); padding: 1px 5px; border-radius: 5px; }
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=block">
 </head>
 <body>
 <div id="app">
   <header>
-    <a id="home" class="home" href="/" hidden title="Back to the dataset list"><span class="mi" aria-hidden="true">arrow_back</span>All datasets</a>
     <div class="brand">
-      <svg class="acorn" viewBox="0 0 120 120" aria-hidden="true"><g fill="currentColor"><path d="M94.4,74.2v1.9c0,6.3-1.1,13.4-9.8,18.5L60,110,34.5,94.6c-8.9-5.6-8.9-15-8.9-18.5V74.3Z"/><polygon points="60 10 23.9 15.9 25.6 36.6 94.4 36.6 96.1 15.9 60 10"/><polygon points="86.2 42.2 25.6 42.2 25.6 67.9 86.2 67.9 86.2 42.2"/></g></svg>
-      <h1>smart-able <span id="dbver"></span></h1>
+      <img class="lockup" src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+      <svg class="lockup-fallback" viewBox="0 0 862 102" aria-hidden="true" hidden><path fill="#fff" d="M98.1,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M159.2,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM157.8,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M205.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM191.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M255.1,23.9h-11.3v57.6h-11.2V23.9h-11.3v-9.8h33.7v9.8Z"/><path fill="#fff" d="M274,14.1v28.1h12.8V14.1h11.2v67.4h-11.2v-29.3h-12.8v29.3h-11.2V14.1h11.2Z"/><path fill="#fff" d="M334.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM320.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M376.3,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM374.9,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M397.6,81.5V14.1h11.2l14.2,41.7V14.1h10.2v67.4h-10.6l-14.7-43.8v43.8h-10.2Z"/><path fill="#fff" d="M478.9,68c0,10.4-6.7,14.2-16.9,14.2h-.8c-10.2,0-16.9-3.8-16.9-14.2V27.6c0-10,6.7-14.2,16.9-14.2h.8c10.2,0,16.9,4.2,16.9,14.2v9.6h-11.2v-7.9c0-4.8-2.5-6.2-6.2-6.2s-6.2,1.3-6.2,6.2v37c0,4.8,2.5,6.2,6.2,6.2s6.2-1.3,6.2-6.2v-10h-6.5v-9.4h17.7v21.2Z"/><path fill="#fff" d="M489.9,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M554.9,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM540.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M72.7,65.2v1.9c0,6.3-1.2,13.3-9.8,18.4l-24.6,15.4-25.5-15.4c-8.9-5.5-8.9-14.9-8.9-18.4v-1.8h68.9Z"/><polygon fill="#fff" points="38.3 1 2.2 6.9 3.9 27.7 72.7 27.7 74.4 6.9 38.3 1"/><polygon fill="#fff" points="64.5 33.2 3.9 33.2 3.9 58.9 64.5 58.9 64.5 33.2"/><path fill="#ddd" d="M695.5,40h-11.6v-11h9.3c1.2,0,2.3-1,2.3-2.3v-9.3h11v11.6c0,6.1-4.9,11-11,11ZM684,41.1h-11.6v11h9.3c1.2,0,2.3,1,2.3,2.3v9.3h11v-11.6c0-6.1-4.9-11-11-11ZM720.9,40.6c-1.2,0-2.3-1-2.3-2.3v-9.3h-11v11.6c0,6.1,4.9,11,11,11h11.6v-11h-9.3ZM696.1,63.7v11.6h11v-9.3c0-1.2,1-2.3,2.3-2.3h9.3v-11h-11.6c-6.1,0-11,4.9-11,11Z"/><path fill="#ddd" d="M804.7,25.3h-11v-7.8h11v7.8ZM796.2,31.8h-6.6v8.2h5.7c1,0,1.7.8,1.7,1.7v33.5h8.7v-34.1c0-6.1-3.9-9.3-9.6-9.3ZM769.7,17.4l21.5,57.8h-9.1l-5.7-15.4h-26.9l-5.7,15.4h-9l21.5-57.8h13.5ZM773.7,52.7l-10.7-28.9-10.7,28.9h21.5ZM826.3,68.1l17.7-13.9c10.3-8.1,14.8-13.7,14.8-21.5s-5.1-16.8-20.6-16.8-24.9,12.6-24.9,24.1h9.4c0-10.4,4.6-16.7,15.5-16.7s11.2,4.6,11.2,9.5-1.3,7.3-6.3,11.4l-29.6,23.9v7.2h46.4v-7.2h-33.5Z"/><g><path fill="#ddd" d="M612.4,32h13.2c5.4,0,7.5,2.8,7.5,6.3s-2.6,5.7-5.1,6.2c3,.4,5.5,2.5,5.5,6.4s-2.7,7-8.1,7h-12.9v-25.9ZM624.2,43.1c3.3,0,4.8-1.3,4.8-4s-1-3.8-4.2-3.8h-8.3v7.8h7.7ZM624.9,54.7c3.2,0,4.4-1.9,4.4-4.2s-1.5-4.4-5.1-4.4h-7.7v8.7h8.5Z"/><path fill="#ddd" d="M636.6,62.6h5.8l1.8-4.7h-1.4l-7.4-19.5h4l5.3,13.9.8,2.3.7-2.3,5.3-13.9h3.8l-8.1,21.2c-1.6,4.1-2.6,6.1-7.3,6.1h-3.3v-3.1Z"/></g><rect fill="#ddd" x="588.3" y="13.9" width="2" height="69"/></svg>
+      <h1>SMART migration <span id="dbver"></span></h1>
     </div>
     <span id="dsName" class="dsname" hidden></span>
-    <nav id="tabs"></nav>
-    <select id="caSel" aria-label="Conservation area filter"></select>
+    <!-- the way back sits at the band's right end (spec §7) -->
+    <a id="home" class="home" href="/" hidden title="Back to the dataset list"><span class="mi" aria-hidden="true">arrow_back</span>All datasets</a>
   </header>
   <div id="notice" class="notice" hidden></div>
   <template id="help-flow">
@@ -339,7 +536,16 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
         <a href="quirks.html#data-model-export" target="_blank" rel="noopener">Known differences from SMART's own output.</a></p>
     </div>
   </template>
-  <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
+  <div id="shell">
+    <nav id="sidenav" aria-label="Views">
+      <select id="caSel" aria-label="Conservation area filter"></select>
+      <button id="caIcon" type="button" title="Conservation area" aria-label="Conservation area"><span class="mi" aria-hidden="true">filter_alt</span></button>
+      <div id="tabs"></div>
+      <button id="navToggle" type="button" aria-controls="sidenav" aria-expanded="true" title="Collapse the list"><span class="mi" aria-hidden="true">chevron_left</span><span class="label">Collapse</span></button>
+    </nav>
+    <div id="scrim"></div>
+    <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
+  </div>
 </div>
 <div id="tip" hidden></div>
 <div id="drawer" hidden></div>
@@ -383,6 +589,12 @@ async function hostedHeader() {
   const m = location.pathname.match(/^\/d\/([^/]+)\//);
   if (!m) return;
   $('#home').hidden = false;
+  const back = location.pathname.match(/^\/d\/([A-Za-z0-9]+)\//);
+  if (back) {
+    const h = $('#home');
+    h.href = '/#/datasets/' + back[1]; h.title = 'Back to dataset';
+    h.lastChild.textContent = 'Back to dataset';
+  }
   try {
     const r = await fetch('/api/datasets/' + m[1]);
     if (!r.ok) return;
@@ -611,17 +823,35 @@ function wallToEpoch(t, tz) {
 }
 const wpsFiltered = () => D.wps.filter(w => caOk(w.ca));
 
+// The left list of views is open (icons and labels) or closed (icons only). A narrow screen lays the open
+// list over the content, so picking a view there closes it again. The choice is kept under "sidenav";
+// the width-derived default at load is applied but not stored, so a phone's default never follows a user to a desktop.
+const narrow = () => window.innerWidth < 700;
+function setNav(state, remember = true) {
+  document.documentElement.setAttribute('data-nav', state);
+  if (remember) { try { localStorage.setItem('sidenav', state); } catch (e) {} }
+  const t = $('#navToggle'), open = state === 'open';
+  t.setAttribute('aria-expanded', String(open));
+  t.title = open ? 'Collapse the list' : 'Expand the list';
+  t.setAttribute('aria-label', t.title);
+  t.firstChild.textContent = open ? 'chevron_left' : 'chevron_right';
+}
+
 function buildHeader() {
   const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],['rangers','Rangers','groups'],
     ['map','Map','map'],['observations','Observations','visibility'],['datamodel','Data model','account_tree'],
     ['profiles','Profiles','badge'],['schema','Schema','schema']];
   const nav = $('#tabs'); nav.innerHTML = '';
   for (const [id, label, icon] of tabs) {
-    const b = el('button'); b.id = 'tab-' + id;
-    b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span>' + esc(label);
-    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); };
+    const b = el('button'); b.id = 'tab-' + id; b.title = label; b.setAttribute('aria-label', label);
+    b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span><span class="label">' + esc(label) + '</span>';
+    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); if (narrow()) setNav('closed'); };
     nav.appendChild(b);
   }
+  $('#navToggle').onclick = () => setNav(document.documentElement.getAttribute('data-nav') === 'closed' ? 'open' : 'closed');
+  $('#caIcon').onclick = () => { setNav('open'); $('#caSel').focus(); };
+  $('#scrim').onclick = () => setNav('closed');
+  setNav(document.documentElement.getAttribute('data-nav') || 'open', false);
   const sel = $('#caSel'); sel.innerHTML = '';
   sel.appendChild(new Option('All conservation areas', 'all'));
   for (const c of D.meta.cas) if (c.id !== 'CCAA') sel.appendChild(new Option(c.n, c.id));
@@ -629,7 +859,7 @@ function buildHeader() {
 }
 
 function render() {
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
   const v = $('#view'); v.innerHTML = '';
   ({overview: rOverview, patrols: rPatrols, rangers: rRangers, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
 }

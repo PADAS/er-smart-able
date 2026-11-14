@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import json
 from pathlib import Path
 
@@ -39,13 +40,22 @@ def describe_export(export_dir: Path) -> list:
     return out
 
 
+LIVE_TAIL_EVERY = 2.0  # seconds between the running job's log_tail writes
+
+
+def tail_of(log_lines: list) -> str:
+    """The last 60 lines, without the per-table row counts."""
+    return "\n".join(l for l in log_lines[-60:] if not l.strip().endswith(" rows"))
+
+
 def main(dataset_id: str) -> int:
     store = get_store()
     doc = store.get(dataset_id)
     if not doc:
         print(f"no dataset {dataset_id}", file=sys.stderr)
         return 2
-    store.update(dataset_id, status="running", error=None, started_at=now())
+    # log_tail is cleared, so the Overview's live log is this run's, never the previous run's error
+    store.update(dataset_id, status="running", error=None, started_at=now(), log_tail="")
     work = Path(os.environ.get("JOB_WORK_DIR") or tempfile.mkdtemp(prefix="smart-able-"))
     log_lines = []
     try:
@@ -54,13 +64,17 @@ def main(dataset_id: str) -> int:
         print(f"extracting {src} -> {work / 'out'}", flush=True)
         proc = subprocess.Popen([str(ROOT / "smart-able"), "all", str(src)], cwd=str(ROOT), env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        flushed = time.monotonic()
         for line in proc.stdout:
             print(line, end="", flush=True)
             log_lines.append(line.rstrip("\n"))
             if len(log_lines) > 400:
                 del log_lines[:-400]
+            if time.monotonic() - flushed >= LIVE_TAIL_EVERY:  # the Overview polls; it shows the run so far
+                store.update(dataset_id, log_tail=tail_of(log_lines))
+                flushed = time.monotonic()
         rc = proc.wait()
-        tail = "\n".join(l for l in log_lines[-60:] if not l.strip().endswith(" rows"))
+        tail = tail_of(log_lines)
         if rc != 0:
             store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail)
             return rc

@@ -28,15 +28,15 @@ def test_links_in_app_and_runbook_resolve():
 def test_quirks_page_wears_the_app_theme():
     """The docs page reuses the browser's design tokens (read from
     browse/index.html at build time, so the two cannot drift), its fonts,
-    its dark mode and its teal header with the acorn mark."""
+    its dark mode and its teal header with the EarthRanger lockup."""
     from browse.build_quirks import render
     app = (ROOT / "browse" / "index.html").read_text()
     html = render("# Title\n\n## Section\n\ntext")
-    brand = re.search(r"--brand:\s*(#[0-9a-f]+)", app).group(1)
+    brand = re.search(r"--brand:\s*(var\(--er-ui-[a-z-]+\))", app).group(1)
     assert f"--brand: {brand}" in html
     assert "prefers-color-scheme: dark" in html
-    assert "fonts.googleapis.com/css2?family=Roboto" in html
-    assert 'class="acorn"' in html and "<header" in html
+    assert "/static/fonts/roboto.css" in html and "fonts.googleapis.com/css2?family=Roboto" not in html
+    assert 'class="lockup-fallback"' in html and "<header" in html and 'class="acorn"' not in html
 
 
 def test_docs_links_in_the_browser_are_marked():
