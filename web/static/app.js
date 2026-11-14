@@ -84,6 +84,15 @@ async function openLegacyLoad(id) {
   } catch (e) { if (e.status !== 401 && location.hash === mine) navigate({ page: 'home' }, 'replace'); }
 }
 window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
+// A link to the address already shown changes nothing, so no popstate fires and the router never runs.
+// That is the not-found notice's case: its entry was rewritten to #/ and its links point at #/. Render it here.
+document.addEventListener('click', e => {
+  if (!ME || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest && e.target.closest('a[href^="#/"]');
+  if (!a || a.getAttribute('aria-disabled') === 'true' || a.getAttribute('href') !== (location.hash || '#/')) return;
+  e.preventDefault();
+  renderRoute(parseRoute(location.hash));
+});
 
 async function boot() {
   let theme = 'system';

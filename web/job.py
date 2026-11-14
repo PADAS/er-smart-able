@@ -58,6 +58,7 @@ def main(dataset_id: str) -> int:
     store.update(dataset_id, status="running", error=None, started_at=now(), log_tail="")
     work = Path(os.environ.get("JOB_WORK_DIR") or tempfile.mkdtemp(prefix="smart-able-"))
     log_lines = []
+    proc = None
     try:
         src = store.fetch_upload(dataset_id, doc["source_name"], work / "in")
         env = {**os.environ, "SMART_ABLE_WORK": str(work / "out")}
@@ -71,8 +72,11 @@ def main(dataset_id: str) -> int:
             if len(log_lines) > 400:
                 del log_lines[:-400]
             if time.monotonic() - flushed >= LIVE_TAIL_EVERY:  # the Overview polls; it shows the run so far
-                store.update(dataset_id, log_tail=tail_of(log_lines))
-                flushed = time.monotonic()
+                try:
+                    store.update(dataset_id, log_tail=tail_of(log_lines))
+                except Exception as e:  # noqa: BLE001  the live log is a courtesy: the extraction goes on
+                    print(f"live log not published ({type(e).__name__}: {e}); will retry", file=sys.stderr, flush=True)
+                flushed = time.monotonic()  # either way, the next attempt is one interval on
         rc = proc.wait()
         tail = tail_of(log_lines)
         if rc != 0:
@@ -100,6 +104,13 @@ def main(dataset_id: str) -> int:
         store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail="\n".join(log_lines[-60:]))
         raise
     finally:
+        if proc is not None and proc.poll() is None:  # abandoned mid-run: stop it before its files go
+            proc.terminate()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
         if not os.environ.get("JOB_KEEP_WORK"):
             shutil.rmtree(work, ignore_errors=True)
 
