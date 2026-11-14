@@ -19,7 +19,7 @@ function showSignIn(err) {
 }
 function showApp() {
   mountHeader(true);
-  $('#whoEmail').textContent = ME.email;
+  $('#whoEmail').textContent = ME.email; $('#menuEmail').textContent = ME.email;   // the menu shows it where the band has no room
   navigate(parseRoute(location.hash), 'replace');   // the address says which page; the first entry is that page
 }
 

@@ -52,6 +52,7 @@ header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
 .menu-theme label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .menu-theme input { accent-color: var(--er-ui-cta-primary); margin: 0; }
 .menu-version { margin: 0; padding: 4px 14px 2px; }
+.menu-email { display: none; margin: 0; padding: 6px 14px; font-weight: 500; overflow-wrap: anywhere; border-bottom: 1px solid var(--er-ui-divider-lines); }
 .crumbs { max-width: 1100px; margin: 0 auto; padding: 12px 16px 0; font-size: 13px; color: var(--er-ui-text-secondary-text); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .crumbs a { text-decoration: none; }
 .crumbs a:hover { text-decoration: underline; }
@@ -64,6 +65,13 @@ header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
   #version, #helpBtn .label { display: none; }
   #helpBtn { padding: 6px; }
   #account summary { max-width: 100px; }
+}
+/* below 480px: the lockup, Help and an account icon; nothing in the band ellipsizes. The email moves into the menu. */
+@media (max-width: 479.98px) {
+  #appName, #version { display: none; }
+  #account summary { max-width: none; overflow: visible; text-overflow: clip; font-size: 0; padding: 4px 6px; }   /* the email stays the summary's accessible name */
+  #account summary::before { content: 'account_circle'; font-family: 'Material Symbols Outlined'; font-size: 24px; font-weight: normal; line-height: 1; vertical-align: -6px; }
+  .menu-email { display: block; }
 }
 
 /* ---- controls */
@@ -112,13 +120,9 @@ th { text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: 0.04
 td { padding: 8px; border-bottom: 1px solid var(--er-ui-divider-lines); vertical-align: top; }
 td.actions { display: table-cell; text-align: right; min-width: 190px; }   /* the action buttons wrap inside their cell */
 td.actions button { margin: 2px 0 2px 4px; white-space: nowrap; }
-#list { overflow-x: auto; }   /* narrower than the columns' minimums: the list scrolls, the panel keeps its edge */
-#list th:first-child, #list td:first-child { min-width: 150px; }
-td.loads { min-width: 220px; }
-.loadlink { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; text-align: left; margin: 2px 0; padding: 6px 10px; font-weight: 500; color: var(--er-ui-text-primary-text); }
-.loadlink:hover { border-color: var(--er-ui-cta-primary); }
-.loadlink .mi { color: var(--er-ui-cta-primary); }
-.loadlink-what { flex: 1 1 auto; }
+/* the overview's Browse, Load and the re-extract note: one centred row, so the note lines up with the button */
+.area-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; }
+td.actions .area-actions button, .area-actions .btn { margin: 0; }
 pre.log { background: var(--er-ui-background-elevated-component-0); border: 1px solid var(--er-ui-divider-lines); padding: 10px; border-radius: 8px; font-size: 12px; max-height: 40vh; overflow: auto; white-space: pre-wrap; }
 .shared ul { list-style: none; padding: 0; margin: 8px 0; }
 .shared li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
@@ -168,7 +172,6 @@ pre.log { background: var(--er-ui-background-elevated-component-0); border: 1px 
 .help-body .target { background: var(--er-ui-background-selected-background); border-radius: 6px; }
 
 /* ---- the load page: stages, findings, plan, rangers, progress */
-.stages { margin: 10px 0; }
 .stagetable td:nth-child(2) { white-space: nowrap; }
 .stagetable tr.pending td { color: var(--er-ui-text-disabled); }
 .heartbeat { margin: 4px 0 0; }
