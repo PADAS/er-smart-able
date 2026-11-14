@@ -11,6 +11,7 @@ async function api(path, opts = {}) {
 
 function showSignIn(err) {
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
+  listGen++; datasetGen++; loadGen++; sitesGen++;   // a page fetch still in flight cannot paint over the form
   mountHeader(false); setBreadcrumb(null);
   mountPage(renderSignIn(CONFIG));
   $('#signInBtn').onclick = signIn;
@@ -98,16 +99,17 @@ async function boot() {
   $('#helpBody').onscroll = helpScrolled;
   $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
+  // an open dialog takes the keys first (it sits above the help drawer); Escape closes one layer at a time
+  document.addEventListener('keydown', e => { if (!$('#modal').hidden) modalKeydown(e); else if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
   document.querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
   $('#menuSites').onclick = () => { $('#account').open = false; navigate({ page: 'sites' }); };
   // the menu closes on a click outside it or Escape, like any menu
   document.addEventListener('click', e => { if ($('#account').open && !$('#account').contains(e.target)) $('#account').open = false; });
   $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
   $('#signOut').onclick = async () => { $('#account').open = false; await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
-  $('#modalClose').onclick = () => { $('#modal').hidden = true; };
+  $('#modalClose').onclick = closeDialog;
   // the title goes home from anywhere in the app; signed in, without reloading the page
-  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); $('#modal').hidden = true; showDatasets(); } };
+  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); if (!$('#modal').hidden) closeDialog(); showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
 }
 
@@ -167,12 +169,41 @@ function retryNote(after, show) {
   else if (!show && shown) next.remove();
 }
 
-// a form that brings its own Close beside its submit button (data-close) hides the dialog's own
+// a form that brings its own Close beside its submit button (data-close) hides the dialog's own.
+// Focus moves to the first field, Tab stays inside, Escape is the visible Close, and closing returns
+// focus to what opened it. A dialog that replaces an open one (a re-render, the add-a-site detour)
+// keeps the first opener. Closing only hides: an upload in flight carries on.
+let modalOpener = null;
 function dialog(title, bodyHtml) {
+  if ($('#modal').hidden) modalOpener = document.activeElement;
   $('#modalTitle').textContent = title; $('#modalBody').innerHTML = bodyHtml;
   const own = $('#modalBody').querySelector('[data-close]');
-  $('#modalFoot').hidden = !!own; if (own) own.onclick = () => { $('#modal').hidden = true; };
+  $('#modalFoot').hidden = !!own; if (own) own.onclick = closeDialog;
   $('#modal').hidden = false;
+  const first = modalFocusables()[0]; if (first) first.focus();
+}
+function closeDialog() {
+  $('#modal').hidden = true;
+  const back = modalOpener; modalOpener = null;
+  if (back && back.focus && document.contains(back)) back.focus();
+}
+function modalFocusables() {
+  return Array.from($('#modal').querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(x => !x.disabled && x.offsetParent !== null);
+}
+function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus that has strayed outside
+  if (e.key === 'Escape') {
+    e.preventDefault(); e.stopPropagation();
+    ($('#modalBody').querySelector('[data-close]') || $('#modalClose')).click();   // the site dialog's onCancel rides on its Close
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const f = modalFocusables();
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1], inside = $('#modal').contains(document.activeElement);
+  if (!inside) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 function shareDialog(d, base = '/api/datasets/', note) {
@@ -213,7 +244,7 @@ async function showDataset(route) {
   }
   if (!current()) return;
   let tab = route.tab;
-  if (tab !== 'overview' && d.status !== 'ready') { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
+  if (tab !== 'overview' && !hasLoadTabs(d)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
   const extra = {};
   try {
     if (tab === 'loads') extra.loads = await api('/api/datasets/' + d.id + '/loads');
@@ -260,9 +291,11 @@ function uploadDialog() {
     ev.preventDefault();
     const file = $('#dsFile', form).files[0]; if (!file) return;
     const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
+    const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
     btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
     try {
       const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
+      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open(created.upload.method, created.upload.url);
@@ -275,9 +308,12 @@ function uploadDialog() {
       });
       text.textContent = 'Uploaded. Starting extraction…';
       await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
-      if ($('#modalBody').contains(form)) $('#modal').hidden = true;   // still on screen: close it
+      if (onScreen()) closeDialog();                                   // still on screen: close it
       if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, extracting
-    } catch (e) { text.textContent = e.message; btn.disabled = false; }
+    } catch (e) {
+      if (onScreen()) { text.textContent = e.message; btn.disabled = false; }
+      else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
+    }
   };
 }
 
@@ -325,7 +361,7 @@ function siteDialog(onCreated, onCancel) {
     const btn = $('#siteBtn'), err = $('#siteError'); btn.disabled = true; err.textContent = 'Checking the token…';
     try {
       const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
-      $('#modal').hidden = true;
+      closeDialog();
       if (parseRoute(location.hash).page === 'sites') showSites();
       if (onCreated) onCreated(site);
     } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
@@ -340,12 +376,15 @@ function defaultEventCategory(caId) {
 
 // keep: the form's values and site choice, when the dialog is reopened after the add-a-site detour
 async function loadDialog(d, caId, keep) {
-  const sites = await api('/api/sites');
+  let sites;
+  try { sites = await api('/api/sites'); } catch (e) { if (e.status !== 401) alert(e.message); return; }   // 401: the sign-in form is up
   if (!sites.length) return siteDialog(() => loadDialog(d, caId));
   const addSite = kept => siteDialog(site => loadDialog(d, kept.ca || caId, { ...kept, site: site.id }), () => loadDialog(d, kept.ca || caId, kept));
-  let lastDefault = null;
+  let lastDefault = null, autoDm = false;
   const render = () => {
     const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
+    // an area with no patrols has only its data model to load; leaving it for one with patrols undoes that choice
+    if (!ca.patrols) { $('#ldScope').value = 'datamodel'; autoDm = true; } else if (autoDm) { $('#ldScope').value = 'all'; autoDm = false; }
     const def = defaultEventCategory(ca.ca_id);   // what the server defaults to
     if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
     lastDefault = def;
@@ -379,7 +418,7 @@ async function loadDialog(d, caId, keep) {
   if (keep && keep.ca) $('#ldCa').value = keep.ca;
   render();
   if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; lastDefault = $('#ldCategory').value; }
-  scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
+  scopeChanged(); $('#ldCa').onchange = () => { render(); scopeChanged(); }; $('#ldScope').onchange = scopeChanged;
   let prevSite = $('#ldSite').value;
   $('#ldSite').onchange = () => {
     if ($('#ldSite').value !== '__add__') { prevSite = $('#ldSite').value; return; }
@@ -395,20 +434,19 @@ async function loadDialog(d, caId, keep) {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
-      $('#modal').hidden = true; navigate({ page: 'load', id: d.id, load: l.id });
+      closeDialog(); navigate({ page: 'load', id: d.id, load: l.id });
     } catch (e) { alert(e.message); }
   };
 }
 
 // ---- the load page
 let loadTimer = null, currentLoad = null, loadGen = 0;
-// 'auto' steps back to the list when the page was opened from it, else goes to it; 'push' and 'replace' say so
-function showDatasets(nav = 'auto') {
-  if (nav === 'auto') {
-    if (currentLoad && (history.state || {}).from === '#/') { history.back(); return; }   // popstate shows the list
-    nav = currentLoad ? 'push' : 'replace';   // already on the list: no entry
-  }
-  navigate({ page: 'home' }, nav);
+// the home link: from any other page it steps back when that page was opened from the list, else pushes
+// the list, so Back returns to the page; on the list itself it only rewrites the entry
+function showDatasets() {
+  const onHome = parseRoute(location.hash).page === 'home';
+  if (!onHome && (history.state || {}).from === '#/') { history.back(); return; }   // popstate shows the list
+  navigate({ page: 'home' }, onHome ? 'replace' : 'push');
 }
 
 // the load, its dataset's name for the breadcrumb, then the page; polls every 4 s while the load is held
