@@ -63,12 +63,13 @@ function navigate(route, nav = 'push') {
   else if (nav === 'replace') history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + hash);
   renderRoute(route);
 }
-// one show* per page; the sites page arrives in a later task
+// one show* per page
 function renderRoute(route) {
   clearTimeout(pollTimer); clearTimeout(loadTimer); listGen++;   // leaving a page: its poll and any response in flight stop
   if (route.page === 'home') showHome();
   else if (route.page === 'dataset') showDataset(route);
   else if (route.page === 'load') showLoad(route);
+  else if (route.page === 'sites') showSites();
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
 }
@@ -175,7 +176,7 @@ function dialog(title, bodyHtml) {
 }
 
 function shareDialog(d, base = '/api/datasets/', note) {
-  const refresh = () => { if (base === '/api/sites/') return loadSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
+  const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
   const render = shared => {
     dialog('Share "' + d.name + '"',
@@ -280,41 +281,55 @@ function uploadDialog() {
   };
 }
 
-// ---- sites
-async function loadSites() {
-  const list = await api('/api/sites');
-  const host = $('#sites');
-  if (!list.length) { host.innerHTML = '<p class="muted tiny">No sites yet.</p>'; return list; }
-  host.innerHTML = '<table><thead><tr><th>Site</th><th>Host</th><th>Token</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' +
-    list.map(s => '<tr data-id="' + esc(s.id) + '">' +
-      '<td><b>' + esc(s.name) + '</b></td><td>' + esc(s.url) + '</td>' +
-      '<td class="tiny">…' + esc(s.token_hint) + ' as ' + esc(s.checked_as) + '</td>' +
-      '<td>' + (s.mine ? 'you' : esc(s.owner_email)) + '</td>' +
-      '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
-      '<td class="actions">' +
-        (s.mine ? '<button data-act="siteShare"><span class="mi" aria-hidden="true">share</span>Share</button> ' : '') +
-        (s.mine ? '<button data-act="siteDelete" class="danger" title="Remove this site and its token"><span class="mi" aria-hidden="true">delete</span></button>' : '') +
-      '</td></tr>').join('') + '</tbody></table>';
-  host.querySelectorAll('button[data-act]').forEach(b => b.onclick = () => siteAction(b.dataset.act, list.find(s => s.id === b.closest('tr').dataset.id)));
-  return list;
+// ---- the sites page
+let sitesGen = 0;
+async function showSites() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
+  const gen = ++sitesGen, mine = routeHash({ page: 'sites' });
+  const current = () => gen === sitesGen && location.hash === mine;
+  let list;
+  try { list = await api('/api/sites'); }
+  catch (e) {
+    if (!current() || e.status === 401) return;
+    setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return;
+  }
+  if (!current()) return;
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'EarthRanger sites' }]);
+  mountPage(renderSites(list));
+  $('#addSiteBtn').onclick = () => siteDialog();
+  $('#page').querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
+    const s = list.find(x => x.id === b.dataset.id);
+    try {
+      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/', 'People you share with can load datasets into this site using your token.');
+      if (!confirm('Remove "' + s.name + '"? Loads that reference this site stay readable but cannot be continued; register the site again to load into it.')) return;
+      await api('/api/sites/' + s.id, { method: 'DELETE' }); showSites();
+    } catch (e) { if (e.status !== 401) alert(e.message); }
+  });
 }
 
-async function siteAction(act, s) {
-  try {
-    if (act === 'siteShare') return shareDialog(s, '/api/sites/', 'People you share with can load datasets into this site using your token.');
-    if (act === 'siteDelete') { if (!confirm('Remove "' + s.name + '"? Loads already made keep their records but cannot be continued.')) return; await api('/api/sites/' + s.id, { method: 'DELETE' }); return loadSites(); }
-  } catch (e) { alert(e.message); }
-}
-
-async function addSite(ev) {
-  ev.preventDefault();
-  const btn = $('#siteBtn'); btn.disabled = true; $('#siteError').textContent = 'Checking the token…';
-  try {
-    await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
-    $('#siteForm').reset(); $('#siteError').textContent = '';
-    loadSites();
-  } catch (e) { $('#siteError').textContent = e.message; }
-  finally { btn.disabled = false; }
+// the add-site dialog. The token is read from the field on submit and goes only to the POST.
+// onCreated(site) runs after a successful save; onCancel runs when the reader closes the dialog instead.
+function siteDialog(onCreated, onCancel) {
+  dialog('Add an EarthRanger site',
+    '<p class="muted tiny">The token is checked against the site before it is saved.</p>' +
+    '<form id="siteForm" class="col" autocomplete="off">' +
+    '<label class="field"><span>Name</span><input type="text" id="siteName" required placeholder="phinney"></label>' +
+    '<label class="field"><span>Host</span><input type="text" id="siteUrl" required placeholder="example.pamdas.org"></label>' +
+    '<label class="field"><span>Token</span><input type="password" id="siteToken" autocomplete="off" required></label>' +
+    '<p class="tiny" id="siteError" role="alert"></p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary" id="siteBtn">Add site</button></div></form>');
+  const close = $('#modalBody').querySelector('[data-close]'), plain = close.onclick;
+  close.onclick = () => { plain(); if (onCancel) onCancel(); };
+  $('#siteForm').onsubmit = async ev => {
+    ev.preventDefault();
+    const btn = $('#siteBtn'), err = $('#siteError'); btn.disabled = true; err.textContent = 'Checking the token…';
+    try {
+      const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
+      $('#modal').hidden = true;
+      if (parseRoute(location.hash).page === 'sites') showSites();
+      if (onCreated) onCreated(site);
+    } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
+  };
 }
 
 // mirrors findings.ca_identifier: smart-<ca id>, 2-30 chars of [A-Za-z0-9_-]
@@ -323,9 +338,11 @@ function defaultEventCategory(caId) {
   return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
 }
 
-async function loadDialog(d, caId) {
+// keep: the form's values and site choice, when the dialog is reopened after the add-a-site detour
+async function loadDialog(d, caId, keep) {
   const sites = await api('/api/sites');
-  if (!sites.length) return alert('Register an EarthRanger site first.');
+  if (!sites.length) return siteDialog(() => loadDialog(d, caId));
+  const addSite = kept => siteDialog(site => loadDialog(d, kept.ca || caId, { ...kept, site: site.id }), () => loadDialog(d, kept.ca || caId, kept));
   let lastDefault = null;
   const render = () => {
     const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
@@ -339,7 +356,7 @@ async function loadDialog(d, caId) {
     '<p class="muted tiny">First a plan is made without writing anything. You confirm it before the site is changed.</p>' +
     '<form id="ldForm" class="col">' +
     '<label>Conservation area <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + esc(e.name || e.ca_id) + ' (' + esc(e.patrols) + ' patrols)</option>').join('') + '</select></label>' +
-    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '</select></label>' +
+    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">Add a site…</option></select></label>' +
     '<label>Label language <select id="ldLang"></select></label>' +
     '<label>Configurable model <select id="ldCm"></select></label>' +
     '<p class="muted tiny">none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.</p>' +
@@ -358,7 +375,18 @@ async function loadDialog(d, caId) {
       : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
   };
   if (caId) $('#ldCa').value = caId;
-  render(); scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
+  const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
+  if (keep && keep.ca) $('#ldCa').value = keep.ca;
+  render();
+  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; lastDefault = $('#ldCategory').value; }
+  scopeChanged(); $('#ldCa').onchange = render; $('#ldScope').onchange = scopeChanged;
+  let prevSite = $('#ldSite').value;
+  $('#ldSite').onchange = () => {
+    if ($('#ldSite').value !== '__add__') { prevSite = $('#ldSite').value; return; }
+    const kept = { ca: $('#ldCa').value, site: prevSite, ldLang: $('#ldLang').value, ldCm: $('#ldCm').value };
+    ids.forEach(i => { kept[i] = $('#' + i).value; });
+    addSite(kept);
+  };
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
     const dm = $('#ldScope').value === 'datamodel', since = dm ? '' : $('#ldSince').value, until = dm ? '' : $('#ldUntil').value;

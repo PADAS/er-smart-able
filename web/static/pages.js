@@ -125,6 +125,21 @@ function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; 
 function hasBundle(e) { return !!e.patrols; }
 function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
 
+// ---- the sites page. Only the token hint is shown; the token itself never reaches the page.
+function renderSites(sites) {
+  var rows = (sites || []).map(s => '<tr>' +
+    '<td><b>' + esc(s.name) + '</b><div class="tiny">' + esc(s.url) + '</div></td>' +
+    '<td class="tiny">…' + esc(s.token_hint) + ' as ' + esc(s.checked_as) + '</td>' +
+    '<td>' + (s.mine ? 'you' : esc(s.owner_email)) + '</td>' +
+    '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
+    '<td class="actions">' + (s.mine ?
+      '<button data-act="siteShare" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">share</span>Share</button>' +
+      '<button data-act="siteDelete" data-id="' + esc(s.id) + '" class="danger" title="Remove this site and its token"><span class="mi" aria-hidden="true">delete</span>Remove</button>' : '') + '</td></tr>').join('');
+  return '<div class="page-head"><h1>EarthRanger sites</h1>' +
+    '<button id="addSiteBtn" class="btn primary"><span class="mi" aria-hidden="true">add</span>Add a site</button></div>' +
+    ((sites || []).length ? '<div class="panel"><table><thead><tr><th>Site</th><th>Token</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">No sites yet. Add the EarthRanger site you will load into.</p>');
+}
 function renderTabs(d, tab) {
   var ready = d.status === 'ready';
   return '<nav class="tabs">' + [['overview', 'Overview', ''], ['loads', 'Loads', '/loads'], ['rangers', 'Rangers', '/rangers']].map(t => {
