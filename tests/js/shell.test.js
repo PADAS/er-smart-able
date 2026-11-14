@@ -13,6 +13,13 @@ test('breadcrumb links all but the last part and escapes', () => {
   assert.match(h, /<a href="#\/">Datasets<\/a>/); assert.match(h, /R5 &lt;Lawin&gt;/); assert.doesNotMatch(h, /<a[^>]*>Load</);
 });
 test('sign-in names the product and the allowed domain', () => {
-  const h = P.renderSignIn({ allowed: '@earthranger.com' });
-  assert.match(h, /SMART migration/); assert.match(h, /@earthranger\.com/); assert.match(h, /id="signInBtn"/); assert.match(h, /er-lockup-h\.svg/);
+  const h = P.renderSignIn({ allowed: ['@earthranger.com'] });
+  assert.match(h, /SMART migration/); assert.match(h, /your @earthranger\.com Google account/); assert.match(h, /id="signInBtn"/); assert.match(h, /er-lockup-h\.svg/);
+});
+test('the allowed phrase reads naturally for one, several or no entries', () => {
+  assert.equal(P.allowedPhrase(['@earthranger.com']), 'your @earthranger.com Google account');
+  assert.equal(P.allowedPhrase(['@earthranger.com', '@partner.org', 'ana@example.org']), 'a Google account at @earthranger.com, @partner.org or ana@example.org');
+  assert.equal(P.allowedPhrase([]), 'your Google account');
+  assert.equal(P.allowedPhrase('@earthranger.com'), 'your @earthranger.com Google account');   // the string form older servers send
+  assert.match(P.renderSignIn({ allowed: ['@a.org', '@b.org'] }), /Sign in with a Google account at @a\.org or @b\.org\./);
 });

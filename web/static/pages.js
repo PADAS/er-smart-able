@@ -61,13 +61,23 @@ function renderBreadcrumb(parts) {
 }
 
 // ---- sign-in: the band without Help or the account menu, and one centred panel
+// The allow-list (whole addresses and @domain suffixes) as a phrase: "your @earthranger.com Google account",
+// "a Google account at @earthranger.com or @partner.org", or "your Google account" when anyone may sign in.
+function allowedPhrase(allowed) {
+  const list = Array.isArray(allowed) ? allowed.filter(Boolean) : typeof allowed === 'string' && allowed ? [allowed] : [];
+  if (!list.length) return 'your Google account';
+  if (list.length === 1) return 'your ' + esc(list[0]) + ' Google account';
+  const names = list.map(esc);
+  return 'a Google account at ' + names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1];
+}
+
 function renderSignIn(config) {
   return '<section class="panel signin">' +
     '<img class="signin-lockup light-only" src="/static/img/er-lockup-h.svg" alt="EarthRanger">' +
     '<img class="signin-lockup dark-only" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger">' +
     '<h1>SMART migration</h1>' +
     '<p>Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.</p>' +
-    '<p class="muted">Sign in with your ' + esc((config || {}).allowed) + ' Google account.</p>' +
+    '<p class="muted">Sign in with ' + allowedPhrase((config || {}).allowed) + '.</p>' +
     '<button id="signInBtn" class="btn primary"><span class="mi" aria-hidden="true">login</span>Sign in with Google</button>' +
     '<p id="signInError" class="tiny"></p>' +
     '</section>';

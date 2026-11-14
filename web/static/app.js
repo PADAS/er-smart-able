@@ -209,10 +209,12 @@ function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus
 function shareDialog(d, base = '/api/datasets/', note) {
   const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
+  const allowed = Array.isArray(CONFIG.allowed) ? CONFIG.allowed : CONFIG.allowed ? [CONFIG.allowed] : [];
+  const domain = allowed.find(e => e.startsWith('@'));   // the placeholder's suggestion; whole addresses give none
   const render = shared => {
     dialog('Share "' + d.name + '"',
-      '<p class="muted tiny">' + esc(note) + ' Addresses must be ' + esc(CONFIG.allowed) + '.</p>' +
-      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(CONFIG.allowed.startsWith('@') ? CONFIG.allowed : '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
+      '<p class="muted tiny">' + esc(note) + (allowed.length ? ' Addresses must be ' + (allowed.length === 1 ? esc(allowed[0]) : 'one of ' + allowed.map(esc).join(', ')) + '.' : '') + '</p>' +
+      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(domain || '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
       '<div class="shared"><ul>' + (shared.length ? shared.map(e => '<li><span class="mi" aria-hidden="true">person</span>' + esc(e) + ' <button class="ghost" data-unshare="' + esc(e) + '" title="Remove"><span class="mi" aria-hidden="true">close</span></button></li>').join('') : '<li class="tiny">Not shared with anyone yet.</li>') + '</ul></div>');
     $('#shareForm').onsubmit = async ev => { ev.preventDefault(); try { const r = await api(base + d.id + '/share', { method: 'POST', body: JSON.stringify({ email: $('#shareEmail').value }) }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } };
     $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } });

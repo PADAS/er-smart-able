@@ -118,7 +118,7 @@ Variables:
 | `GCP_SERVICE_ACCOUNT` | `tofu output deploy_service_account` |
 | `GCP_RUNTIME_SERVICE_ACCOUNT` | `tofu output runtime_service_account` |
 | `GCS_BUCKET` | `tofu output bucket` |
-| `ALLOWED_EMAILS` | `@earthranger.com` (comma-separated emails or `@domain`s) |
+| `ALLOWED_EMAILS` | who may sign in and be shared with: whole addresses and `@domain` suffixes, separated by spaces, commas or semicolons, for example `@earthranger.com @partner.org`. Unset, the deploy uses `@earthranger.com`; an empty value allows any Google account. |
 
 Secrets:
 
