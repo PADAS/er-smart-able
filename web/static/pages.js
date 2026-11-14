@@ -201,8 +201,8 @@ function renderLoadTitle(l) {
   let actions = '';
   if (!active && l.site) {
     // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
-    if (l.status === 'planned') actions += '<button class="primary" data-run>Confirm and load' + (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button>';
-    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run>Continue</button>';
+    if (l.status === 'planned') actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' + (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button>';
+    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Continue</button>';
     if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button>';
   }
   if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';

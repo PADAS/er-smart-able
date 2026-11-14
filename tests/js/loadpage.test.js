@@ -5,7 +5,7 @@ const base = { id: 'ld1', ca_id: '050500', status: 'planned', held: false, site:
                owner_email: 'ops@earthranger.com', created_at: '2026-11-13T10:00:00+00:00', mode: 'plan', stages: {}, findings: [], plan: null, rangers: [], progress: null };
 test('the title block shows status, options, and the right actions', () => {
   const h = P.renderLoadTitle({ ...base, findings: [{ code: 'team', severity: 'blocking', stage: 'patrol_datamodel', title: 't' }] });
-  assert.match(h, /050500 → phinney/); assert.match(h, /st-ready/); assert.match(h, /lawin050500/); assert.match(h, /data-run[^>]*>[^<]*Confirm and load \(stops at 1 blocking\)/);
+  assert.match(h, /050500 → phinney/); assert.match(h, /st-ready/); assert.match(h, /lawin050500/); assert.match(h, /data-run[^>]*>(?:<span class="mi"[^>]*>play_arrow<\/span>)?Confirm and load \(stops at 1 blocking\)/);
   assert.match(h, /data-replan/); assert.match(h, /data-del/); assert.match(h, /data-help="help-statuses"/);
   assert.doesNotMatch(P.renderLoadTitle({ ...base, status: 'running', held: true }), /data-run|data-del/);
   assert.match(P.renderLoadTitle({ ...base, status: 'needs_attention' }), /Continue/);
@@ -42,10 +42,10 @@ test('findings sort blocking first, keep their copy and help buttons, and say wh
 });
 test('time is read through now(), so a test can pin it', () => {
   const at = Date.parse('2026-11-13T10:05:00+00:00');
-  P.now = () => at;
+  const real = P.now; P.now = () => at;
   const l = { ...base, mode: 'run', status: 'running', held: true, started_at: '2026-11-13T10:00:00+00:00', updated_at: '2026-11-13T10:04:30+00:00',
               stages: { datamodel: { status: 'running', started_at: '2026-11-13T10:03:00+00:00' } } };
-  const h = P.renderStages(l, true);
+  let h; try { h = P.renderStages(l, true); } finally { P.now = real; }
   assert.match(h, /2 min 0 s…/); assert.match(h, /Running for 5 min 0 s · the job last reported 30 s ago/);
 });
 test('a load that cannot be opened says so in the load\'s words', () => {
