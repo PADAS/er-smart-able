@@ -99,13 +99,13 @@ function renderHome(datasets) {
 }
 
 // ---- rangers: the people behind the subjects, for whoever creates their accounts. The table, summary,
-// CSV button and help button, shared by the dataset page's tab and the load page.
+// CSV button and help button, shared by the dataset page's tab (open) and the load page (closed).
 function plural(n, one, many) { return Number(n).toLocaleString('en-US') + ' ' + (n === 1 ? one : (many || one + 's')); }
-function renderRangersSection(l) {
+function renderRangersSection(l, open) {
   var rows = l.rangers || [], total = l.rangers_total || rows.length;
   var dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
   if (!rows.length) return '';
-  return '<details><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + plural(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
+  return '<details' + (open ? ' open' : '') + '><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + plural(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
     '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
     '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
     '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
@@ -122,7 +122,10 @@ function renderNotFound(what) {
 }
 function fmtDate(s) { return String(s || '').slice(0, 10); }
 function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; }
-function hasBundle(e) { return !!e.patrols; }
+// every export entry has a bundle (a zero-patrol area loads its data model); legacy cas rows have no dir
+function hasBundle(e) { return !!(e && e.dir); }
+// Loads and Rangers open once an extraction has produced an export, so a failed re-extract keeps them
+function hasLoadTabs(d) { return !!((d.export || []).length || d.status === 'ready'); }
 function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
 
 // ---- the sites page. Only the token hint is shown; the token itself never reaches the page.
@@ -141,7 +144,7 @@ function renderSites(sites) {
       : '<p class="empty">No sites yet. Add the EarthRanger site you will load into.</p>');
 }
 function renderTabs(d, tab) {
-  var ready = d.status === 'ready';
+  var ready = hasLoadTabs(d);
   return '<nav class="tabs">' + [['overview', 'Overview', ''], ['loads', 'Loads', '/loads'], ['rangers', 'Rangers', '/rangers']].map(t => {
     var off = t[0] !== 'overview' && !ready;
     return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
@@ -155,8 +158,8 @@ function renderOverview(d) {
   var areaRows = (d.export || []).length ? d.export : (d.status === 'ready' ? (d.cas || []).map(c => ({ ca_id: c.id, name: c.n })) : []);
   var rows = areaRows.map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
     '<td class="tiny">' + (e.patrols != null ? plural(e.patrols, 'patrol') : '') + (e.waypoints != null ? ' · ' + plural(e.waypoints, 'waypoint') : '') + '</td>' +
-    '<td class="actions"><a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' +
-    (hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</td></tr>').join('');
+    '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' : '') +   // the viewer answers 409 unless ready
+    (hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>Extraction</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">Log' + (running ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
@@ -168,18 +171,18 @@ function renderLoadsTab(d, loads) {
   var canLoad = (d.export || []).some(hasBundle);
   var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : '';
   if (!list.length) return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><p class="empty">No loads yet.</p>';
-  return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><table><thead><tr><th>Area and site</th><th>Status</th><th>Progress</th><th>Started</th><th>By</th></tr></thead><tbody>' +
+  return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>Area and site</th><th>Status</th><th>Progress</th><th>Started</th><th>By</th></tr></thead><tbody>' +
     list.map(l => {
       var p = l.progress, prog = p && p.patrols_total ? Number(p.done || 0).toLocaleString('en-US') + ' of ' + plural(p.patrols_total, 'patrol') : '';
       return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + esc(l.site ? l.site.name : 'removed site') + '</a></td>' +
-        '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">held</span>' : '') + '</td><td class="tiny">' + esc(prog) + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
-    }).join('') + '</tbody></table>';
+        '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">held</span>' : '') + (loadScope(l) ? '<div class="tiny">' + esc(loadScope(l)) + '</div>' : '') + '</td><td class="tiny">' + esc(prog) + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
 }
 
 function renderRangersTab(load) {
   var rows = load && load.rangers || [];
   if (!rows.length) return '<p class="empty">No rangers listed yet: a load that reaches patrol setup fills this; the viewer\'s Rangers tab lists the people in the dataset meanwhile.</p>';
-  return '<p class="tiny">From the load of ' + esc(load.ca_id) + ' into ' + esc(load.site ? load.site.name : 'a removed site') + ', ' + esc(fmtDate(load.created_at)) + '</p>' + renderRangersSection(load);
+  return '<p class="tiny">From the load of ' + esc(load.ca_id) + ' into ' + esc(load.site ? load.site.name : 'a removed site') + ', ' + esc(fmtDate(load.created_at)) + '</p><div class="panel">' + renderRangersSection(load, true) + '</div>';
 }
 
 function renderDatasetPage(d, tab, extra) {
