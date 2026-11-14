@@ -8,6 +8,10 @@ test('overview lists areas with Browse and a Load button only where there is a b
   assert.match(h, /href="\/d\/a1\/"/); assert.match(h, /data-act="load" data-ca="ALPHA"/); assert.doesNotMatch(h, /data-act="load" data-ca="BETA"/);
   assert.match(h, /re-extract to enable loading/); assert.match(h, /id="shareBtn"/); assert.match(h, /id="deleteBtn"/);
 });
+test('a ready dataset without export entries still lists its areas for Browse', () => {
+  const h = P.renderDatasetPage({ ...d, export: null, cas: [{ id: '050500', n: 'Albay' }] }, 'overview', {});
+  assert.match(h, /Albay/); assert.match(h, /href="\/d\/a1\/"/); assert.match(h, /re-extract to enable loading/); assert.doesNotMatch(h, /data-act="load"/);
+});
 test('a dataset still extracting disables the actions and the other tabs', () => {
   const h = P.renderDatasetPage({ ...d, status: 'running', extract_held: true, export: [] }, 'overview', {});
   assert.match(h, /id="deleteBtn"[^>]*disabled/); assert.match(h, /href="#\/datasets\/a1\/loads"[^>]*aria-disabled="true"/); assert.match(h, /<details open/);

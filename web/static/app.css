@@ -97,7 +97,7 @@ button.help:hover { color: var(--er-ui-cta-primary); background: none; }
 button.help .mi { font-size: 16px; color: inherit; }
 
 /* ---- panels, cards and tables */
-.panel { background: var(--er-ui-background-elevated-component); border: 1px solid var(--er-ui-divider-lines); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.panel { background: var(--er-ui-background-elevated-component); border: 1px solid var(--er-ui-divider-lines); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; overflow-x: auto; }
 .card { background: var(--er-ui-background-elevated-component); border: 1px solid var(--er-ui-divider-lines); border-radius: 10px; padding: 12px 14px; }
 .panel.signin { max-width: 480px; margin: 56px auto; padding: 32px 28px; text-align: center; font-size: 16px; line-height: 25.6px; }
 .panel.signin h1 { font-size: 32px; line-height: 1.25; margin: 20px 0 12px; }

@@ -151,7 +151,9 @@ function renderTabs(d, tab) {
 function renderOverview(d) {
   var running = ['running', 'queued', 'pending'].includes(d.status);
   var times = (d.started_at ? 'Started ' + esc(fmtWhen(d.started_at)) : '') + (d.finished_at ? (d.started_at ? ' · ' : '') + 'Finished ' + esc(fmtWhen(d.finished_at)) : '');
-  var rows = (d.export || []).map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
+  // datasets extracted before the bundle existed have no export entries: list their areas from cas, browsable but not loadable
+  var areaRows = (d.export || []).length ? d.export : (d.status === 'ready' ? (d.cas || []).map(c => ({ ca_id: c.id, name: c.n })) : []);
+  var rows = areaRows.map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
     '<td class="tiny">' + (e.patrols != null ? plural(e.patrols, 'patrol') : '') + (e.waypoints != null ? ' · ' + plural(e.waypoints, 'waypoint') : '') + '</td>' +
     '<td class="actions"><a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' +
     (hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</td></tr>').join('');
