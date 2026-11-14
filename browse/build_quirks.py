@@ -24,7 +24,7 @@ html { scroll-padding-top: 16px; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14.5px/1.6 var(--sans); }
 header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
   padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
-.brand { display: flex; align-items: center; gap: 9px; }
+.brand { display: flex; align-items: center; gap: 16px; }
 .brand .lockup-fallback { height: 26px; width: auto; display: block; flex: none; }
 header h1 { font-family: var(--head); font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.1px; }
 header h1 span { opacity: 0.6; font-weight: 400; font-family: var(--sans); }
@@ -84,7 +84,7 @@ if (/^\\/d\\/[A-Za-z0-9]+\\//.test(location.pathname)) {{
 </style></head>
 <body>
 <header>
-  <div class="brand">{acorn}<h1>SMART migration <span>SMART data quirks</span></h1></div>
+  <div class="brand">{acorn}<h1>SMART migration <span>· SMART data quirks</span></h1></div>
   <a class="back" href="./"><span class="mi" aria-hidden="true">arrow_back</span>Back to the browser</a>
 </header>
 <div class="layout">
