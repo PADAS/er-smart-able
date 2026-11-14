@@ -285,7 +285,7 @@ The API is unchanged, so the failure modes are the page's:
 | A route names a dataset or load the user cannot read | the page shows "Not found or not shared with you" with a link home; the entry is replaced so Back does not return to it |
 | A fetch fails while polling | the page keeps its last render and retries on the next tick; a small "could not refresh" note appears after two failures |
 | The upload dialog is closed mid-upload | the upload continues; the dataset list shows it |
-| The tokens file fails to load | the stylesheet's fallbacks are the light values, declared once on `:root` before the tokens file |
+| ~~The tokens file fails to load~~ | ~~the stylesheet's fallbacks are the light values, declared once on `:root` before the tokens file~~ Struck in the final fix wave: the tokens file is same-origin and loads with the stylesheet, so it has no separate failure mode to cover. |
 | Fonts fail to load | the fallback stack renders; `font-display: optional` means no layout shift |
 
 ## Testing
