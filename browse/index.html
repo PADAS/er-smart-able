@@ -11,6 +11,12 @@ try {
   const t = localStorage.getItem('theme');
   if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
 } catch (e) {}
+// The list of views down the left: open (labels) or closed (icons), remembered under "sidenav";
+// without a choice, narrow screens start closed. Set before first paint so the list does not jump.
+let navState = null;
+try { navState = localStorage.getItem('sidenav'); } catch (e) {}
+if (navState !== 'open' && navState !== 'closed') navState = window.innerWidth < 700 ? 'closed' : 'open';
+document.documentElement.setAttribute('data-nav', navState);
 // Roboto is served by the app; standalone (file://) the fallback stack is used.
 if (/^\/d\/[A-Za-z0-9]+\//.test(location.pathname)) {
   const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/static/fonts/roboto.css';
@@ -18,7 +24,7 @@ if (/^\/d\/[A-Za-z0-9]+\//.test(location.pathname)) {
 }
 </script>
 <style>
-/* Layout: full-height app — brand-teal header band with tabs, scrolling content pane per tab.
+/* Layout: full-height app — brand-teal header band, a collapsible list of views down the left, scrolling content pane per view.
    Theming: EarthRanger design system (DESIGN.md) — semantic tokens, light/dark inverts
    (warm off-white -> deep teal). Data colors use ER's categorical scale (mode-stable).
    Variable names kept; values mapped to ER semantic tokens. */
@@ -240,22 +246,37 @@ header h1 span { color: var(--brand-ink); opacity: 0.6; font-weight: 400; font-f
 .home .mi { color: inherit; font-size: 18px; }
 .home:hover { background: rgba(255,255,255,0.12); opacity: 1; }
 .dsname { font: 500 14px var(--sans); opacity: 0.85; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-nav { display: flex; gap: 2px; flex-wrap: wrap; }
-nav button {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: 0; background: none; color: var(--brand-ink); font: 500 13.5px var(--sans);
-  padding: 7px 11px; border-radius: 7px; cursor: pointer; opacity: 0.8;
+.home { margin-left: auto; }
+/* The views: a list down the left, collapsible to icons; html[data-nav] carries the state */
+#shell { display: flex; flex: 1; min-height: 0; position: relative; }
+#sidenav { width: 196px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 8px; box-sizing: border-box;
+  background: var(--surface); border-right: 1px solid var(--line); overflow: hidden auto; transition: width .15s ease; }
+#tabs { display: flex; flex-direction: column; gap: 2px; }
+#sidenav button {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  border: 0; background: none; color: var(--ink); font: 500 13.5px var(--sans); text-align: left;
+  padding: 8px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap;
 }
-nav button .mi { color: inherit; font-size: 18px; }
-nav button:hover { background: rgba(255,255,255,0.12); opacity: 1; }
-nav button.on { background: var(--accent); color: var(--accent-ink); opacity: 1; }
-#caSel {
-  margin-left: auto; background: rgba(255,255,255,0.12); color: var(--brand-ink);
-  border: 1px solid rgba(255,255,255,0.25); border-radius: 7px; padding: 6px 8px; font: 13px var(--sans);
-  color-scheme: dark; /* teal header is dark-ish in both modes -> legible dropdown */
-}
+#sidenav button .mi { color: var(--ink-2); font-size: 20px; flex: none; }
+#sidenav button:hover { background: var(--chip); }
+#sidenav button.on { background: var(--accent); color: var(--accent-ink); }
+#sidenav button.on .mi { color: inherit; }
+#caSel { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 8px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 13px var(--sans); }
 #caSel option { color: var(--ink); background: var(--surface); }
-main { flex: 1; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
+#sidenav #caIcon { display: none; }
+#navToggle { margin-top: auto; color: var(--ink-2); }
+html[data-nav="closed"] #sidenav { width: 52px; }
+html[data-nav="closed"] #sidenav button { padding: 8px; justify-content: center; }
+html[data-nav="closed"] #sidenav .label, html[data-nav="closed"] #caSel { display: none; }
+html[data-nav="closed"] #sidenav #caIcon { display: flex; }
+#scrim { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 4; }
+@media (max-width: 700px) {
+  .brand h1 { display: none; }   /* the band keeps the lockup, the dataset name and the way back */
+  html[data-nav="open"] #sidenav { position: absolute; top: 0; bottom: 0; left: 0; z-index: 5; box-shadow: 4px 0 16px rgba(0,0,0,0.2); }
+  html[data-nav="open"] #scrim { display: block; }
+}
+main { flex: 1; min-width: 0; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
 .wrap { max-width: 1200px; margin: 0 auto; }
 h2 { font-family: var(--head); font-size: 15px; font-weight: 700; margin: 22px 0 10px; }
 h2:first-child { margin-top: 0; }
@@ -445,9 +466,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
       <h1>SMART migration <span id="dbver"></span></h1>
     </div>
     <span id="dsName" class="dsname" hidden></span>
-    <nav id="tabs"></nav>
-    <select id="caSel" aria-label="Conservation area filter"></select>
-    <!-- the way back sits at the band's right end (spec §7): #caSel's margin-left:auto pushes both there -->
+    <!-- the way back sits at the band's right end (spec §7) -->
     <a id="home" class="home" href="/" hidden title="Back to the dataset list"><span class="mi" aria-hidden="true">arrow_back</span>All datasets</a>
   </header>
   <div id="notice" class="notice" hidden></div>
@@ -517,7 +536,16 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
         <a href="quirks.html#data-model-export" target="_blank" rel="noopener">Known differences from SMART's own output.</a></p>
     </div>
   </template>
-  <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
+  <div id="shell">
+    <nav id="sidenav" aria-label="Views">
+      <select id="caSel" aria-label="Conservation area filter"></select>
+      <button id="caIcon" type="button" title="Conservation area" aria-label="Conservation area"><span class="mi" aria-hidden="true">filter_alt</span></button>
+      <div id="tabs"></div>
+      <button id="navToggle" type="button" aria-controls="sidenav" aria-expanded="true" title="Collapse the list"><span class="mi" aria-hidden="true">chevron_left</span><span class="label">Collapse</span></button>
+    </nav>
+    <div id="scrim"></div>
+    <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
+  </div>
 </div>
 <div id="tip" hidden></div>
 <div id="drawer" hidden></div>
@@ -795,17 +823,35 @@ function wallToEpoch(t, tz) {
 }
 const wpsFiltered = () => D.wps.filter(w => caOk(w.ca));
 
+// The left list of views is open (icons and labels) or closed (icons only). A narrow screen lays the open
+// list over the content, so picking a view there closes it again. The choice is kept under "sidenav";
+// the width-derived default at load is applied but not stored, so a phone's default never follows a user to a desktop.
+const narrow = () => window.innerWidth < 700;
+function setNav(state, remember = true) {
+  document.documentElement.setAttribute('data-nav', state);
+  if (remember) { try { localStorage.setItem('sidenav', state); } catch (e) {} }
+  const t = $('#navToggle'), open = state === 'open';
+  t.setAttribute('aria-expanded', String(open));
+  t.title = open ? 'Collapse the list' : 'Expand the list';
+  t.setAttribute('aria-label', t.title);
+  t.firstChild.textContent = open ? 'chevron_left' : 'chevron_right';
+}
+
 function buildHeader() {
   const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],['rangers','Rangers','groups'],
     ['map','Map','map'],['observations','Observations','visibility'],['datamodel','Data model','account_tree'],
     ['profiles','Profiles','badge'],['schema','Schema','schema']];
   const nav = $('#tabs'); nav.innerHTML = '';
   for (const [id, label, icon] of tabs) {
-    const b = el('button'); b.id = 'tab-' + id;
-    b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span>' + esc(label);
-    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); };
+    const b = el('button'); b.id = 'tab-' + id; b.title = label; b.setAttribute('aria-label', label);
+    b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span><span class="label">' + esc(label) + '</span>';
+    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); if (narrow()) setNav('closed'); };
     nav.appendChild(b);
   }
+  $('#navToggle').onclick = () => setNav(document.documentElement.getAttribute('data-nav') === 'closed' ? 'open' : 'closed');
+  $('#caIcon').onclick = () => { setNav('open'); $('#caSel').focus(); };
+  $('#scrim').onclick = () => setNav('closed');
+  setNav(document.documentElement.getAttribute('data-nav') || 'open', false);
   const sel = $('#caSel'); sel.innerHTML = '';
   sel.appendChild(new Option('All conservation areas', 'all'));
   for (const c of D.meta.cas) if (c.id !== 'CCAA') sel.appendChild(new Option(c.n, c.id));
@@ -813,7 +859,7 @@ function buildHeader() {
 }
 
 function render() {
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
   const v = $('#view'); v.innerHTML = '';
   ({overview: rOverview, patrols: rPatrols, rangers: rRangers, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
 }
