@@ -300,7 +300,9 @@ every push cycle that its load still exists and stops if it does not.
 ## UI
 
 All in the existing single page (`web/templates/index.html`,
-`web/static/app.js`).
+`web/static/app.js`). The layout described here was reorganised by the
+[UI refresh](2026-11-13-ui-refresh-design.md), which moved Sites to its own
+page and Load into the dataset page; read that spec for the current pages.
 
 - **Sites panel** beside the dataset list: a table of name, host, "as
   <checked_as>", owner, shared with; an Add form (name, URL, token) with one

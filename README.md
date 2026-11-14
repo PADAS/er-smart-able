@@ -118,6 +118,30 @@ cloud, open the result, and share it with colleagues. The code is under
 `web/`; [web/DEPLOY.md](web/DEPLOY.md) covers Cloud Run deployment and running
 it locally with `BACKEND=local AUTH_DISABLED=true`.
 
+The page is a hash-routed single page (`web/templates/index.html`,
+`web/static/app.js`, with the pure page builders in `web/static/pages.js`),
+centred on the dataset:
+
+| Route | Page |
+| --- | --- |
+| `#/` | Datasets (home): one card per dataset, with the upload dialog |
+| `#/datasets/<id>` | A dataset, Overview tab (extraction status, conservation areas, **Browse**, **Load into EarthRanger**) |
+| `#/datasets/<id>/loads`, `#/datasets/<id>/rangers` | Its Loads and Rangers tabs |
+| `#/datasets/<id>/loads/<load>` | A load page |
+| `#/sites` | Sites, reached from the account menu, with the add-site dialog |
+
+The old `#load/<id>` form redirects to the load's page. **Browse** opens the
+viewer (`/d/<id>/`, `browse/index.html`) in the same tab. The account menu
+holds the theme choice (System, Light, Dark), kept in `localStorage.theme`.
+
+The design tokens are in `web/static/er-tokens.css` (the `--er-ui-*`
+variables, copied from the EarthRanger design repository's `tokens.css`);
+`web/static/app.css` uses only those. The viewer is self-contained and keeps its own copy of the values, so change the two together. Roboto is self-hosted as
+one variable file, `web/static/fonts/roboto.woff2` with `roboto.css`;
+`python scripts/fetch_fonts.py` refreshes both from Google Fonts. The
+EarthRanger lockups are under `web/static/img/`. The design is described in
+[docs/superpowers/specs/2026-11-13-ui-refresh-design.md](docs/superpowers/specs/2026-11-13-ui-refresh-design.md).
+
 The app's **Help** drawer explains the process, the load statuses and what to
 do when a load stops; its pages are the Markdown files under `web/help/`,
 plus [docs/smart-data-quirks.md](docs/smart-data-quirks.md). A finding on

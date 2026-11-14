@@ -172,7 +172,6 @@ pre.log { background: var(--er-ui-background-elevated-component-0); border: 1px 
 .stagetable td:nth-child(2) { white-space: nowrap; }
 .stagetable tr.pending td { color: var(--er-ui-text-disabled); }
 .heartbeat { margin: 4px 0 0; }
-.scope { font-size: 13px; font-weight: normal; color: var(--er-ui-text-secondary-text); }
 .finding { border-left: 3px solid var(--er-ui-divider-lines); padding: 6px 10px; margin: 8px 0; }
 .finding.blocking { border-color: var(--er-ui-status-error-destructive); }
 .finding.warning { border-color: var(--er-ui-status-warning); }
