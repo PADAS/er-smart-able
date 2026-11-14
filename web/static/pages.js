@@ -115,8 +115,9 @@ function renderRangersSection(l) {
 }
 
 // ---- the dataset page
-function renderNotFound() {
-  return '<div class="panel"><h1>Not found or not shared with you</h1><p class="muted">This dataset does not exist, or its owner has not shared it with you.</p>' +
+// what: 'dataset' (the default) or 'load'; a load is shared through its dataset
+function renderNotFound(what) {
+  return '<div class="panel"><h1>Not found or not shared with you</h1><p class="muted">' + (what === 'load' ? 'This load does not exist, or its dataset\'s owner has not shared the dataset with you.' : 'This dataset does not exist, or its owner has not shared it with you.') + '</p>' +
     '<a class="btn primary" href="#/"><span class="mi" aria-hidden="true">arrow_back</span>Back to datasets</a></div>';
 }
 function fmtDate(s) { return String(s || '').slice(0, 10); }
@@ -176,4 +177,176 @@ function renderDatasetPage(d, tab, extra) {
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
     '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · uploaded ' + esc(fmtDate(d.created_at)) + ' · ' + (d.mine ? 'owned by you' : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
     renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
+}
+
+// ---- the load page. Time is read through now(), so a test can pin it (P.now = () => ...).
+function now() { return Date.now(); }
+var STAGES = ['datamodel', 'patrol_datamodel', 'preflight', 'import'];
+var STAGE_LABEL = { datamodel: 'Event types', patrol_datamodel: 'Patrol setup', preflight: 'Preflight', import: 'Patrols' };
+var ACTIVE = ['planning', 'queued', 'running', 'continuing'];
+var FINDING_RANK = { blocking: 0, warning: 1, info: 2 };
+
+function fmtDur(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; }
+function secondsSince(iso) { return iso ? (now() - Date.parse(iso)) / 1000 : null; }
+function count(n, one, many) { return n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's')); }
+function notStarted(l) { return ['queued', 'planning'].includes(l.status); }   // claimed, but the job has not reset the rows yet
+function loadName(l) { return l.ca_id + ' → ' + (l.site ? l.site.name : 'removed site'); }
+
+// the heading with its status, what the load was asked to do and by whom, and the actions it offers now
+function renderLoadTitle(l) {
+  const active = !!l.held, stale = !active && ACTIVE.includes(l.status), o = l.options || {};
+  const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
+  const facts = [l.site ? l.site.url : '', o.event_category ? 'event category ' + o.event_category : '', o.language ? 'language ' + o.language : '', loadScope(l),
+    o.configurable_model ? 'configurable model ' + o.configurable_model : '', l.owner_email ? 'started by ' + l.owner_email + (l.created_at ? ', ' + fmtWhen(l.created_at) : '') : ''].filter(Boolean);
+  let actions = '';
+  if (!active && l.site) {
+    // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
+    if (l.status === 'planned') actions += '<button class="primary" data-run>Confirm and load' + (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button>';
+    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run>Continue</button>';
+    if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button>';
+  }
+  if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';
+  let notes = '';
+  if (!active && l.site && l.status === 'planned' && blocking) notes += '<div class="tiny">The run will write what the plan lists, then stop at the ' +
+    (blocking === 1 ? 'blocking finding' : blocking + ' blocking findings') + ' below until they are fixed.</div>';
+  if (stale) notes += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
+  if (l.error) notes += '<div class="tiny card-error">' + esc(l.error) + '</div>';
+  return '<div class="title-block"><div><h1>' + esc(loadName(l)) + ' ' + pill(l.status) +
+    ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button></h1>' +
+    '<div class="tiny">' + facts.map(esc).join(' · ') + '</div></div>' +
+    (actions || notes ? '<div>' + (actions ? '<div class="actions">' + actions + '</div>' : '') + notes + '</div>' : '') + '</div>';
+}
+
+// blocking first; each with its copyable values and a link to its help entry
+function renderFindings(findings, status) {
+  const fs = (findings || []).slice().sort((a, b) => (FINDING_RANK[a.severity] ?? 1) - (FINDING_RANK[b.severity] ?? 1));
+  if (!fs.length) return ['planned', 'done'].includes(status) ? '<p class="muted tiny">No findings.</p>' : '';
+  return '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
+    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="Copy to clipboard"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
+    (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('');
+}
+
+// the progress bar and import summary, the log (open while the load is active) and the load's files
+function renderProgress(l, active) {
+  const p = l.progress;
+  return (p && p.patrols_total && l.mode !== 'plan' ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
+    (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
+    (l.log_tail ? '<details' + (active ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
+    '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'rangers.json', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
+}
+
+// the whole page; app.js swaps it in on every poll, keeping open sections, the log's scroll and an unchanged rangers table
+function renderLoadPage(l, active) {
+  return '<div id="loadPage">' + renderLoadTitle(l) + '<section class="panel">' + renderStages(l, active) +
+    '<div id="loadFindings">' + renderFindings(l.findings, l.status) + '</div>' +
+    '<div id="loadPlan">' + (l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '') + '</div>' +
+    '<div id="loadRangers">' + renderRangersSection(l) + '</div>' +
+    '<div id="loadProgress">' + renderProgress(l, active) + '</div></section></div>';
+}
+
+// ---- the stage table: one row per stage, what it did, and how long it took
+function stageRows(l) {
+  if (notStarted(l)) return {};
+  if (l.mode) return l.stages || {};   // written by a job that records rows; empty means it has not begun one
+  // loads from before the stage table have only `stage` and `status`
+  if (l.stages && Object.keys(l.stages).length) return l.stages;
+  const rows = {}, idx = STAGES.indexOf(l.stage);
+  STAGES.forEach((s, i) => {
+    if (i < idx || (i === idx && ['done', 'planned'].includes(l.status))) rows[s] = { status: 'done', metrics: {} };
+    else if (i === idx) rows[s] = { status: l.status === 'failed' ? 'failed' : l.status === 'needs_attention' ? 'stopped' : 'running', metrics: {} };
+  });
+  return rows;
+}
+
+function stageSummary(stage, row, l, active) {
+  const m = row.metrics || {}, dry = l.mode === 'plan' || (!l.mode && ['planning', 'planned'].includes(l.status));
+  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate', migrated: 'to migrate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated', migrated: 'migrated' };
+  v.skipped_by_mode = 'skipped by mode'; v.skipped_by_conflict = 'skipped on conflict'; v.errored = 'errored';
+  const tally = (prefix, keys) => keys.filter(k => m[prefix + k]).map(k => m[prefix + k] + ' ' + (v[k] || k));
+  const parts = [];
+  if (stage === 'datamodel') {
+    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'errored']);
+    if (cats.length) parts.push('categories: ' + cats.join(', '));
+    if (types.length) parts.push('event types: ' + types.join(', '));
+    if (ch.length) parts.push('choices: ' + ch.join(', '));
+  } else if (stage === 'patrol_datamodel') {
+    const types = tally('types_', ['created', 'updated', 'unchanged']), subs = tally('subjects_', ['created', 'updated', 'deactivated', 'unchanged']);
+    if (types.length) parts.push('patrol types: ' + types.join(', '));
+    if (subs.length) parts.push('subjects: ' + subs.join(', '));
+    if (m.subjects_grouped) parts.push(m.subjects_grouped + ' in the roster group');
+    if (m.schema_written) parts.push(dry ? 'patrol fields to write' : 'patrol fields written');
+    else if (m.schema_skipped) parts.push('patrol fields skipped: ' + m.schema_skipped);
+  } else if (stage === 'preflight') {
+    if ('blocking' in m) parts.push(count(m.blocking, 'blocking finding') + ', ' + count(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + count(m.patrols, 'patrol') + ' checked' : ''));
+  } else if (stage === 'import') {
+    if (dry) { if ('planned' in m) parts.push(count(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
+    else if (l.progress && l.progress.patrols_total) parts.push(importSummary(l, active && row.status === 'running'));
+  }
+  return parts.join(' · ');
+}
+
+function importSummary(l, live) {
+  const p = l.progress;
+  const counts = (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
+  const of = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + counts;
+  const row = (l.stages || {}).import || {};
+  if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
+    const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
+    const m = row.metrics || {};
+    // what this execution did (a continuation's counts are its own, not the load's): the events it wrote,
+    // how many of the events it handled (written or already there) report who made them, and the ones
+    // from an earlier load it gave a reporter
+    const did = m.events_written != null ? ' · this execution wrote ' + count(m.events_written, 'event') +
+      (m.events_reported_by ? '; ' + m.events_reported_by.toLocaleString() + ' of the events it handled report who made them' : '') +
+      (m.events_reported_by_backfilled ? ', ' + m.events_reported_by_backfilled.toLocaleString() + ' of them from an earlier load, given one now' : '') : '';
+    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + did;
+  }
+  // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
+  const since = p.phase ? p.phase_started_at : row.started_at;
+  let s = p.phase ? (p.phase === 'tracks' ? 'Tracks: ' : 'Events: ') + of : of;
+  const mins = since ? (now() - Date.parse(since)) / 60000 : null;
+  const written = p.done - ((p.phase ? p.phase_skipped : p.skipped) || 0);   // skips take no time; a phase also skips what a stopped run left half done
+  if (mins && mins > 0.5 && written > 0) {
+    const rate = written / mins;
+    s += ' · ' + rate.toFixed(1) + ' per minute';
+    if (p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left' + (p.phase === 'events' ? ' in this phase, then tracks' : '');
+  }
+  return s;
+}
+
+function renderStages(l, active) {
+  const rows = stageRows(l);
+  let html = '<table class="stagetable"><thead><tr><th>Stage</th><th>Status</th><th>Took</th><th>What happened</th></tr></thead><tbody>';
+  for (const s of ((l.options || {}).scope === 'datamodel' ? STAGES.slice(0, 2) : STAGES)) {
+    const r = rows[s], status = r ? r.status : 'pending';
+    const running = status === 'running' && active;
+    const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
+    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td>' +
+      pill(running ? 'running' : status === 'running' ? 'interrupted' : status, running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
+    : '<p class="tiny heartbeat">' + (l.continuations ? 'Continuation ' + esc(l.continuations) + ' running for ' : 'Running for ') + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
+  return html;
+}
+
+function renderPlan(plan) {
+  // opts.noIdOnCreate: the group's creates have no identifier yet (plans saved before that rule carried a placeholder there)
+  const group = (title, g, opts = {}) => {
+    if (!g) return '';
+    const parts = [];
+    for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length) {
+      const more = typeof g.more === 'object' && g.more ? g.more[k] || 0 : (g.more || 0);   // per list now; a number in older plans
+      const showValue = e => e.value && e.value !== e.label && !(opts.noIdOnCreate && k === 'create');
+      parts.push('<details><summary>' + k + ' ' + g[k].length + (more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (showValue(e) ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (more ? '<li class="tiny">and ' + esc(more) + ' more</li>' : '') + '</ul></details>');
+    }
+    if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
+    return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
+  };
+  const p = plan.patrols;   // absent from a data-model-only plan
+  return group('Event categories', plan.event_categories) + group('Event types', plan.event_types) + group('Patrol types', plan.patrol_types) +
+    '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects, { noIdOnCreate: true }) +
+    '<div><b>Roster</b> ' + (plan.roster && plan.roster.group ? esc(plan.roster.group) + ': ' : '') + esc((plan.roster || {}).add || 0) + ' to add</div>' +
+    (!p ? '<div><b>Patrols</b> <span class="tiny">none: this load is the data model only</span></div>' :
+    '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>');
 }

@@ -65,10 +65,10 @@ function navigate(route, nav = 'push') {
 }
 // one show* per page; the sites page arrives in a later task
 function renderRoute(route) {
-  clearTimeout(pollTimer); listGen++;   // leaving the home page: its poll and any response in flight stop
+  clearTimeout(pollTimer); clearTimeout(loadTimer); listGen++;   // leaving a page: its poll and any response in flight stop
   if (route.page === 'home') showHome();
   else if (route.page === 'dataset') showDataset(route);
-  else if (route.page === 'load') openLoad(route.load);
+  else if (route.page === 'load') showLoad(route);
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
 }
@@ -139,18 +139,31 @@ async function showHome() {
 }
 // while any dataset is queued or running, refetch every 5 s and replace only the card list
 // ('uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes)
-function pollHome(list, gen) {
+function pollHome(list, gen, fails = 0) {
   clearTimeout(pollTimer);
   if (!list.some(d => ['queued', 'running'].includes(d.status))) return;
   pollTimer = setTimeout(async () => {
     let next;
-    try { next = await api('/api/datasets'); } catch (e) { return pollHome(list, gen); }
+    try { next = await api('/api/datasets'); }
+    catch (e) {
+      if (gen !== listGen || e.status === 401) return;
+      retryNote($('#page .page-head'), fails + 1 >= 2);
+      return pollHome(list, gen, fails + 1);
+    }
     const host = $('#cards');
     if (gen !== listGen || !host) return;
+    retryNote($('#page .page-head'), false);
     const html = renderCardList(next);
     if (html !== host.dataset.html) { host.innerHTML = html; host.dataset.html = html; }
     pollHome(next, gen);
   }, 5000);
+}
+// a poll that fails keeps the last render and retries; from the second failure in a row a note under `after` says so
+function retryNote(after, show) {
+  if (!after) return;
+  const next = after.nextElementSibling, shown = !!(next && next.hasAttribute('data-retry'));
+  if (show && !shown) after.insertAdjacentHTML('afterend', '<p class="tiny" data-retry>Could not refresh; retrying…</p>');
+  else if (!show && shown) next.remove();
 }
 
 // a form that brings its own Close beside its submit button (data-close) hides the dialog's own
@@ -175,6 +188,14 @@ function shareDialog(d, base = '/api/datasets/', note) {
   render(d.shared_with || []);
 }
 
+// a dataset or load the reader cannot open: the dead route's entry becomes the list's address, so Back
+// never lands on it; the page stays the not-found notice
+function showNotFound(what) {
+  history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
+  mountPage(renderNotFound(what));
+}
+
 // ---- the dataset page: the dataset, the tab's data, the actions; polls while it extracts
 let datasetGen = 0;
 async function showDataset(route) {
@@ -186,11 +207,7 @@ async function showDataset(route) {
   catch (e) {
     if (!current()) return;
     if (e.status === 401) return;   // the sign-in form is already on the page
-    if (e.status !== 404) { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
-    // the dead route's entry becomes the list's address, so Back never lands on it; the page stays the not-found notice
-    history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
-    setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
-    mountPage(renderNotFound());
+    if (e.status === 404) showNotFound('dataset'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
     return;
   }
   if (!current()) return;
@@ -350,15 +367,14 @@ async function loadDialog(d, caId) {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
-      $('#modal').hidden = true; showLoad(l.id);
+      $('#modal').hidden = true; navigate({ page: 'load', id: d.id, load: l.id });
     } catch (e) { alert(e.message); }
   };
 }
 
 // ---- the load page
-let loadTimer = null, currentLoad = null;
-// 'auto' steps back to the list when a load was opened from it, else goes to it; 'push' and 'replace'
-// say so. showLoad (replaced by the load page in a later task) goes through navigate as well.
+let loadTimer = null, currentLoad = null, loadGen = 0;
+// 'auto' steps back to the list when the page was opened from it, else goes to it; 'push' and 'replace' say so
 function showDatasets(nav = 'auto') {
   if (nav === 'auto') {
     if (currentLoad && (history.state || {}).from === '#/') { history.back(); return; }   // popstate shows the list
@@ -366,94 +382,102 @@ function showDatasets(nav = 'auto') {
   }
   navigate({ page: 'home' }, nav);
 }
-function showLoad(id, nav = 'push') { navigate({ page: 'legacy-load', load: id }, nav); }
 
-async function openLoad(id) {
-  clearTimeout(pollTimer);
-  currentLoad = id;
-  // the load page is rebuilt in a later task; until then it keeps its old containers
-  mountPage('<section id="loadPage" class="panel"><h2 id="loadTitle"></h2><div id="loadStages" class="stages"></div><div id="loadActions" class="row"></div>' +
-    '<div id="loadFindings"></div><div id="loadPlan"></div><div id="loadRangers"></div><div id="loadProgress"></div></section>');
-  try { await renderLoad(); }
-  catch (e) {   // a gone load leaves the list in its place
-    if (e.status === 401) return;   // the sign-in form is already on the page
-    alert(e.message);
-    navigate({ page: 'home' }, 'replace');
-  }
-}
-
-const STAGES = ['datamodel', 'patrol_datamodel', 'preflight', 'import'];
-const STAGE_LABEL = { datamodel: 'Event types', patrol_datamodel: 'Patrol setup', preflight: 'Preflight', import: 'Patrols' };
-const ACTIVE = ['planning', 'queued', 'running', 'continuing'];
-
-async function renderLoad() {
-  const id = currentLoad;
-  clearTimeout(loadTimer);
+// the load, its dataset's name for the breadcrumb, then the page; polls every 4 s while the load is held
+async function showLoad(route) {
+  clearTimeout(loadTimer); clearTimeout(pollTimer);
+  currentLoad = route.load;
+  const gen = ++loadGen, mine = routeHash(route);
+  const current = () => gen === loadGen && location.hash === mine;
   let l;
-  try { l = await api('/api/loads/' + id); }
+  try { l = await api('/api/loads/' + route.load); }
   catch (e) {
-    if (currentLoad !== id) return;
-    if (/not found/i.test(e.message)) throw e;
-    $('#loadActions').insertAdjacentHTML('beforeend', '<div class="tiny" data-retry>Could not refresh; retrying…</div>');
-    loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+    if (!current() || e.status === 401) return;   // on 401 the sign-in form is already on the page
+    if (e.status === 404) showNotFound('load'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
     return;
   }
-  if (currentLoad !== id) return;
-  const active = !!l.held;
-  const stale = !active && ACTIVE.includes(l.status);
-  $('#loadTitle').innerHTML = esc(l.ca_id + ' → ' + (l.site ? l.site.name + ' (' + l.site.url + ')' : 'removed site')) +
-    (loadScope(l) ? ' <span class="scope">' + esc(loadScope(l)) + '</span>' : '') +
-    ' ' + pill(l.status) +
-    ' <button class="help" data-help="help-statuses" title="What the statuses mean"><span class="mi" aria-hidden="true">help</span></button>';
-  $('#loadTitle [data-help]').onclick = () => openHelp('help-statuses');
-  $('#loadStages').innerHTML = renderStages(l, active);
-  const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
-  let actions = '';
-  if (!active && l.site) {
-    // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
-    if (l.status === 'planned') actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' +
-      (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button> ';
-    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Continue</button> ';
-    if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button> ';
+  if (!current()) return;
+  if (l.dataset_id !== route.id) { navigate({ page: 'load', id: l.dataset_id, load: l.id }, 'replace'); return; }   // the address names the wrong dataset
+  let name = l.dataset_id;   // without the dataset's name the crumb shows its id rather than failing the page
+  try { name = (await api('/api/datasets/' + l.dataset_id)).name || name; } catch (e) { if (e.status === 401) return; }
+  if (!current()) return;
+  const up = { page: 'dataset', id: l.dataset_id, tab: 'loads' };
+  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: name, hash: routeHash(up) }, { label: loadName(l) }]);
+  // the dataset crumb steps back when the reader came from that dataset's page, so Back after it does not return here
+  const crumb = $('#crumbs a[href="' + routeHash(up) + '"]');
+  if (crumb) crumb.onclick = ev => {
+    ev.preventDefault();
+    const from = parseRoute((history.state || {}).from);
+    if (from.page === 'dataset' && from.id === l.dataset_id) history.back(); else navigate(up);
+  };
+  let fails = 0;
+  const refresh = async () => {
+    clearTimeout(loadTimer);
+    let next;
+    try { next = await api('/api/loads/' + route.load); }
+    catch (e) {
+      if (!current() || e.status === 401) return;
+      if (e.status === 404) { showNotFound('load'); return; }
+      // a failed poll keeps the last render and retries; from the second in a row a note says so
+      retryNote($('#loadPage .title-block'), ++fails >= 2);
+      clearTimeout(loadTimer); loadTimer = setTimeout(refresh, 4000);
+      return;
+    }
+    if (!current()) return;
+    fails = 0;
+    paint(next);
+  };
+  const paint = x => {
+    paintLoad(x, refresh, up);
+    clearTimeout(loadTimer);   // a click's refresh and a poll can both land: one timer stays
+    if (x.held) loadTimer = setTimeout(refresh, 4000);
+  };
+  paint(l);
+}
+
+// swaps in a fresh render: open sections stay open, the log keeps its place, and a rangers table whose rows
+// are unchanged is left as it is (its rows change only when patrol setup runs)
+function paintLoad(l, refresh, up) {
+  const active = !!l.held, prev = $('#loadPage'), old = prev && prev.dataset.load === l.id ? prev : null;   // another load's page carries nothing over
+  const box = document.createElement('div'); box.innerHTML = renderLoadPage(l, active);
+  const page = box.firstElementChild;
+  page.dataset.load = l.id;
+  const rows = l.rangers || [], key = rows.length ? l.id + ':' + (l.rangers_total || rows.length) + ':' + JSON.stringify(rows) : '';
+  let newRangers = true;
+  const oldPre = old && $('#loadProgress pre.log', old);
+  const atBottom = !oldPre || oldPre.scrollHeight - oldPre.scrollTop - oldPre.clientHeight < 12, scrollTop = oldPre ? oldPre.scrollTop : 0;
+  if (old) {
+    restoreOpen($('#loadPlan', page), openState($('#loadPlan', old)));
+    const oldLog = $('#loadProgress details', old), log = $('#loadProgress details', page);
+    if (oldLog && log) log.open = oldLog.open;
+    const oldR = $('#loadRangers', old), r = $('#loadRangers', page);
+    if (key && oldR.dataset.key === key && oldR.firstChild) { r.replaceWith(oldR); newRangers = false; }
+    else restoreOpen(r, openState(oldR));
   }
-  if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';
-  if (!active && l.site && l.status === 'planned' && blocking) actions += '<div class="tiny">The run will write what the plan lists, then stop at the ' +
-    (blocking === 1 ? 'blocking finding' : blocking + ' blocking findings') + ' below until they are fixed.</div>';
-  if (stale) actions += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
-  if (l.error) actions += '<div class="tiny" style="color:var(--danger)">' + esc(l.error) + '</div>';
-  $('#loadActions').innerHTML = actions;
-  const run = $('#loadActions [data-run]'); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const re = $('#loadActions [data-replan]'); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); renderLoad(); } catch (e) { alert(e.message); } };
-  const del = $('#loadActions [data-del]'); if (del) del.onclick = async () => { if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return; try {
-      await api('/api/loads/' + l.id, { method: 'DELETE' });
-      // the deleted load's entry becomes the list, so Back never lands on it; if the reader has moved on
-      // meanwhile, the page they are on is left alone and a list they are on is refreshed
-      if (currentLoad === l.id) showDatasets('replace'); else if (parseRoute(location.hash).page === 'home') showHome();
-    } catch (e) { alert(e.message); } };
-  const RANK = { blocking: 0, warning: 1, info: 2 };
-  const fs = (l.findings || []).slice().sort((a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1));
-  $('#loadFindings').innerHTML = fs.length ? '<h3>Findings</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="How to fix this"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(f.severity) + ' · ' + esc(STAGE_LABEL[f.stage] || f.stage) + (f.affected && f.affected.count ? ' · ' + esc(f.affected.count) + ' patrols' : '') + '</span>' +
-    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="Copy to clipboard"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
-    (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>Fix:</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('') :
-    (['planned', 'done'].includes(l.status) ? '<p class="muted tiny">No findings.</p>' : '');
-  $('#loadFindings').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
-  $('#loadFindings').querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
-  // the page re-renders on every poll: what the reader opened stays open, and the log keeps its place
-  const planOpen = openState($('#loadPlan'));
-  $('#loadPlan').innerHTML = l.plan ? '<h3>Plan</h3><div class="plan">' + renderPlan(l.plan) + '</div>' : '';
-  restoreOpen($('#loadPlan'), planOpen);
-  renderRangers(l);
-  const p = l.progress;
-  const prevLog = $('#loadProgress details'), prevPre = prevLog && prevLog.querySelector('pre');
-  const logOpen = prevLog ? prevLog.open : active;
-  const atBottom = !prevPre || prevPre.scrollHeight - prevPre.scrollTop - prevPre.clientHeight < 12, scrollTop = prevPre ? prevPre.scrollTop : 0;
-  $('#loadProgress').innerHTML = (p && p.patrols_total && l.mode !== 'plan' ? '<h3>Progress</h3><div class="bar"><div style="width:' + (100 * p.done / p.patrols_total).toFixed(1) + '%"></div></div><p class="tiny">' + esc(importSummary(l, active)) + '</p>' : '') +
-    (l.continuations ? '<p class="tiny">Continued ' + esc(l.continuations) + ' time(s) past the job limit.</p>' : '') +
-    (l.log_tail ? '<details' + (logOpen ? ' open' : '') + '><summary class="tiny">Log' + (active ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(l.log_tail) + '</pre></details>' : '') +
-    '<p class="tiny">Files: ' + ['plan.json', 'findings.json', 'checklist.json', 'checklist.md', 'rangers.json', 'import-ledger.json', 'log.txt'].map(n => '<a href="/api/loads/' + esc(l.id) + '/files/' + n + '" download>' + n + '</a>').join(' · ') + '</p>';
-  const pre = $('#loadProgress pre.log');
+  $('#loadRangers', page).dataset.key = key;
+  $('#page').replaceChildren(page);
+  const pre = $('#loadProgress pre.log', page);
   if (pre) pre.scrollTop = atBottom ? pre.scrollHeight : scrollTop;
-  if (active) loadTimer = setTimeout(() => renderLoad().catch(() => {}), 4000);
+  bindLoad(page, l, refresh, up, newRangers);
+}
+
+function bindLoad(page, l, refresh, up, newRangers) {
+  $('.title-block [data-help]', page).onclick = () => openHelp('help-statuses');
+  const run = $('[data-run]', page); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
+  const re = $('[data-replan]', page); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
+  const del = $('[data-del]', page); if (del) del.onclick = async () => {
+    if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return;
+    try {
+      await api('/api/loads/' + l.id, { method: 'DELETE' });
+      // the deleted load's entry becomes its dataset's loads, so Back never lands on it; if the reader has
+      // moved on meanwhile, the page they are on is left alone and a list they are on is refreshed
+      if (location.hash === routeHash({ page: 'load', id: up.id, load: l.id })) navigate(up, 'replace');
+      else { const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); }
+    } catch (e) { alert(e.message); }
+  };
+  $('#loadFindings', page).querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
+  $('#loadFindings', page).querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
+  if (newRangers && (l.rangers || []).length) bindRangers($('#loadRangers', page), l);
 }
 
 const openState = host => Array.from(host.querySelectorAll('details')).map(d => d.open);
@@ -538,98 +562,6 @@ function helpKeydown(e) {   // a dialog keeps Tab inside it
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
-// ---- the stage table: one row per stage, what it did, and how long it took
-const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; };
-const secondsSince = iso => iso ? (Date.now() - Date.parse(iso)) / 1000 : null;
-const count = (n, one, many) => n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's'));
-
-const notStarted = l => ['queued', 'planning'].includes(l.status);   // claimed, but the job has not reset the rows yet
-
-function stageRows(l) {
-  if (notStarted(l)) return {};
-  if (l.mode) return l.stages || {};   // written by a job that records rows; empty means it has not begun one
-  // loads from before the stage table have only `stage` and `status`
-  if (l.stages && Object.keys(l.stages).length) return l.stages;
-  const rows = {}, idx = STAGES.indexOf(l.stage);
-  STAGES.forEach((s, i) => {
-    if (i < idx || (i === idx && ['done', 'planned'].includes(l.status))) rows[s] = { status: 'done', metrics: {} };
-    else if (i === idx) rows[s] = { status: l.status === 'failed' ? 'failed' : l.status === 'needs_attention' ? 'stopped' : 'running', metrics: {} };
-  });
-  return rows;
-}
-
-function stageSummary(stage, row, l, active) {
-  const m = row.metrics || {}, dry = l.mode === 'plan' || (!l.mode && ['planning', 'planned'].includes(l.status));
-  const v = dry ? { created: 'to create', updated: 'to update', deactivated: 'to deactivate', migrated: 'to migrate' } : { created: 'created', updated: 'updated', deactivated: 'deactivated', migrated: 'migrated' };
-  v.skipped_by_mode = 'skipped by mode'; v.skipped_by_conflict = 'skipped on conflict'; v.errored = 'errored';
-  const tally = (prefix, keys) => keys.filter(k => m[prefix + k]).map(k => m[prefix + k] + ' ' + (v[k] || k));
-  const parts = [];
-  if (stage === 'datamodel') {
-    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'errored']);
-    if (cats.length) parts.push('categories: ' + cats.join(', '));
-    if (types.length) parts.push('event types: ' + types.join(', '));
-    if (ch.length) parts.push('choices: ' + ch.join(', '));
-  } else if (stage === 'patrol_datamodel') {
-    const types = tally('types_', ['created', 'updated', 'unchanged']), subs = tally('subjects_', ['created', 'updated', 'deactivated', 'unchanged']);
-    if (types.length) parts.push('patrol types: ' + types.join(', '));
-    if (subs.length) parts.push('subjects: ' + subs.join(', '));
-    if (m.subjects_grouped) parts.push(m.subjects_grouped + ' in the roster group');
-    if (m.schema_written) parts.push(dry ? 'patrol fields to write' : 'patrol fields written');
-    else if (m.schema_skipped) parts.push('patrol fields skipped: ' + m.schema_skipped);
-  } else if (stage === 'preflight') {
-    if ('blocking' in m) parts.push(count(m.blocking, 'blocking finding') + ', ' + count(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + count(m.patrols, 'patrol') + ' checked' : ''));
-  } else if (stage === 'import') {
-    if (dry) { if ('planned' in m) parts.push(count(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
-    else if (l.progress && l.progress.patrols_total) parts.push(importSummary(l, active && row.status === 'running'));
-  }
-  return parts.join(' · ');
-}
-
-function importSummary(l, live) {
-  const p = l.progress;
-  const counts = (p.failed ? ', ' + p.failed + ' failed' : '') + (p.skipped ? ', ' + p.skipped + ' already there' : '');
-  const of = p.done.toLocaleString() + ' of ' + p.patrols_total.toLocaleString() + ' patrols' + counts;
-  const row = (l.stages || {}).import || {};
-  if (!live) {   // a finished run reads as a whole: a per-minute rate would mix its two phases
-    const secs = row.started_at && row.finished_at ? (Date.parse(row.finished_at) - Date.parse(row.started_at)) / 1000 : null;
-    const m = row.metrics || {};
-    // what this execution did (a continuation's counts are its own, not the load's): the events it wrote,
-    // how many of the events it handled (written or already there) report who made them, and the ones
-    // from an earlier load it gave a reporter
-    const did = m.events_written != null ? ' · this execution wrote ' + count(m.events_written, 'event') +
-      (m.events_reported_by ? '; ' + m.events_reported_by.toLocaleString() + ' of the events it handled report who made them' : '') +
-      (m.events_reported_by_backfilled ? ', ' + m.events_reported_by_backfilled.toLocaleString() + ' of them from an earlier load, given one now' : '') : '';
-    return of + (secs != null ? ' · ' + fmtDur(secs) : '') + did;
-  }
-  // the import runs every patrol's events, then every patrol's tracks; done restarts with each phase
-  const since = p.phase ? p.phase_started_at : row.started_at;
-  let s = p.phase ? (p.phase === 'tracks' ? 'Tracks: ' : 'Events: ') + of : of;
-  const mins = since ? (Date.now() - Date.parse(since)) / 60000 : null;
-  const written = p.done - ((p.phase ? p.phase_skipped : p.skipped) || 0);   // skips take no time; a phase also skips what a stopped run left half done
-  if (mins && mins > 0.5 && written > 0) {
-    const rate = written / mins;
-    s += ' · ' + rate.toFixed(1) + ' per minute';
-    if (p.done < p.patrols_total) s += ' · about ' + fmtDur((p.patrols_total - p.done) / rate * 60) + ' left' + (p.phase === 'events' ? ' in this phase, then tracks' : '');
-  }
-  return s;
-}
-
-function renderStages(l, active) {
-  const rows = stageRows(l);
-  let html = '<table class="stagetable"><thead><tr><th>Stage</th><th>Status</th><th>Took</th><th>What happened</th></tr></thead><tbody>';
-  for (const s of ((l.options || {}).scope === 'datamodel' ? STAGES.slice(0, 2) : STAGES)) {
-    const r = rows[s], status = r ? r.status : 'pending';
-    const running = status === 'running' && active;
-    const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
-    html += '<tr class="' + esc(status) + '"><td>' + esc(STAGE_LABEL[s]) + '</td><td>' +
-      pill(running ? 'running' : status === 'running' ? 'interrupted' : status, running ? 'running' : status === 'running' ? 'interrupted' : status === 'pending' && !active ? 'not reached' : status) + '</td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + esc(r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
-  }
-  html += '</tbody></table>';
-  if (active) html += notStarted(l) ? '<p class="tiny heartbeat">Waiting for the job to start · ' + esc(fmtDur(secondsSince(l.claimed_at))) + ' since it was queued</p>'
-    : '<p class="tiny heartbeat">' + (l.continuations ? 'Continuation ' + esc(l.continuations) + ' running for ' : 'Running for ') + esc(fmtDur(secondsSince(l.started_at || l.claimed_at))) + ' · the job last reported ' + esc(fmtDur(secondsSince(l.updated_at))) + ' ago</p>';
-  return html;
-}
-
 // ---- rangers: the markup is renderRangersSection (pages.js); this binds its help and CSV buttons
 function bindRangers(host, l) {
   const rows = l.rangers || [];
@@ -637,19 +569,6 @@ function bindRangers(host, l) {
   host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
     rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
 }
-function renderRangers(l) {
-  const host = $('#loadRangers'), rows = l.rangers || [], total = l.rangers_total || rows.length;
-  if (!rows.length) { host.innerHTML = ''; host.dataset.key = ''; return; }
-  // the rows change only when patrol setup runs: a poll that brings the same list leaves the table alone
-  const key = l.id + ':' + total + ':' + JSON.stringify(rows);
-  if (host.dataset.key === key && host.firstChild) return;
-  host.dataset.key = key;
-  const open = openState(host);
-  host.innerHTML = renderRangersSection(l);
-  restoreOpen(host, open);
-  bindRangers(host, l);
-}
-
 function downloadCsv(filename, header, rows) {
   // a cell that a spreadsheet would read as a formula gets a leading quote (names and ids come from the SMART export)
   const cell = v => { let s = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -657,27 +576,6 @@ function downloadCsv(filename, header, rows) {
   const blob = new Blob(['\ufeff' + [header, ...rows].map(r => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-function renderPlan(plan) {
-  // opts.noIdOnCreate: the group's creates have no identifier yet (plans saved before that rule carried a placeholder there)
-  const group = (title, g, opts = {}) => {
-    if (!g) return '';
-    const parts = [];
-    for (const k of ['create', 'update', 'deactivate']) if (Array.isArray(g[k]) && g[k].length) {
-      const more = typeof g.more === 'object' && g.more ? g.more[k] || 0 : (g.more || 0);   // per list now; a number in older plans
-      const showValue = e => e.value && e.value !== e.label && !(opts.noIdOnCreate && k === 'create');
-      parts.push('<details><summary>' + k + ' ' + g[k].length + (more ? '+' : '') + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (showValue(e) ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (more ? '<li class="tiny">and ' + esc(more) + ' more</li>' : '') + '</ul></details>');
-    }
-    if (g.unchanged) parts.push('<span class="tiny">' + esc(g.unchanged) + ' unchanged</span>');
-    return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">nothing to do</span>') + '</div>';
-  };
-  const p = plan.patrols;   // absent from a data-model-only plan
-  return group('Event categories', plan.event_categories) + group('Event types', plan.event_types) + group('Patrol types', plan.patrol_types) +
-    '<div><b>Universal patrol fields</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group('Choices', plan.choices) + group('Subjects', plan.subjects, { noIdOnCreate: true }) +
-    '<div><b>Roster</b> ' + (plan.roster && plan.roster.group ? esc(plan.roster.group) + ': ' : '') + esc((plan.roster || {}).add || 0) + ' to add</div>' +
-    (!p ? '<div><b>Patrols</b> <span class="tiny">none: this load is the data model only</span></div>' :
-    '<div><b>Patrols</b> ' + esc(p.total) + (p.first ? ' from ' + esc(p.first) + ' to ' + esc(p.last) : '') + (p.already_done ? ', ' + esc(p.already_done) + ' already imported' : '') + ' · ' + esc(p.events) + ' observations · ' + esc(p.track_points) + ' track points</div>');
 }
 
 boot();
