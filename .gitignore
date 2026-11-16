@@ -27,3 +27,4 @@ web/infra/terraform.tfvars
 web/infra/.terraform/
 web/infra/*.tfstate*
 .worktrees/
+.superpowers/

@@ -4,7 +4,7 @@ heading ids, so the browser, the runbook and export warnings can deep-link
 to sections. Run by `./smart-able browse`.
 
 The page wears the browser's theme: its design tokens (light and dark) and
-acorn mark are read from browse/index.html at build time, so the two pages
+EarthRanger lockup are read from browse/index.html at build time, so the two pages
 cannot drift apart.
 
 Usage: build_quirks.py <markdown file> <output html>
@@ -24,9 +24,8 @@ html { scroll-padding-top: 16px; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14.5px/1.6 var(--sans); }
 header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
   padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
-.brand { display: flex; align-items: center; gap: 9px; }
-.brand svg { width: 22px; height: 22px; display: block; flex: none; }
-.brand .acorn { color: #0fcb8c; }
+.brand { display: flex; align-items: center; gap: 16px; }
+.brand .lockup-fallback { height: 26px; width: auto; display: block; flex: none; }
 header h1 { font-family: var(--head); font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.1px; }
 header h1 span { opacity: 0.6; font-weight: 400; font-family: var(--sans); }
 a.back { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--brand-ink);
@@ -72,7 +71,12 @@ h2:target, h3:target { color: var(--accent); box-shadow: inset 3px 0 var(--accen
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>SMART data quirks · smart-able</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap">
+<script>
+try {{ const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); }} catch (e) {{}}
+if (/^\\/d\\/[A-Za-z0-9]+\\//.test(location.pathname)) {{
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/static/fonts/roboto.css'; document.head.appendChild(l);
+}}
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=block">
 <style>
 {tokens}
@@ -80,7 +84,7 @@ PAGE = """<!doctype html>
 </style></head>
 <body>
 <header>
-  <div class="brand">{acorn}<h1>smart-able <span>SMART data quirks</span></h1></div>
+  <div class="brand">{acorn}<h1>SMART migration <span>· SMART data quirks</span></h1></div>
   <a class="back" href="./"><span class="mi" aria-hidden="true">arrow_back</span>Back to the browser</a>
 </header>
 <div class="layout">
@@ -95,12 +99,13 @@ PAGE = """<!doctype html>
 
 def app_theme(app_html: str) -> tuple[str, str]:
     """The browser's design-token blocks (light, dark media query, explicit
-    theme overrides) and its acorn mark."""
-    tokens = re.search(r"(:root \{.*?)\nhtml, body \{", app_html, re.S)
-    acorn = re.search(r'<svg class="acorn".*?</svg>', app_html, re.S)
-    if not tokens or not acorn:
-        raise SystemExit(f"{APP}: design tokens or acorn mark not found; update app_theme()")
-    return tokens.group(1), acorn.group(0)
+    theme overrides) and its EarthRanger lockup, as the inline SVG that the
+    browser keeps for standalone use (shown here, since this page is standalone too)."""
+    tokens = re.search(r"(/\* from web/static/er-tokens\.css.*?)\nhtml, body \{", app_html, re.S)
+    mark = re.search(r'<svg class="lockup-fallback".*?</svg>', app_html, re.S)
+    if not tokens or not mark:
+        raise SystemExit(f"{APP}: design tokens or lockup mark not found; update app_theme()")
+    return tokens.group(1), mark.group(0).replace(" hidden>", ">", 1)
 
 
 # one Markdown configuration for the doc, shared with the web app's help drawer

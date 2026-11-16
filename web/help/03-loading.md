@@ -1,6 +1,6 @@
 # Loading a dataset
 
-A load puts one conservation area from one dataset into one site. Start it from the dataset card with **Load**, choosing the conservation area, the site, the language of the labels, an optional configurable model, the roster group rangers are picked from, and the event category.
+A load puts one conservation area from one dataset into one site. Start it from the dataset page with **Load into EarthRanger** (on the Overview or Loads tab), choosing the conservation area, the site, the language of the labels, an optional configurable model, the roster group rangers are picked from, and the event category.
 
 ## Plan, then confirm
 
@@ -36,7 +36,7 @@ The event category is the EarthRanger identifier the data model is pushed under.
 - **The data model and patrols**, the default. Leave **Patrols from** and **to** empty to load every patrol, or set one or both to load only the patrols that start on or between those days. A patrol's observations, photos and track come with it. Dates are the conservation area's own, as SMART recorded them. A patrol SMART stored without a start date is left out of any window. A window narrows only the patrols: the load still sets up the whole data model, so the steps it asks an admin to do, such as creating teams, cover every team in the conservation area, including teams only older patrols used.
 - **The data model only**: the event types, the patrol types and their fields, the rangers as subjects, and the patrol roster. That is what a team needs to start patrolling and recording in EarthRanger without bringing its history across. It still stops on anything an admin must do on the site first, such as teams to create.
 
-A later load into the same site can widen the window or add the patrols. Anything already imported is skipped. The load page and the dataset list name what each load wrote, such as "Data model only" or "Patrols from 2023-01-01 to 2024-12-31".
+A later load into the same site can widen the window or add the patrols. Anything already imported is skipped. The load page and the dataset's Loads tab name what each load wrote, such as "Data model only" or "Patrols from 2023-01-01 to 2024-12-31".
 
 ## Long runs and continuation
 
@@ -52,7 +52,7 @@ If a job is killed outright, by an outage for example, it cannot report. The loa
 
 Patrol setup creates one subject per SMART employee who appears on a patrol or is still employed, and the import puts their patrols, tracks and reports on it. A ranger who then uses EarthRanger Mobile needs a user account **linked to that subject**: a user's tracks go to its linked subject, and the events they report carry it as *reported by*. Without the link, their first login creates a second subject and the history splits.
 
-The load page's **Rangers** section lists every one of those people, with the name exactly as it is on the site, whether the person is still active in SMART, and two patrol counts: on the patrols this load imports (its date window, if one was set) and in the whole dataset. A still-employed ranger with no patrols shows 0, and a data-model-only load, which imports no patrols, shows only the whole-dataset count. The CSV download has the same rows plus an empty email column.
+The load page's **Rangers** section, and the dataset's **Rangers** tab (which shows the most recent load that reached patrol setup), list every one of those people, with the name exactly as it is on the site, whether the person is still active in SMART, and two patrol counts: on the patrols this load imports (its date window, if one was set) and in the whole dataset. A still-employed ranger with no patrols shows 0, and a data-model-only load, which imports no patrols, shows only the whole-dataset count. The CSV download has the same rows plus an empty email column.
 
 A row marked *employee record deleted in SMART* is a patrol member whose employee record no longer exists; its subject is named by an identifier. Nobody can sign in as it, so it needs no account.
 

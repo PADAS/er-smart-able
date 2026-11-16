@@ -9,10 +9,14 @@ must be on PATH (see web/Dockerfile.job).
 Usage: job.py [dataset_id]
 """
 import os
+import queue
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import json
 from pathlib import Path
 
@@ -39,30 +43,98 @@ def describe_export(export_dir: Path) -> list:
     return out
 
 
+LIVE_TAIL_EVERY = 2.0  # seconds between the running job's log_tail writes
+
+
+def tail_of(log_lines: list) -> str:
+    """The last 60 lines that are not per-table row counts (dropped first, so a long run of counts never empties the tail)."""
+    return "\n".join([l for l in log_lines if not l.strip().endswith(" rows")][-60:])
+
+
+def stop_tree(proc, grace: float = 30.0):
+    """Stop the extract and everything it started. `smart-able` is a Bash wrapper around Java, DuckDB
+    and Python: stopping only the wrapper leaves those running in the work folder. It was started as
+    the leader of its own process group, so the group is the tree: TERM it, give it `grace` seconds,
+    KILL what is left, and reap the wrapper."""
+    def group(sig) -> bool:   # False once the group has no member left
+        try:
+            os.killpg(proc.pid, sig)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    group(signal.SIGTERM)
+    deadline = time.monotonic() + grace
+    try:
+        proc.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        pass
+    while group(0) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    group(signal.SIGKILL)
+    proc.wait()
+
+
 def main(dataset_id: str) -> int:
+    # a TERM (the local backend's timeout, Cloud Run's) unwinds through the finally below, which stops the tree
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     store = get_store()
     doc = store.get(dataset_id)
     if not doc:
         print(f"no dataset {dataset_id}", file=sys.stderr)
         return 2
-    store.update(dataset_id, status="running", error=None, started_at=now())
+    # log_tail is cleared, so the Overview's live log is this run's, never the previous run's error
+    store.update(dataset_id, status="running", error=None, started_at=now(), finished_at=None, log_tail="")
     work = Path(os.environ.get("JOB_WORK_DIR") or tempfile.mkdtemp(prefix="smart-able-"))
     log_lines = []
+    proc = None
     try:
         src = store.fetch_upload(dataset_id, doc["source_name"], work / "in")
         env = {**os.environ, "SMART_ABLE_WORK": str(work / "out")}
         print(f"extracting {src} -> {work / 'out'}", flush=True)
         proc = subprocess.Popen([str(ROOT / "smart-able"), "all", str(src)], cwd=str(ROOT), env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in proc.stdout:
-            print(line, end="", flush=True)
-            log_lines.append(line.rstrip("\n"))
-            if len(log_lines) > 400:
-                del log_lines[:-400]
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                start_new_session=True)  # its own process group, so stop_tree reaches every descendant
+        # a thread reads the child's output, so the live log is also published while the child is quiet
+        # (a long step prints nothing): the lines before the silence must not wait for the next one
+        lines = queue.Queue()
+
+        def pump():
+            try:
+                for line in proc.stdout:
+                    lines.put(line)
+                lines.put(None)
+            except BaseException as e:  # noqa: BLE001  handed to the main loop, which raises it
+                lines.put(e)
+
+        threading.Thread(target=pump, daemon=True).start()
+        flushed, unpublished = time.monotonic(), False
+        while True:
+            try:
+                line = lines.get(timeout=max(LIVE_TAIL_EVERY, 0.05))
+            except queue.Empty:
+                line = ""  # quiet: nothing new, but what is unpublished may now be due
+            if line is None:
+                break
+            if isinstance(line, BaseException):
+                raise line
+            if line:
+                print(line, end="", flush=True)
+                log_lines.append(line.rstrip("\n"))
+                if len(log_lines) > 400:
+                    del log_lines[:-400]
+                unpublished = True
+            if unpublished and time.monotonic() - flushed >= LIVE_TAIL_EVERY:  # the Overview polls; it shows the run so far
+                try:
+                    store.update(dataset_id, log_tail=tail_of(log_lines))
+                    unpublished = False
+                except Exception as e:  # noqa: BLE001  the live log is a courtesy: the extraction goes on
+                    print(f"live log not published ({type(e).__name__}: {e}); will retry", file=sys.stderr, flush=True)
+                flushed = time.monotonic()  # either way, the next attempt is one interval on
         rc = proc.wait()
-        tail = "\n".join(l for l in log_lines[-60:] if not l.strip().endswith(" rows"))
+        tail = tail_of(log_lines)
         if rc != 0:
-            store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail)
+            store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail, finished_at=now())
             return rc
         site = work / "out" / "site"
         meta = json.loads((site / "data" / "meta.json").read_text())
@@ -76,16 +148,18 @@ def main(dataset_id: str) -> int:
         if export:
             print("publishing export", flush=True)
             store.put_export(dataset_id, export_dir)
-        store.update(dataset_id, status="ready", log_tail=tail, export=export,
+        store.update(dataset_id, status="ready", log_tail=tail, export=export, finished_at=now(),
                      cas=[{"id": c.get("id"), "n": c.get("n")} for c in meta.get("cas", [])],
                      db_version=meta.get("db_version"),
                      counts={k: meta.get(k) for k in ("patrols", "waypoints", "observations", "employees")})
         print("done", flush=True)
         return 0
     except Exception as e:  # noqa: BLE001
-        store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail="\n".join(log_lines[-60:]))
+        store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail=tail_of(log_lines), finished_at=now())
         raise
     finally:
+        if proc is not None and proc.poll() is None:  # abandoned mid-run: stop it, and all it started, before its files go
+            stop_tree(proc)
         if not os.environ.get("JOB_KEEP_WORK"):
             shutil.rmtree(work, ignore_errors=True)
 

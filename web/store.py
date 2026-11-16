@@ -47,6 +47,10 @@ EXTRACT_TIMEOUT = timedelta(seconds=int(os.environ.get("EXTRACT_TIMEOUT_SECONDS"
 EXTRACT_STALE_AFTER = timedelta(seconds=int(os.environ.get("EXTRACT_STALE_AFTER_SECONDS", 9000)))
 
 
+# what a claim clears, so a queued run never shows the previous run's log or times as its own
+NEW_RUN = {"log_tail": "", "started_at": None, "finished_at": None}
+
+
 def extract_in_progress(doc: dict) -> bool:
     status = doc.get("status")
     if status not in EXTRACT_ACTIVE:
@@ -80,6 +84,22 @@ def load_in_progress(doc: dict) -> bool:
     return datetime.now(timezone.utc) - since < LOAD_STALE_AFTER
 
 
+# A load blocks its dataset's extraction only while it is seen working: a job killed outright keeps
+# its slot for LOAD_STALE_AFTER, but it wrote its document last when it died, and must not keep a
+# broken dataset from being extracted again for a day.
+LOAD_QUIET_AFTER = timedelta(seconds=int(os.environ.get("LOAD_QUIET_AFTER_SECONDS", 3600)))
+
+
+def load_working(doc: dict) -> bool:
+    """In progress, and its job wrote the document within LOAD_QUIET_AFTER."""
+    if not load_in_progress(doc):
+        return False
+    try:
+        return datetime.now(timezone.utc) - datetime.fromisoformat(doc["updated_at"]) < LOAD_QUIET_AFTER
+    except (KeyError, TypeError, ValueError):
+        return True
+
+
 def target_held(loads, doc: dict, except_id: str | None = None) -> bool:
     """Another load of the same conservation area into the same site is in
     progress. Two executions writing one target would race the schema and
@@ -110,19 +130,43 @@ def safe_relpath(relpath: str) -> str:
     return "/".join(parts)
 
 
+class _FileLock:
+    """The local store's read-modify-write lock. The extraction and load jobs are separate processes
+    writing the same JSON files, so a thread lock alone lets one overwrite the other's change."""
+
+    def __init__(self, path: Path):
+        self.path, self.thread = path, threading.Lock()
+
+    def __enter__(self):
+        import fcntl
+        self.thread.acquire()
+        try:
+            self.fh = open(self.path, "w")
+            fcntl.flock(self.fh, fcntl.LOCK_EX)
+        except BaseException:
+            self.thread.release()
+            raise
+
+    def __exit__(self, *exc):
+        try:
+            self.fh.close()   # closing releases the flock
+        finally:
+            self.thread.release()
+
+
 class LocalStore:
     def __init__(self):
         self.dir = Path(os.environ.get("LOCAL_DIR", ROOT / "web-data")).resolve()
         self.dir.mkdir(parents=True, exist_ok=True)
         self.index = self.dir / "datasets.json"
-        self.lock = threading.Lock()
+        self.lock = _FileLock(self.dir / ".lock")
 
     # ---- metadata
     def _read_file(self, path: Path) -> dict:
         return json.loads(path.read_text()) if path.exists() else {}
 
     def _write_file(self, path: Path, data: dict):
-        tmp = path.with_suffix(".tmp")
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")   # the job writes too: one temp file each
         tmp.write_text(json.dumps(data, indent=1))
         tmp.replace(path)
 
@@ -163,7 +207,7 @@ class LocalStore:
             doc = data.get(id)
             if doc is None or extract_in_progress(doc):
                 return False
-            doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now())
+            doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now(), **NEW_RUN)
             self._write(data)
             return True
 
@@ -284,12 +328,15 @@ class LocalStore:
             try:
                 proc.wait(timeout=EXTRACT_TIMEOUT.total_seconds())
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                proc.wait()
-                self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}")
+                # TERM first: the job runs the extract in a process group of its own and stops that
+                # tree on its way out. Then KILL the job's group, for a job that did not go.
+                for sig, wait in ((signal.SIGTERM, 45), (signal.SIGKILL, None)):
+                    try:
+                        os.killpg(proc.pid, sig)
+                        proc.wait(timeout=wait)
+                    except (ProcessLookupError, subprocess.TimeoutExpired):
+                        pass
+                self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}", finished_at=now())
         threading.Thread(target=run, daemon=True).start()
         return "local-thread"
 
@@ -435,7 +482,7 @@ class GcpStore:
             snap = ref.get(transaction=tx)
             if not snap.exists or extract_in_progress(snap.to_dict()):
                 return False
-            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now()})
+            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now(), **NEW_RUN})
             return True
 
         return claim(self.db.transaction())

@@ -41,10 +41,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from auth import AUTH_DISABLED, current_user, email_allowed, end_session, start_session
+from auth import AUTH_DISABLED, allowed_entries, current_user, email_allowed, end_session, start_session
 from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
 from findings import EVENT_CATEGORY, ca_identifier
-from store import (LOAD_ACTIVE, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
+from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
                    load_in_progress, now)
 
 logging.basicConfig(level=logging.INFO)
@@ -57,7 +57,7 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
 
 app = FastAPI(title="smart-able")
 
@@ -87,7 +87,7 @@ class SessionRequest(BaseModel):
 
 
 def _public(doc: dict, user: dict) -> dict:
-    return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at",
+    return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at", "started_at", "finished_at",
                                     "source_name", "source_size", "cas", "db_version", "counts", "error", "export")} | {
         "mine": is_owner(doc, user), "extract_held": extract_in_progress(doc)}
 
@@ -112,7 +112,7 @@ async def config():
     return {"apiKey": os.environ.get("FIREBASE_API_KEY", ""), "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", ""),
             "projectId": os.environ.get("FIREBASE_PROJECT_ID", ""), "authDisabled": AUTH_DISABLED,
             "authEmulatorUrl": os.environ.get("FIREBASE_AUTH_EMULATOR_URL", ""),
-            "allowed": os.environ.get("ALLOWED_EMAILS", "@earthranger.com"), "version": APP_VERSION}
+            "allowed": allowed_entries(), "version": APP_VERSION}
 
 
 # ---------------------------------------------------------------- session
@@ -180,6 +180,8 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
 async def extract(id: str, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     store = get_store()
+    if any(load_working(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
+        raise HTTPException(status_code=409, detail="Wait for the running load to stop first")
     if not store.upload_exists(id, doc["source_name"]):
         raise HTTPException(status_code=400, detail="The upload is missing or incomplete; delete this dataset and upload again")
     if not store.claim_extract(id):
@@ -336,13 +338,15 @@ class LoadCreate(BaseModel):
 LOAD_DETAIL_ONLY = ("plan", "findings", "rangers", "log_tail", "stages")
 
 
-def _load_public(doc: dict, user: dict) -> dict:
+def _load_public(doc: dict, user: dict, dataset: Optional[dict] = None) -> dict:
+    dataset = dataset or get_store().get(doc.get("dataset_id") or "-")
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
     out = {k: doc.get(k) for k in LOAD_FIELDS}
     # loads made before event_category existed run with the default (load_job's fallback)
     out["options"] = {"event_category": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
     return out | {
         "id": doc["id"], "mine": is_owner(doc, user), "held": load_in_progress(doc),
+        "dataset_extracting": bool(dataset and extract_in_progress(dataset)),   # run and plan-again are refused meanwhile
         "site": {"id": site["id"], "name": site.get("name"), "url": site.get("url")} if site else None}
 
 
@@ -366,7 +370,15 @@ def _launch(load_id: str, mode: str):
     store.update_load(load_id, execution=execution)
 
 
+def _not_extracting(dataset: Optional[dict]):
+    """A load reads the dataset's bundle, which an extraction rewrites."""
+    if dataset and extract_in_progress(dataset):
+        raise HTTPException(status_code=409, detail="The dataset is being extracted; wait for it to finish")
+
+
 def _start(load_id: str, mode: str, claim_status: str):
+    dataset_id = (get_store().get_load(load_id) or {}).get("dataset_id")
+    _not_extracting(get_store().get(dataset_id) if dataset_id else None)
     if not get_store().claim_load(load_id, claim_status):
         raise HTTPException(status_code=409, detail="This load, or another load of this conservation area into that site, "
                                                     "is already planning or running")
@@ -376,6 +388,7 @@ def _start(load_id: str, mode: str, claim_status: str):
 @app.post("/api/datasets/{id}/loads", status_code=201)
 def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     doc = _load(id, user)
+    _not_extracting(doc)
     site = _load_site(req.site_id, user)
     entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
     if not entry:
@@ -419,11 +432,11 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
 
 @app.get("/api/datasets/{id}/loads")
 async def list_loads(id: str, user=Depends(current_user)):
-    _load(id, user)
+    dataset = _load(id, user)
     docs = get_store().list_loads(id)
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     # the list shows a line per load: the page-sized fields stay with GET /api/loads/{id}
-    return [{k: v for k, v in _load_public(d, user).items() if k not in LOAD_DETAIL_ONLY} for d in docs]
+    return [{k: v for k, v in _load_public(d, user, dataset).items() if k not in LOAD_DETAIL_ONLY} for d in docs]
 
 
 @app.get("/api/loads/{id}")

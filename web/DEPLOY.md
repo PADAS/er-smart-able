@@ -19,6 +19,14 @@ GitHub Actions.
 | Loads | one document per load: dataset, site, options, status, stage, per-stage rows with metrics, findings, progress, continuations | Firestore `(default)`, collection `loads` |
 | Files | `datasets/<id>/upload/<file>` (the backup), `datasets/<id>/site/...` (data JSON and decrypted photos), `datasets/<id>/loads/<load id>/...` (a load's plan and results) | a private GCS bucket |
 
+Static assets (`web/static/`) ship in the service image and are served by
+the service itself: `app.css` and `er-tokens.css` (the `--er-ui-*` design
+tokens, taken from the EarthRanger design repository's `tokens.css`),
+`pages.js`, `app.js`, the self-hosted Roboto in `fonts/` and the lockups in
+`img/`. Nothing is loaded from a CDN or Google Fonts at run time; to refresh
+the font run `python scripts/fetch_fonts.py`. The dataset viewer
+(`browse/index.html`) is self-contained and keeps its own copy of the token values; keep the two in step.
+
 A dataset is owned by whoever uploaded it. The owner can share it with
 other allowed addresses, re-run the extraction, or delete it; people it is
 shared with can open it. The browser page is served from the checkout, so
@@ -65,6 +73,7 @@ limits:
 | `LOAD_MAX_CONTINUATIONS` | load job | 10 | continuations before the load is marked failed |
 | `LOAD_NETWORK_TIMEOUT_SECONDS` | load job | 600 | longest wait for any one request to EarthRanger; a request that exceeds it fails its patrol, which the next run retries |
 | `LOAD_WORKERS` | load job | 1 | patrols imported at a time; for experiments only, since EarthRanger creates a site's events one at a time and more workers are slower |
+| `LOAD_QUIET_AFTER_SECONDS` | service | 3600 (1 h) | how long after a held load last wrote its record it still blocks a re-extract of its dataset; a load whose job was killed stops blocking after this, well before its slot lapses |
 | `LOAD_STALE_AFTER_SECONDS` | service | 90000 (25 h) | how long an active load holds its slot (that conservation area into that site) before anyone who can read the dataset and the site may continue or plan it again; keep it above the soft deadline plus startup |
 
 Deleting a dataset deletes its loads, their plans and reports. It never
@@ -110,7 +119,7 @@ Variables:
 | `GCP_SERVICE_ACCOUNT` | `tofu output deploy_service_account` |
 | `GCP_RUNTIME_SERVICE_ACCOUNT` | `tofu output runtime_service_account` |
 | `GCS_BUCKET` | `tofu output bucket` |
-| `ALLOWED_EMAILS` | `@earthranger.com` (comma-separated emails or `@domain`s) |
+| `ALLOWED_EMAILS` | who may sign in and be shared with: whole addresses and `@domain` suffixes, separated by spaces, commas or semicolons, for example `@earthranger.com @partner.org`. Unset, the deploy uses `@earthranger.com`; an empty value allows any Google account. |
 
 Secrets:
 

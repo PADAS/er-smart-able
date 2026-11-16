@@ -389,3 +389,52 @@ def test_a_time_window_is_kept_and_validated(client, launches):
                 {"scope": "datamodel", "since": "2023-01-01"},        # a window with nothing to apply it to
                 {"scope": "patrols-only"}):
         assert _create(c, ds, _site(store), **bad).status_code == 400, bad
+
+
+def test_no_load_starts_while_the_dataset_is_being_extracted(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    planned = _load(store, ds, site)
+    store.update(ds, status="running", started_at=app.now())   # a re-extract: the old export entries are still listed
+    r = c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": {}})
+    assert r.status_code == 409 and "being extracted" in r.json()["detail"]
+    assert c.post(f"/api/loads/{planned}/run").status_code == 409
+    assert c.post(f"/api/loads/{planned}/replan").status_code == 409
+    assert launches == []
+    store.update(ds, status="ready")
+    assert c.post(f"/api/loads/{planned}/run").status_code == 200
+
+
+def test_no_extraction_starts_while_a_load_runs(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    _load(store, ds, site, status="running", claimed_at=app.now(), updated_at=app.now())
+    r = c.post(f"/api/datasets/{ds}/extract")
+    assert r.status_code == 409 and "running load" in r.json()["detail"]
+
+
+def test_a_load_that_went_quiet_stops_blocking_extraction(client, launches, monkeypatch):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    load = _load(store, ds, site, status="running", started_at=app.now())
+    monkeypatch.setattr(store, "upload_exists", lambda *a: True)
+    monkeypatch.setattr(store, "start_extract", lambda id: "exec-1")
+    data = store._read_file(store._loads_path())   # its job was killed two hours ago: the slot is still held, the document untouched since
+    data[load]["updated_at"] = "2020-01-01T00:00:00+00:00"
+    store._write_file(store._loads_path(), data)
+    assert c.get(f"/api/loads/{load}").json()["held"] is True
+    assert c.post(f"/api/datasets/{ds}/extract").status_code == 200
+
+
+def test_a_load_says_when_its_dataset_is_being_extracted(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    load = _load(store, ds, site)
+    assert c.get(f"/api/loads/{load}").json()["dataset_extracting"] is False
+    store.update(ds, status="running", started_at=app.now())
+    assert c.get(f"/api/loads/{load}").json()["dataset_extracting"] is True
+    assert c.get(f"/api/datasets/{ds}/loads").json()[0]["dataset_extracting"] is True

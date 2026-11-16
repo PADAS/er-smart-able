@@ -1,0 +1,166 @@
+# tests/test_job.py — the extraction job's run loop, with the store and the child process faked
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "web"))
+import job  # noqa: E402
+
+
+class FakeStore:
+    def __init__(self, fail_live=False):
+        self.doc, self.fail_live, self.live_attempts = {"source_name": "b.zip"}, fail_live, 0
+
+    def get(self, id):
+        return self.doc
+
+    def update(self, id, **fields):
+        if set(fields) == {"log_tail"}:  # the periodic live-log write
+            self.live_attempts += 1
+            if self.fail_live:
+                raise RuntimeError("firestore unavailable")
+        self.doc.update(fields)
+
+    def fetch_upload(self, id, name, dest):
+        return dest / name
+
+    def put_site(self, id, site):
+        self.doc["site_published"] = True
+
+    def put_export(self, id, export_dir):
+        pass
+
+
+class FakeProc:
+    def __init__(self, lines, rc=0, raise_after=None):
+        self.lines, self.rc, self.raise_after = lines, rc, raise_after
+        self.running, self.terminated = True, False
+
+    @property
+    def stdout(self):
+        for i, line in enumerate(self.lines):
+            if self.raise_after is not None and i == self.raise_after:
+                raise OSError("pipe broke")
+            yield line + "\n"
+
+    def wait(self, timeout=None):
+        self.running = False
+        return self.rc
+
+    def poll(self):
+        return None if self.running else self.rc
+
+    def terminate(self):
+        self.terminated = True
+
+
+@pytest.fixture
+def run(tmp_path, monkeypatch):
+    def go(store, proc, every=0, popen=None):
+        site = tmp_path / "out" / "site" / "data"
+        site.mkdir(parents=True)
+        (site / "meta.json").write_text(json.dumps([{"cas": [{"id": "050500", "n": "Albay"}], "db_version": "7.5.4", "patrols": 3}]))
+        monkeypatch.setenv("JOB_WORK_DIR", str(tmp_path))
+        monkeypatch.setenv("JOB_KEEP_WORK", "1")
+        monkeypatch.setattr(job, "get_store", lambda: store)
+        monkeypatch.setattr(job, "LIVE_TAIL_EVERY", every)
+        monkeypatch.setattr(job.subprocess, "Popen", popen or (lambda *a, **k: proc))
+        monkeypatch.setattr(job.signal, "signal", lambda *a: None)   # the handler is the real job's, not the test runner's
+        return job.main("d1")
+    return go
+
+
+def test_the_running_job_publishes_its_log_as_it_goes(run):
+    store = FakeStore()
+    assert run(store, FakeProc(["one", "two"])) == 0
+    assert store.live_attempts == 2 and store.doc["status"] == "ready" and store.doc["log_tail"] == "one\ntwo"
+    assert store.doc["started_at"] and store.doc["finished_at"] >= store.doc["started_at"]
+
+
+def test_a_failed_live_log_write_does_not_fail_the_extraction(run, capsys):
+    store, proc = FakeStore(fail_live=True), FakeProc(["one", "two", "three"])
+    assert run(store, proc) == 0
+    assert store.live_attempts >= 3, "each interval tries again"
+    assert store.doc["status"] == "ready" and store.doc["site_published"] and store.doc["log_tail"] == "one\ntwo\nthree"
+    assert not proc.terminated
+    assert "live log not published" in capsys.readouterr().err
+
+
+def test_an_abandoned_run_stops_the_whole_process_tree_before_the_work_goes(run):
+    """smart-able is a wrapper: what it started must be gone too, not only the wrapper."""
+    import os
+    import subprocess
+    import time
+    real = subprocess.Popen(["bash", "-c", "sleep 300 & echo $!; wait"], stdout=subprocess.PIPE, text=True, start_new_session=True)
+    seen = {}
+
+    class MidRunFailure:   # the real process, with an output stream that breaks after the first line
+        pid, wait, poll = real.pid, real.wait, real.poll
+
+        @property
+        def stdout(self):
+            seen["grandchild"] = int(real.stdout.readline())
+            yield "started\n"
+            raise OSError("pipe broke")
+
+    store = FakeStore()
+    try:
+        with pytest.raises(OSError):
+            run(store, MidRunFailure())
+        assert real.poll() is not None, "the wrapper was stopped and reaped"
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                os.kill(seen["grandchild"], 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("what the wrapper started outlived the cleanup")
+    finally:
+        for pid in (seen.get("grandchild"), real.pid):
+            try:
+                os.kill(pid, 9)
+            except (ProcessLookupError, TypeError):
+                pass
+    assert store.doc["status"] == "failed" and "pipe broke" in store.doc["error"] and store.doc["finished_at"]
+
+
+def test_the_extract_runs_in_its_own_process_group(run, monkeypatch):
+    store, kwargs = FakeStore(), {}
+    proc = FakeProc(["one"])
+    assert run(store, proc, popen=lambda *a, **k: kwargs.update(k) or proc) == 0
+    assert kwargs.get("start_new_session") is True
+
+
+def test_the_tail_drops_row_counts_before_taking_the_last_lines():
+    lines = ["step one"] + [f"table_{i}: {i} rows" for i in range(80)]
+    assert job.tail_of(lines) == "step one", "a long run of counts does not empty the live log"
+    assert job.tail_of([f"l{i}" for i in range(100)]).split("\n") == [f"l{i}" for i in range(40, 100)]
+
+
+def test_lines_before_a_quiet_stretch_are_published_without_waiting_for_the_next(run, monkeypatch):
+    import threading
+    gate, store = threading.Event(), FakeStore()
+
+    class QuietProc(FakeProc):
+        @property
+        def stdout(self):
+            yield "one\n"
+            yield "two\n"   # lands within the interval of "one": due only once the child has gone quiet
+            assert gate.wait(5), "the live log was not published while the child was quiet"
+            yield "three\n"
+
+    update = store.update
+
+    def watching(id, **fields):
+        update(id, **fields)
+        if fields.get("log_tail") == "one\ntwo":
+            gate.set()
+
+    store.update = watching
+    assert run(store, QuietProc([]), every=0.1) == 0
+    assert store.doc["log_tail"] == "one\ntwo\nthree"

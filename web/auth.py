@@ -12,6 +12,7 @@ dev_user cookie and never talks to Firebase.
 """
 import logging
 import os
+import re
 from datetime import timedelta
 
 from fastapi import HTTPException, Request, Response
@@ -35,9 +36,16 @@ def _init_firebase():
     _firebase_initialized = True
 
 
+def allowed_entries() -> list[str]:
+    """The allow-list as written in ALLOWED_EMAILS: whole addresses and @domain suffixes, lower-cased,
+    separated by commas, semicolons or whitespace (so a deploy variable can avoid commas, which
+    gcloud's env-var flags treat as their own separator)."""
+    return [e.lower() for e in re.split(r"[,;\s]+", ALLOWED_EMAILS) if e]
+
+
 def email_allowed(email: str) -> bool:
     email = (email or "").lower()
-    entries = [e.strip().lower() for e in ALLOWED_EMAILS.split(",") if e.strip()]
+    entries = allowed_entries()
     if not entries:
         return True
     return any(email.endswith(e) if e.startswith("@") else email == e for e in entries)

@@ -59,6 +59,37 @@ def test_a_second_request_while_queued_is_refused(client, launches):
     assert app.get_store().get(id)["status"] == "queued"
 
 
+def test_a_claim_clears_the_previous_runs_log_and_times(client, launches):
+    app, c = client
+    store = app.get_store()
+    id = _dataset(store)
+    store.update(id, status="failed", log_tail="old failure", started_at="2026-01-01T00:00:00+00:00", finished_at="2026-01-01T00:05:00+00:00")
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200
+    doc = store.get(id)
+    assert doc["status"] == "queued" and not doc["log_tail"] and doc["started_at"] is None and doc["finished_at"] is None
+
+
+def test_the_local_store_keeps_changes_made_by_two_processes(client):
+    """The job is its own process: its frequent log writes must not undo the web process's changes."""
+    import multiprocessing
+    app, _ = client
+    store = app.get_store()
+    a, b = _dataset(store), _dataset(store)
+    ctx = multiprocessing.get_context("fork")
+    procs = [ctx.Process(target=_bump, args=(store, id)) for id in (a, b)]
+    for p in procs:
+        p.start()
+    for p in procs:
+        p.join()
+        assert p.exitcode == 0
+    assert store.get(a)["n"] == 199 and store.get(b)["n"] == 199
+
+
+def _bump(store, id):
+    for i in range(200):
+        store.update(id, n=i)
+
+
 def test_concurrent_claims_admit_exactly_one(client):
     app, _ = client
     store = app.get_store()
