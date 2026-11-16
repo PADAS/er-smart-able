@@ -219,3 +219,35 @@ def test_the_guide_says_only_what_the_app_does(site, tmp_path):
     m = g["your-first-migration"]
     assert re.search(r"<strong>uploading</strong>, then <strong>queued</strong>, then <strong>running</strong>, then <strong>ready</strong>", m)
     assert "until it closes" in m
+
+
+def _contrast(a: str, b: str) -> float:
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_link_text_meets_wcag_aa_in_both_themes():
+    """Links are body-size text, so each theme's link colour needs 4.5:1 on the page and on the
+    navigation's current-page highlight."""
+    tokens = (ROOT / "web" / "static" / "er-tokens.css").read_text()
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    split = tokens.index('[data-theme="dark"]')
+    for theme, block in (("light", tokens[:split]), ("dark", tokens[split:])):
+        value = dict(re.findall(r"--(er-ui-[\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+        link = re.search(r'\[data-theme="%s"\][^{]*\{[^}]*--link:\s*var\(--(er-ui-[\w-]+)\)' % theme, css)
+        assert link, f"site.css sets --link for the {theme} theme"
+        for bg in ("er-ui-background-secondary-background", "er-ui-background-elevated-component"):
+            assert _contrast(value[link.group(1)], value[bg]) >= 4.5, (theme, link.group(1), bg)
+    assert "var(--er-ui-cta-primary)" not in re.sub(r"\[data-theme=\"dark\"\][^}]*\}", "", css).replace(":focus-visible { outline: 2px solid var(--er-ui-cta-primary)", ""), \
+        "outside the dark theme's --link, text is never the low-contrast primary green"
+
+
+def test_the_header_fits_a_320px_phone():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    phone = css[css.index("@media (max-width: 700px)"):]
+    assert re.search(r"\.brand\s*\{[^}]*flex-wrap:\s*wrap", phone), "the lockup and the name wrap instead of overflowing"
+    assert re.search(r"\.brand img\s*\{[^}]*max-width:\s*100%", phone), "the lockup shrinks to the band"

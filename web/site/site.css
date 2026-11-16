@@ -3,9 +3,14 @@
   --sans: Roboto, system-ui, "Helvetica Neue", Arial, sans-serif;
   --mono: "Roboto Mono", ui-monospace, Menlo, monospace;
 }
+/* Link text. The primary green is 4.37:1 on the light page, under WCAG AA's 4.5:1 for body text,
+   so the light theme links in the darker teal (8.5:1) and keeps the underline to set links apart.
+   The dark theme's green passes (8.6:1). */
+[data-theme="light"] { --link: var(--er-ui-text-secondary-text); }
+[data-theme="dark"] { --link: var(--er-ui-cta-primary); }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--er-ui-background-secondary-background); color: var(--er-ui-text-primary-text); font: 15px/1.6 var(--sans); }
-a { color: var(--er-ui-cta-primary); }
+a { color: var(--link); }
 :focus-visible { outline: 2px solid var(--er-ui-cta-primary); outline-offset: 2px; }
 code, pre, kbd { font-family: var(--mono); font-size: 0.92em; }
 
@@ -20,7 +25,7 @@ nav h2 { margin: 0 0 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.0
 nav ul { list-style: none; margin: 0 0 20px; padding: 0; }
 nav a { display: block; padding: 5px 10px; border-radius: 8px; color: var(--er-ui-text-primary-text); text-decoration: none; }
 nav a:hover { background: var(--er-ui-background-tertiary-background); }
-nav a[aria-current="page"] { background: var(--er-ui-background-elevated-component); color: var(--er-ui-cta-primary); font-weight: 500; box-shadow: inset 3px 0 var(--er-ui-cta-primary); }
+nav a[aria-current="page"] { background: var(--er-ui-background-elevated-component); color: var(--link); font-weight: 500; box-shadow: inset 3px 0 var(--link); }
 
 main { min-width: 0; max-width: 72ch; overflow-wrap: anywhere; }
 h1 { font-size: 28px; line-height: 1.25; font-weight: 500; margin: 0 0 16px; }
@@ -39,7 +44,7 @@ th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--er-ui-divider-l
 .unverified { padding: 10px 14px; border: 1px solid var(--er-ui-status-warning); border-radius: 8px; background: var(--er-ui-status-bg-warning-bg); font-weight: 500; }
 
 .prev-next { display: flex; justify-content: space-between; gap: 16px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--er-ui-divider-lines); }
-.prev-next a { text-decoration: none; font-weight: 500; }
+.prev-next a { font-weight: 500; text-underline-offset: 3px; }
 .prev-next .next { margin-left: auto; text-align: right; }
 .prev-next small { display: block; font-weight: 400; color: var(--er-ui-text-secondary-text); }
 footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 32px; font-size: 13px; color: var(--er-ui-text-secondary-text); }
@@ -49,5 +54,9 @@ footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 32px; font-size: 13p
   nav { position: static; padding-bottom: 8px; border-bottom: 1px solid var(--er-ui-divider-lines); }
   nav ul { margin-bottom: 12px; }
   .brand .sub { display: none; }
+  /* a 320px phone: the 220px lockup and the name do not fit on one line, so they wrap */
+  header { padding-top: 6px; padding-bottom: 6px; }
+  .brand { flex-wrap: wrap; row-gap: 4px; }
+  .brand img { max-width: 100%; height: auto; max-height: 26px; }
   h1 { font-size: 24px; }
 }
