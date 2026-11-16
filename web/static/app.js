@@ -9,7 +9,10 @@ async function api(path, opts = {}) {
   return r.status === 204 ? null : r.json();
 }
 
+// a dialog or the help drawer belongs to the page it was opened on: leaving that page closes it
+function closeLayers() { if (!$('#modal').hidden) closeDialog(); if (!$('#help').hidden) closeHelp(); }
 function showSignIn(err) {
+  closeLayers();   // the form must not sit behind a dialog's scrim
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
   listGen++; datasetGen++; loadGen++; sitesGen++;   // a page fetch still in flight cannot paint over the form
   mountHeader(false); setBreadcrumb(null);
@@ -66,6 +69,7 @@ function navigate(route, nav = 'push') {
 }
 // one show* per page
 function renderRoute(route) {
+  closeLayers();
   clearTimeout(pollTimer); clearTimeout(loadTimer); listGen++;   // leaving a page: its poll and any response in flight stop
   if (route.page === 'home') showHome();
   else if (route.page === 'dataset') showDataset(route);
@@ -240,17 +244,24 @@ function showNotFound(what) {
 }
 
 // ---- the dataset page: the dataset, the tab's data, the actions; polls while it extracts
+// poll: {fails}, when this is the 5 s refresh of a page already shown. A refresh that fails keeps the page
+// and retries (from the second failure in a row a note says so); one that succeeds repaints in place.
 let datasetGen = 0;
-async function showDataset(route) {
+async function showDataset(route, poll) {
   clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++datasetGen, mine = routeHash(route);
   const current = () => gen === datasetGen && location.hash === mine;
+  const again = fails => { clearTimeout(pollTimer); pollTimer = setTimeout(() => { if (current()) showDataset(route, { fails }); }, 5000); };
+  const failed = e => {
+    if (poll) { retryNote($('#page .page-head'), poll.fails + 1 >= 2); again(poll.fails + 1); }
+    else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
+  };
   let d;
   try { d = await api('/api/datasets/' + route.id); }
   catch (e) {
     if (!current()) return;
     if (e.status === 401) return;   // the sign-in form is already on the page
-    if (e.status === 404) showNotFound('dataset'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
+    if (e.status === 404) showNotFound('dataset'); else failed(e);
     return;
   }
   if (!current()) return;
@@ -264,13 +275,32 @@ async function showDataset(route) {
       // the list items carry no rangers: the newest load that has some is found by fetching, newest first
       for (const l of loads) { if (!current()) return; const full = await api('/api/loads/' + l.id); if ((full.rangers || []).length) { extra.load = full; break; } }
     }
-  } catch (e) { if (!current() || e.status === 401) return; mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  } catch (e) { if (!current() || e.status === 401) return; failed(e); return; }
   if (!current()) return;
   setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
-  mountPage(renderDatasetPage(d, tab, extra));
-  bindDataset(d, tab, route, extra);
-  if (['running', 'queued', 'pending'].includes(d.status) || (tab === 'loads' && (extra.loads || []).some(l => l.held)))
-    pollTimer = setTimeout(() => { if (current()) showDataset(route); }, 5000);
+  if (paintDataset(renderDatasetPage(d, tab, extra), !!poll)) bindDataset(d, tab, route, extra);
+  if (['running', 'queued', 'pending'].includes(d.status) || (tab === 'loads' && (extra.loads || []).some(l => l.held))) again(0);
+}
+// Mounts the dataset page; false when the page already shows exactly this, which is then left alone.
+// A refresh (keep) carries over what the reader did: open and closed sections, the element with focus,
+// and the log's place. A log read at its end stays at its end, so a live one follows the newest lines.
+function paintDataset(html, keep) {
+  const page = $('#page'), old = page.firstElementChild;
+  if (keep && old && old._html === html) { retryNote($('#page .page-head'), false); return false; }
+  const opens = keep ? Array.from(page.querySelectorAll('details')).map(x => x.open) : [];
+  const oldPre = keep ? $('pre.log', page) : null;
+  const atBottom = !oldPre || oldPre.scrollHeight - oldPre.scrollTop - oldPre.clientHeight < 12, scrollTop = oldPre ? oldPre.scrollTop : 0;
+  const f = keep && page.contains(document.activeElement) ? document.activeElement : null;
+  const q = s => '"' + String(s).replace(/["\\]/g, '\\$&') + '"';
+  const focus = !f ? '' : f.id ? '#' + f.id : f.dataset.ca ? '[data-act="load"][data-ca=' + q(f.dataset.ca) + ']' : f.matches('a[href]') ? 'a[href=' + q(f.getAttribute('href')) + ']' : '';
+  mountPage(html);
+  if (page.firstElementChild) page.firstElementChild._html = html;
+  const details = Array.from(page.querySelectorAll('details'));
+  if (details.length === opens.length) details.forEach((x, i) => { x.open = opens[i]; });
+  const pre = $('pre.log', page);
+  if (pre) pre.scrollTop = atBottom ? pre.scrollHeight : scrollTop;
+  const el = focus && $(focus, page); if (el) el.focus();
+  return true;
 }
 function bindDataset(d, tab, route, extra) {
   document.querySelectorAll('.tabs [aria-disabled="true"]').forEach(a => { a.onclick = ev => ev.preventDefault(); });
@@ -294,7 +324,7 @@ function uploadDialog() {
   dialog('Upload a backup or export',
     '<form id="uploadForm" class="stack">' +
     '<label>Name <input id="dsName" required placeholder="e.g. Lawin R5"></label>' +
-    '<label>File <input id="dsFile" type="file" accept=".zip,.sql,.gz,.bak" required></label>' +
+    '<label>File <input id="dsFile" type="file" accept=".zip,.bak" required></label>' +
     '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
     '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">Upload</button></div></form>');
   const form = $('#uploadForm');
@@ -428,7 +458,7 @@ async function loadDialog(d, caId, keep) {
   const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
   if (keep && keep.ca) $('#ldCa').value = keep.ca;
   render();
-  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; lastDefault = $('#ldCategory').value; }
+  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; }   // lastDefault stays the area's default, so a category the reader typed is still theirs
   scopeChanged(); $('#ldCa').onchange = () => { render(); scopeChanged(); }; $('#ldScope').onchange = scopeChanged;
   let prevSite = $('#ldSite').value;
   $('#ldSite').onchange = () => {

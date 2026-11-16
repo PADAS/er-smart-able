@@ -148,7 +148,8 @@ size, the upload date, the owner and the shared-with list. Actions at the
 right: **Share** (owner), **Re-extract** (owner; the current conditions),
 **Delete** (owner; confirms with "and all its extracted data, bundles and
 load records; nothing in EarthRanger is removed"). While an extraction is
-queued or running the actions are disabled except the log.
+queued or running Re-extract, Delete and every Load button are disabled or
+hidden (the job is rewriting what they act on); Share and the log stay.
 
 Then **tabs**, teal text with the active tab underlined in `CTA Primary`:
 

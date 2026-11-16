@@ -169,7 +169,7 @@ function renderOverview(d) {
   var rows = areaRows.map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
     '<td class="tiny">' + (e.patrols != null ? plural(e.patrols, 'patrol') : '') + (e.waypoints != null ? ' · ' + plural(e.waypoints, 'waypoint') : '') + '</td>' +
     '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' : '') +   // the viewer answers 409 unless ready
-    (hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</div></td></tr>').join('');
+    (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>Extraction</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">Log' + (running ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
@@ -178,7 +178,7 @@ function renderOverview(d) {
 
 function renderLoadsTab(d, loads) {
   var list = (loads || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  var canLoad = (d.export || []).some(hasBundle);
+  var canLoad = !d.extract_held && (d.export || []).some(hasBundle);   // an extraction rewrites the bundle a load reads
   var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : '';
   if (!list.length) return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><p class="empty">No loads yet.</p>';
   return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>Area and site</th><th>Status</th><th>Progress</th><th>Started</th><th>By</th></tr></thead><tbody>' +
@@ -199,7 +199,7 @@ function renderDatasetPage(d, tab, extra) {
   extra = extra || {};
   var dis = d.extract_held ? ' disabled' : '';
   var actions = d.mine ? '<div class="actions row">' +
-    '<button id="shareBtn"' + dis + '><span class="mi" aria-hidden="true">share</span>Share</button>' +
+    '<button id="shareBtn"><span class="mi" aria-hidden="true">share</span>Share</button>' +
     '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>Re-extract</button>' +
     '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>Delete</button></div>' : '';
   var shared = (d.shared_with || []).length ? ' · shared with ' + d.shared_with.map(esc).join(', ') : '';

@@ -59,14 +59,14 @@ class FakeProc:
 
 @pytest.fixture
 def run(tmp_path, monkeypatch):
-    def go(store, proc):
+    def go(store, proc, every=0):
         site = tmp_path / "out" / "site" / "data"
         site.mkdir(parents=True)
         (site / "meta.json").write_text(json.dumps([{"cas": [{"id": "050500", "n": "Albay"}], "db_version": "7.5.4", "patrols": 3}]))
         monkeypatch.setenv("JOB_WORK_DIR", str(tmp_path))
         monkeypatch.setenv("JOB_KEEP_WORK", "1")
         monkeypatch.setattr(job, "get_store", lambda: store)
-        monkeypatch.setattr(job, "LIVE_TAIL_EVERY", 0)
+        monkeypatch.setattr(job, "LIVE_TAIL_EVERY", every)
         monkeypatch.setattr(job.subprocess, "Popen", lambda *a, **k: proc)
         return job.main("d1")
     return go
@@ -81,7 +81,7 @@ def test_the_running_job_publishes_its_log_as_it_goes(run):
 def test_a_failed_live_log_write_does_not_fail_the_extraction(run, capsys):
     store, proc = FakeStore(fail_live=True), FakeProc(["one", "two", "three"])
     assert run(store, proc) == 0
-    assert store.live_attempts == 3, "each interval tries again"
+    assert store.live_attempts >= 3, "each interval tries again"
     assert store.doc["status"] == "ready" and store.doc["site_published"] and store.doc["log_tail"] == "one\ntwo\nthree"
     assert not proc.terminated
     assert "live log not published" in capsys.readouterr().err
@@ -93,3 +93,33 @@ def test_an_abandoned_run_stops_its_child_before_the_work_goes(run):
         run(store, proc)
     assert proc.terminated and not proc.running, "terminated and waited for"
     assert store.doc["status"] == "failed" and "pipe broke" in store.doc["error"]
+
+
+def test_the_tail_drops_row_counts_before_taking_the_last_lines():
+    lines = ["step one"] + [f"table_{i}: {i} rows" for i in range(80)]
+    assert job.tail_of(lines) == "step one", "a long run of counts does not empty the live log"
+    assert job.tail_of([f"l{i}" for i in range(100)]).split("\n") == [f"l{i}" for i in range(40, 100)]
+
+
+def test_lines_before_a_quiet_stretch_are_published_without_waiting_for_the_next(run, monkeypatch):
+    import threading
+    gate, store = threading.Event(), FakeStore()
+
+    class QuietProc(FakeProc):
+        @property
+        def stdout(self):
+            yield "one\n"
+            yield "two\n"   # lands within the interval of "one": due only once the child has gone quiet
+            assert gate.wait(5), "the live log was not published while the child was quiet"
+            yield "three\n"
+
+    update = store.update
+
+    def watching(id, **fields):
+        update(id, **fields)
+        if fields.get("log_tail") == "one\ntwo":
+            gate.set()
+
+    store.update = watching
+    assert run(store, QuietProc([]), every=0.1) == 0
+    assert store.doc["log_tail"] == "one\ntwo\nthree"

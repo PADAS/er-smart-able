@@ -9,10 +9,12 @@ must be on PATH (see web/Dockerfile.job).
 Usage: job.py [dataset_id]
 """
 import os
+import queue
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import json
 from pathlib import Path
@@ -44,8 +46,8 @@ LIVE_TAIL_EVERY = 2.0  # seconds between the running job's log_tail writes
 
 
 def tail_of(log_lines: list) -> str:
-    """The last 60 lines, without the per-table row counts."""
-    return "\n".join(l for l in log_lines[-60:] if not l.strip().endswith(" rows"))
+    """The last 60 lines that are not per-table row counts (dropped first, so a long run of counts never empties the tail)."""
+    return "\n".join([l for l in log_lines if not l.strip().endswith(" rows")][-60:])
 
 
 def main(dataset_id: str) -> int:
@@ -65,15 +67,39 @@ def main(dataset_id: str) -> int:
         print(f"extracting {src} -> {work / 'out'}", flush=True)
         proc = subprocess.Popen([str(ROOT / "smart-able"), "all", str(src)], cwd=str(ROOT), env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        flushed = time.monotonic()
-        for line in proc.stdout:
-            print(line, end="", flush=True)
-            log_lines.append(line.rstrip("\n"))
-            if len(log_lines) > 400:
-                del log_lines[:-400]
-            if time.monotonic() - flushed >= LIVE_TAIL_EVERY:  # the Overview polls; it shows the run so far
+        # a thread reads the child's output, so the live log is also published while the child is quiet
+        # (a long step prints nothing): the lines before the silence must not wait for the next one
+        lines = queue.Queue()
+
+        def pump():
+            try:
+                for line in proc.stdout:
+                    lines.put(line)
+                lines.put(None)
+            except BaseException as e:  # noqa: BLE001  handed to the main loop, which raises it
+                lines.put(e)
+
+        threading.Thread(target=pump, daemon=True).start()
+        flushed, unpublished = time.monotonic(), False
+        while True:
+            try:
+                line = lines.get(timeout=max(LIVE_TAIL_EVERY, 0.05))
+            except queue.Empty:
+                line = ""  # quiet: nothing new, but what is unpublished may now be due
+            if line is None:
+                break
+            if isinstance(line, BaseException):
+                raise line
+            if line:
+                print(line, end="", flush=True)
+                log_lines.append(line.rstrip("\n"))
+                if len(log_lines) > 400:
+                    del log_lines[:-400]
+                unpublished = True
+            if unpublished and time.monotonic() - flushed >= LIVE_TAIL_EVERY:  # the Overview polls; it shows the run so far
                 try:
                     store.update(dataset_id, log_tail=tail_of(log_lines))
+                    unpublished = False
                 except Exception as e:  # noqa: BLE001  the live log is a courtesy: the extraction goes on
                     print(f"live log not published ({type(e).__name__}: {e}); will retry", file=sys.stderr, flush=True)
                 flushed = time.monotonic()  # either way, the next attempt is one interval on

@@ -38,5 +38,5 @@ def test_fonts_are_self_hosted_with_a_fallback_and_optional_display():
 def test_the_page_builders_pass_their_node_tests():
     if not shutil.which("node"):
         pytest.skip("node is not installed")
-    r = subprocess.run(["node", "--test", "tests/js/*.test.js"], cwd=ROOT, capture_output=True, text=True)
+    r = subprocess.run(["node", "--test", *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "tests" / "js").glob("*.test.js"))], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr

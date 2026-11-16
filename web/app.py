@@ -180,6 +180,8 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
 async def extract(id: str, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     store = get_store()
+    if any(load_in_progress(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
+        raise HTTPException(status_code=409, detail="Wait for the running load to stop first")
     if not store.upload_exists(id, doc["source_name"]):
         raise HTTPException(status_code=400, detail="The upload is missing or incomplete; delete this dataset and upload again")
     if not store.claim_extract(id):
@@ -366,7 +368,15 @@ def _launch(load_id: str, mode: str):
     store.update_load(load_id, execution=execution)
 
 
+def _not_extracting(dataset: Optional[dict]):
+    """A load reads the dataset's bundle, which an extraction rewrites."""
+    if dataset and extract_in_progress(dataset):
+        raise HTTPException(status_code=409, detail="The dataset is being extracted; wait for it to finish")
+
+
 def _start(load_id: str, mode: str, claim_status: str):
+    dataset_id = (get_store().get_load(load_id) or {}).get("dataset_id")
+    _not_extracting(get_store().get(dataset_id) if dataset_id else None)
     if not get_store().claim_load(load_id, claim_status):
         raise HTTPException(status_code=409, detail="This load, or another load of this conservation area into that site, "
                                                     "is already planning or running")
@@ -376,6 +386,7 @@ def _start(load_id: str, mode: str, claim_status: str):
 @app.post("/api/datasets/{id}/loads", status_code=201)
 def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     doc = _load(id, user)
+    _not_extracting(doc)
     site = _load_site(req.site_id, user)
     entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
     if not entry:

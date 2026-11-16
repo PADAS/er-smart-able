@@ -389,3 +389,27 @@ def test_a_time_window_is_kept_and_validated(client, launches):
                 {"scope": "datamodel", "since": "2023-01-01"},        # a window with nothing to apply it to
                 {"scope": "patrols-only"}):
         assert _create(c, ds, _site(store), **bad).status_code == 400, bad
+
+
+def test_no_load_starts_while_the_dataset_is_being_extracted(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    planned = _load(store, ds, site)
+    store.update(ds, status="running", started_at=app.now())   # a re-extract: the old export entries are still listed
+    r = c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": {}})
+    assert r.status_code == 409 and "being extracted" in r.json()["detail"]
+    assert c.post(f"/api/loads/{planned}/run").status_code == 409
+    assert c.post(f"/api/loads/{planned}/replan").status_code == 409
+    assert launches == []
+    store.update(ds, status="ready")
+    assert c.post(f"/api/loads/{planned}/run").status_code == 200
+
+
+def test_no_extraction_starts_while_a_load_runs(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    _load(store, ds, site, status="running", claimed_at=app.now(), updated_at=app.now())
+    r = c.post(f"/api/datasets/{ds}/extract")
+    assert r.status_code == 409 and "running load" in r.json()["detail"]

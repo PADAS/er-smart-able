@@ -16,7 +16,14 @@ test('an area with no patrols alone still gets a Load button and the Loads tab i
 });
 test('Browse shows only once the dataset is ready (the viewer answers 409 otherwise)', () => {
   const h = P.renderDatasetPage({ ...d, status: 'running', extract_held: true }, 'overview', {});
-  assert.doesNotMatch(h, /href="\/d\/a1\/"/); assert.match(h, /data-act="load" data-ca="ALPHA"/);
+  assert.doesNotMatch(h, /href="\/d\/a1\/"/);
+});
+test('no Load is offered while the dataset is being extracted: the bundle is being rewritten', () => {
+  const held = { ...d, status: 'running', extract_held: true };
+  assert.doesNotMatch(P.renderDatasetPage(held, 'overview', {}), /data-act="load"/);
+  assert.doesNotMatch(P.renderDatasetPage(held, 'loads', { loads: [] }), /id="loadBtn"/);
+  // a run that died without reporting stops holding: Load is back with the export it left
+  assert.match(P.renderDatasetPage({ ...d, status: 'running', extract_held: false }, 'overview', {}), /data-act="load" data-ca="ALPHA"/);
 });
 test('a failed re-extract keeps the Loads and Rangers tabs reachable while the export is there', () => {
   const h = P.renderDatasetPage({ ...d, status: 'failed', error: 'boom' }, 'overview', {});
@@ -29,7 +36,8 @@ test('a ready dataset without export entries still lists its areas for Browse', 
 });
 test('a dataset still extracting disables the actions and the other tabs', () => {
   const h = P.renderDatasetPage({ ...d, status: 'running', extract_held: true, export: [] }, 'overview', {});
-  assert.match(h, /id="deleteBtn"[^>]*disabled/); assert.match(h, /href="#\/datasets\/a1\/loads"[^>]*aria-disabled="true"/); assert.match(h, /<details open/);
+  assert.match(h, /id="deleteBtn"[^>]*disabled/); assert.match(h, /id="extractBtn"[^>]*disabled/); assert.doesNotMatch(h, /id="shareBtn"[^>]*disabled/);   // sharing changes nothing the job touches
+  assert.match(h, /href="#\/datasets\/a1\/loads"[^>]*aria-disabled="true"/); assert.match(h, /<details open/);
 });
 test('a failed extraction still opens, with its error', () => {
   assert.match(P.renderDatasetPage({ ...d, status: 'failed', error: 'boom', export: [] }, 'overview', {}), /st-error[\s\S]*boom/);
