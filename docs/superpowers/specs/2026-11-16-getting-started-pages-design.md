@@ -159,8 +159,16 @@ establishes; nothing is invented:
 - Style: plain, second person, short steps; the same voice as `web/help/`.
 
 Steps for getting a backup out of SMART beyond what the README states are
-written as far as the repository supports and marked for Chris to check
-before the site is announced.
+written as far as the repository supports, and carry a visible note on
+the page: "These steps are not yet verified against SMART Desktop."
+(Chris's decision.) The note is one reusable callout style, removed when
+he has checked the steps.
+
+The repository does not say where an EarthRanger API token is created.
+The page states what the token must be (from `web/help/02-sites.md`) and
+tells the reader to ask the target site's EarthRanger administrator for
+one; it gives no click path. (Author's call: Chris was asked and did not
+supply the steps. They are added when he does.)
 
 ### Tests
 
