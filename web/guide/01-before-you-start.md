@@ -18,7 +18,8 @@ You can load the data model on its own first, or limit the patrols to a range of
 ## What it does not migrate
 
 - **Profiles data.** If the conservation area uses SMART's Profiles plugin, you can look at that data in the app, but it is not loaded into EarthRanger.
-- **Patrol teams, patrol type icons and permissions.** The EarthRanger API cannot create these. The load stops and tells an EarthRanger administrator exactly what to create; then you continue.
+- **Patrol teams and permissions.** The EarthRanger API cannot create these. The load stops and says what an EarthRanger administrator must create or grant; then you continue.
+- **Patrol type icons.** The load warns that they are missing, and an administrator picks them afterwards.
 - **User accounts for rangers.** The load creates the rangers as subjects. Giving a ranger a login, linked to that subject, is a step for an administrator afterwards.
 - **A patrol with no start date**, when you load a range of dates.
 
@@ -39,7 +40,7 @@ What you upload belongs to you. Nobody else sees a dataset or a site until you s
 
 ## How long it takes
 
-Extraction takes a few minutes. A plan takes a few minutes more. The load itself depends on how fast the EarthRanger site writes: about 0.8 seconds per observation, so a conservation area with 70,000 observations takes about a day. It runs on its own; you do not need to keep the page open.
+Extraction takes a few minutes. The load itself depends on how fast the EarthRanger site writes: about 0.8 seconds per observation, so a conservation area with 70,000 observations takes about a day. It runs on its own; you do not need to keep the page open.
 
 ## Next
 

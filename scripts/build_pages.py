@@ -28,7 +28,7 @@ REPO_URL = "https://github.com/PADAS/er-smart-able/blob/main/"
 sys.path.insert(0, str(ROOT / "web"))
 import help_pages  # noqa: E402  the app's renderer and Markdown configuration; not changed here
 
-_TITLE = re.compile(r"\s*#\s+(.+?)\s*(?:\n|$)")
+_TITLE = re.compile(r"\s*#[ \t]+(\S.*?)[ \t]*(?:\n|$)")   # one line: a bare "#" does not take the next line
 _LOCAL = re.compile(r'href="(?!https?://|#|/|[a-z]+:)([^"#]+)(#[^"]*)?"')
 _OUTSIDE = re.compile(r'<a\b([^>]*?)href="(https?://)')
 
@@ -54,6 +54,11 @@ def _sources() -> list[tuple[Path, str, str]]:
             out.append((f, re.sub(r"^\d+-", "", f.stem), group))
     if out and out[0][2] == "Get started":
         out[0] = (out[0][0], "index", out[0][2])
+    seen = {}
+    for f, slug, _ in out:   # one page per name: a second would overwrite the first
+        if slug in seen:
+            raise BuildError(f"{f} and {seen[slug]} would both be {slug}.html; rename one")
+        seen[slug] = f
     return out
 
 
@@ -116,13 +121,30 @@ def _prev_next(all_pages: list[Page], i: int) -> str:
     return out
 
 
+MARK = ".build_pages"   # in every folder this script writes, so a rebuild may empty it and nothing else
+
+
+def _check_out(out: Path):
+    """The output folder is emptied before each build, so refuse any folder this script did not write:
+    the repository, a folder that holds the sources, or one with anything in it and no MARK."""
+    o = out.resolve()
+    for keep in (ROOT, GUIDE_DIR, HELP_DIR, SITE_DIR, STATIC_DIR):
+        k = keep.resolve()
+        if o == k or o in k.parents:
+            raise BuildError(f"{out}: refusing to empty it; it holds {keep}. Choose another --out, such as _site")
+    if o.exists() and any(o.iterdir()) and not (o / MARK).exists():
+        raise BuildError(f"{out}: refusing to empty it; it is not empty and was not written by this script")
+
+
 def build(out: Path) -> list[Path]:
     all_pages = pages()   # before anything is removed: a source that cannot build leaves the last site alone
     template = (SITE_DIR / "page.html").read_text(encoding="utf-8")
+    _check_out(out)
     if out.exists():
         shutil.rmtree(out)
     static = out / "static"
     static.mkdir(parents=True)
+    (out / MARK).write_text("Written by scripts/build_pages.py; a rebuild empties this folder.\n")
     shutil.copy(STATIC_DIR / "er-tokens.css", static)
     shutil.copy(SITE_DIR / "site.css", static)
     shutil.copytree(STATIC_DIR / "fonts", static / "fonts")

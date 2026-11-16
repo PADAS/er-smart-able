@@ -10,9 +10,9 @@ Open [the app](https://smart-able-977100970772.us-central1.run.app/) and sign in
 
 1. On the **Datasets** page, press **Upload a backup or export**.
 2. Give the dataset a name you will recognise, such as the conservation area and the date, and choose your `.zip` file.
-3. Press **Upload**. A large backup takes a while to send; leave the dialog open until it says the extraction is starting.
+3. Press **Upload**. A large backup takes a while to send; leave the dialog open until it closes.
 
-The new dataset appears in the list as **queued**, then **running**, then **ready**. That takes a few minutes, and the page refreshes itself. If it ends as **failed**, open the dataset: the Overview shows the error and the end of the log. [Statuses](../help/04-statuses.md) explains each status.
+The new dataset appears in the list as **uploading**, then **queued**, then **running**, then **ready**. That takes a few minutes, and the page refreshes itself. If it ends as **failed**, open the dataset: the Overview shows the error and the end of the log. [Statuses](../help/04-statuses.md) explains each status.
 
 ## 3. Browse what was extracted
 

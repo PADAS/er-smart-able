@@ -6,7 +6,7 @@ You need two things before you open the app: a file from SMART, and access to th
 
 The app accepts any one of these, as a single `.zip` file:
 
-- **A Conservation Area export.** This is the smallest and the quickest to extract, and holds one conservation area.
+- **A Conservation Area export.** It holds one conservation area.
 - **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It can hold several conservation areas; you choose which to load later.
 - **A zipped SMART Desktop install folder.** Zip the whole folder SMART Desktop is installed in. Use this when you cannot run SMART to make an export or a backup.
 

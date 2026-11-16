@@ -112,8 +112,8 @@ def test_no_link_or_asset_is_root_relative_or_from_a_cdn(site, tmp_path):
 
 
 def test_a_rebuild_leaves_no_stale_page(site, tmp_path, monkeypatch):
-    out = tmp_path / "o"; out.mkdir(); (out / "gone.html").write_text("old")
     tree(tmp_path, monkeypatch, site, {"01-a.md": "# A"}, {})
+    out = tmp_path / "o"; site.build(out); (out / "gone.html").write_text("old")
     site.build(out)
     assert not (out / "gone.html").exists()
 
@@ -181,3 +181,41 @@ def test_the_workflow_builds_and_deploys_on_main_for_the_sites_sources():
     assert "pages: write" in y and "id-token: write" in y and "contents: read" in y
     assert "scripts/build_pages.py --out _site" in y and "actions/upload-pages-artifact" in y and "actions/deploy-pages" in y
     assert "/_site/" in (ROOT / ".gitignore").read_text()
+
+
+# ---- review fixes
+def test_the_build_refuses_to_empty_a_folder_it_did_not_write(site, tmp_path, monkeypatch):
+    # against a stand-in repository only: a regression here must never reach the real one
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A"}, {})
+    root = site.ROOT
+    (root / "precious.txt").write_text("keep")
+    for target in (root, root / "web", site.GUIDE_DIR):
+        with pytest.raises(site.BuildError, match="refusing"):
+            site.build(target)
+    other = tmp_path / "docs"; other.mkdir(); (other / "precious.txt").write_text("keep")
+    with pytest.raises(site.BuildError, match="refusing"):
+        site.build(other)
+    assert (root / "precious.txt").read_text() == "keep" and (other / "precious.txt").read_text() == "keep"
+    assert (site.GUIDE_DIR / "01-a.md").is_file()
+
+
+def test_a_heading_mark_alone_is_not_a_title(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "#\nBody para\n"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_two_sources_with_one_slug_fail_the_build_naming_both(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A", "02-overview.md": "# Mine"}, {"01-overview.md": "# Overview"})
+    with pytest.raises(site.BuildError, match=r"02-overview\.md.*01-overview\.md|01-overview\.md.*02-overview\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_the_guide_says_only_what_the_app_does(site, tmp_path):
+    g = _guide(site, tmp_path)
+    assert "icons" in g["index"] and "warns" in g["index"], "a missing patrol type icon is a warning, not a stop"
+    assert "A plan takes a few minutes" not in g["index"]
+    assert "quickest to extract" not in g["get-your-inputs"]
+    m = g["your-first-migration"]
+    assert re.search(r"<strong>uploading</strong>, then <strong>queued</strong>, then <strong>running</strong>, then <strong>ready</strong>", m)
+    assert "until it closes" in m
