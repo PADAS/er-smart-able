@@ -132,3 +132,41 @@ def test_the_site_stylesheet_takes_its_colours_from_tokens():
     css = (ROOT / "web" / "site" / "site.css").read_text()
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", css)
     assert "var(--er-ui-" in css and ".unverified" in css and "max-width: 700px" in css
+
+
+# ---- the guide's content
+def _guide(site, tmp_path):
+    out = tmp_path / "_site"; site.build(out)
+    return {n: (out / f"{n}.html").read_text() for n in ("index", "get-your-inputs", "your-first-migration")}
+
+
+def test_before_you_start_says_where_the_app_is_who_signs_in_and_what_migrates(site, tmp_path):
+    h = _guide(site, tmp_path)["index"]
+    assert "<h1>Before you start</h1>" in h
+    assert 'href="https://smart-able-977100970772.us-central1.run.app/"' in h
+    assert "This email is not allowed" in h and "EarthRanger engineering team" in h
+    assert "Profiles" in h and "7.5" in h and "8.0" in h and "not yet proven" in h
+    assert 'href="get-your-inputs.html"' in h
+
+
+def test_get_your_inputs_covers_the_backup_the_export_and_the_token(site, tmp_path):
+    h = _guide(site, tmp_path)["get-your-inputs"]
+    assert "Export Conservation Area" in h and ".zip" in h and not re.search(r"\.bak(?!\.zip)", h)
+    assert re.search(r'class="unverified"[^>]*>\s*These steps are not yet verified against SMART Desktop\.', h)
+    assert "superuser" in h and "administrator" in h and 'href="sites.html' in h
+    assert "example.pamdas.org" in h
+
+
+def test_your_first_migration_walks_the_steps_in_order_and_links_the_reference(site, tmp_path):
+    h = _guide(site, tmp_path)["your-first-migration"]
+    order = [h.index(w) for w in ("Sign in", "Upload", "Browse", "Add a site", "Make the plan", "Confirm and load")]
+    assert order == sorted(order)
+    for ref in ("overview.html", "sites.html", "loading.html", "statuses.html", "stops.html"):
+        assert f'href="{ref}' in h, ref
+
+
+def test_the_guide_names_no_real_site_and_no_token(site, tmp_path):
+    for name, h in _guide(site, tmp_path).items():
+        hosts = set(re.findall(r"[a-z0-9-]+\.pamdas\.org", h))
+        assert hosts <= {"example.pamdas.org"}, (name, hosts)
+        assert not re.search(r"\b[0-9a-f]{32,}\b", h), name
