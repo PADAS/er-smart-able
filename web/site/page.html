@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}} · SMART migration</title>
+  <!-- the tokens hang on data-theme, so it is set before anything paints; it follows the system -->
+  <script>(function () { var q = window.matchMedia && matchMedia('(prefers-color-scheme: dark)'); function set() { document.documentElement.dataset.theme = q && q.matches ? 'dark' : 'light'; } set(); if (q && q.addEventListener) q.addEventListener('change', set); })();</script>
+  <link rel="stylesheet" href="static/er-tokens.css">
+  <link rel="stylesheet" href="static/fonts/roboto.css">
+  <link rel="stylesheet" href="static/site.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html"><img src="static/img/er-lockup-white-h-short.svg" alt="EarthRanger"><span>SMART migration <span class="sub">· Getting started</span></span></a>
+  </header>
+  <div class="layout">
+    <nav aria-label="Pages">
+{{nav}}
+    </nav>
+    <main>
+      <h1>{{title}}</h1>
+{{body}}
+      <div class="prev-next">{{prev_next}}</div>
+    </main>
+  </div>
+  <footer>The tool's source and engineering notes are on <a href="https://github.com/PADAS/er-smart-able">GitHub</a>.</footer>
+</body>
+</html>
