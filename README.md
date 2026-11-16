@@ -186,6 +186,10 @@ way it will look in the system it is moving to.
 
 ## Documentation
 
+- [Getting started](https://padas.github.io/er-smart-able/): the guide for
+  support people migrating a site with the hosted app, built from
+  `web/guide/` and the app's help in `web/help/` (see
+  [web/DEPLOY.md](web/DEPLOY.md#the-getting-started-site)).
 - [RUNBOOK.md](RUNBOOK.md): prerequisites, running each stage, checking the
   output, troubleshooting.
 - [docs/smart-data-model.md](docs/smart-data-model.md): SMART's tables,

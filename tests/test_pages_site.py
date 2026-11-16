@@ -170,3 +170,14 @@ def test_the_guide_names_no_real_site_and_no_token(site, tmp_path):
         hosts = set(re.findall(r"[a-z0-9-]+\.pamdas\.org", h))
         assert hosts <= {"example.pamdas.org"}, (name, hosts)
         assert not re.search(r"\b[0-9a-f]{32,}\b", h), name
+
+
+# ---- publishing
+def test_the_workflow_builds_and_deploys_on_main_for_the_sites_sources():
+    y = (ROOT / ".github" / "workflows" / "pages.yml").read_text()
+    for path in ("web/guide/**", "web/help/**", "web/site/**", "web/static/**", "scripts/build_pages.py", "browse/build_quirks.py", "web/help_pages.py", ".github/workflows/pages.yml"):
+        assert path in y, path
+    assert "workflow_dispatch" in y and "branches: [main]" in y
+    assert "pages: write" in y and "id-token: write" in y and "contents: read" in y
+    assert "scripts/build_pages.py --out _site" in y and "actions/upload-pages-artifact" in y and "actions/deploy-pages" in y
+    assert "/_site/" in (ROOT / ".gitignore").read_text()
