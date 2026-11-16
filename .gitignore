@@ -28,3 +28,6 @@ web/infra/.terraform/
 web/infra/*.tfstate*
 .worktrees/
 .superpowers/
+
+# The getting-started site, built by scripts/build_pages.py (GitHub Pages publishes it from CI)
+/_site/

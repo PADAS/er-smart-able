@@ -1,0 +1,253 @@
+"""The getting-started site (GitHub Pages): scripts/build_pages.py renders web/guide and the in-app
+help to static pages. The build's structure and links, then the guide's content, then the workflow."""
+from __future__ import annotations
+
+import importlib.util
+import re
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).parent.parent
+
+
+@pytest.fixture
+def site(monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "web"))
+    spec = importlib.util.spec_from_file_location("build_pages", ROOT / "scripts" / "build_pages.py")
+    mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, "build_pages", mod)   # the dataclass looks its module up while it is defined
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def tree(tmp_path, monkeypatch, mod, guide: dict, help: dict):
+    """A stand-in repository under tmp_path: web/guide and web/help with the given files, and the
+    two repository files the link tests point at."""
+    root = tmp_path / "repo"
+    for folder, files in (("guide", guide), ("help", help)):
+        d = root / "web" / folder
+        d.mkdir(parents=True)
+        for name, text in files.items():
+            (d / name).write_text(text, encoding="utf-8")
+    (root / "docs").mkdir()
+    (root / "README.md").write_text("# readme")
+    (root / "docs" / "smart-data-quirks.md").write_text("# quirks")
+    monkeypatch.setattr(mod, "ROOT", root)
+    monkeypatch.setattr(mod, "GUIDE_DIR", root / "web" / "guide")
+    monkeypatch.setattr(mod, "HELP_DIR", root / "web" / "help")
+
+
+def test_the_real_site_builds_a_page_per_source_with_index_first(site, tmp_path):
+    out = tmp_path / "_site"
+    written = site.build(out)
+    names = [p.name for p in written]
+    assert names[0] == "index.html"
+    assert {"overview.html", "sites.html", "loading.html", "statuses.html", "stops.html"} <= set(names)
+    assert len(names) == len(list(site.GUIDE_DIR.glob("*.md"))) + len(list(site.HELP_DIR.glob("*.md")))
+    for f in ("static/er-tokens.css", "static/site.css", "static/fonts/roboto.css", "static/fonts/roboto.woff2", "static/img/er-lockup-white-h-short.svg"):
+        assert (out / f).is_file(), f
+
+
+def test_each_page_has_its_title_nav_groups_current_mark_and_neighbours(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# Alpha\n\nx", "02-b.md": "# Beta\n\ny"}, {"01-c.md": "# Gamma\n\nz"})
+    out = tmp_path / "o"; site.build(out)
+    b = (out / "b.html").read_text()
+    assert "<title>Beta · SMART migration</title>" in b and "<h1>Beta</h1>" in b
+    assert "Get started" in b and "Reference" in b
+    assert re.search(r'<a[^>]*href="b\.html"[^>]*aria-current="page"', b)
+    assert not re.search(r'<a[^>]*href="index\.html"[^>]*aria-current', b)
+    assert re.search(r'class="prev"[^>]*href="index\.html"|href="index\.html"[^>]*class="prev"', b)
+    assert re.search(r'class="next"[^>]*href="c\.html"|href="c\.html"[^>]*class="next"', b)
+    assert 'class="prev"' not in (out / "index.html").read_text() and 'class="next"' not in (out / "c.html").read_text()
+
+
+def test_links_between_sources_become_pages_and_keep_their_anchor(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n[s](../help/02-sites.md#which-user) [b](02-b.md) [h](#here)", "02-b.md": "# B\n\n[a](01-a.md)"},
+         {"02-sites.md": "# Sites\n\nx"})
+    out = tmp_path / "o"; site.build(out)
+    a = (out / "index.html").read_text()
+    assert 'href="sites.html#which-user"' in a and 'href="b.html"' in a and 'href="#here"' in a
+    assert 'href="index.html"' in (out / "b.html").read_text()
+
+
+def test_a_link_to_another_repository_file_goes_to_github_and_outside_links_open_a_new_tab(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n[r](../../README.md) [q](../../docs/smart-data-quirks.md#patrol-times) [e](https://earthranger.com)"}, {})
+    out = tmp_path / "o"; site.build(out)
+    a = (out / "index.html").read_text()
+    assert 'href="https://github.com/PADAS/er-smart-able/blob/main/README.md"' in a
+    assert 'href="https://github.com/PADAS/er-smart-able/blob/main/docs/smart-data-quirks.md#patrol-times"' in a
+    assert re.search(r'<a target="_blank" rel="noopener"[^>]*href="https://earthranger\.com"', a)
+
+
+def test_a_broken_relative_link_fails_the_build_naming_file_and_link(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n[x](nope.md)"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*nope\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_a_source_without_a_title_fails_the_build_naming_the_file(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "no heading here"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_titles_are_escaped_everywhere(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A", "02-b.md": '# R&D <fast> "now"\n\nx'}, {})
+    out = tmp_path / "o"; site.build(out)
+    for name in ("index.html", "b.html"):
+        h = (out / name).read_text()
+        assert "<fast>" not in h and "R&amp;D &lt;fast&gt;" in h
+
+
+def test_no_link_or_asset_is_root_relative_or_from_a_cdn(site, tmp_path):
+    out = tmp_path / "_site"; site.build(out)
+    for p in out.glob("*.html"):
+        h = p.read_text()
+        assert not re.search(r'(?:href|src)="/', h), p.name
+        assert "fonts.googleapis.com" not in h and "gstatic.com" not in h and "cdn" not in h.lower(), p.name
+        assert 'href="static/er-tokens.css"' in h and 'href="static/fonts/roboto.css"' in h and 'href="static/site.css"' in h
+        assert "prefers-color-scheme" in h and "dataset.theme" in h, "the theme is set in the head"
+
+
+def test_a_rebuild_leaves_no_stale_page(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A"}, {})
+    out = tmp_path / "o"; site.build(out); (out / "gone.html").write_text("old")
+    site.build(out)
+    assert not (out / "gone.html").exists()
+
+
+def test_the_reference_pages_carry_the_apps_own_rendering(site, tmp_path):
+    import help_pages
+    out = tmp_path / "_site"; site.build(out)
+    bare = lambda h: re.sub(r"<a\b[^>]*>", "<a>", h)
+    for s in help_pages.sections():
+        if s["id"] == "quirks":
+            continue
+        assert bare(s["html"]).strip() in bare((out / f'{s["id"]}.html').read_text()), s["id"]
+
+
+def test_the_site_stylesheet_takes_its_colours_from_tokens():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", css)
+    assert "var(--er-ui-" in css and ".unverified" in css and "max-width: 700px" in css
+
+
+# ---- the guide's content
+def _guide(site, tmp_path):
+    out = tmp_path / "_site"; site.build(out)
+    return {n: (out / f"{n}.html").read_text() for n in ("index", "get-your-inputs", "your-first-migration")}
+
+
+def test_before_you_start_says_where_the_app_is_who_signs_in_and_what_migrates(site, tmp_path):
+    h = _guide(site, tmp_path)["index"]
+    assert "<h1>Before you start</h1>" in h
+    assert 'href="https://smart-able-977100970772.us-central1.run.app/"' in h
+    assert "This email is not allowed" in h and "EarthRanger engineering team" in h
+    assert "Profiles" in h and "7.5" in h and "8.0" in h and "not yet proven" in h
+    assert 'href="get-your-inputs.html"' in h
+
+
+def test_get_your_inputs_covers_the_backup_the_export_and_the_token(site, tmp_path):
+    h = _guide(site, tmp_path)["get-your-inputs"]
+    assert "Export Conservation Area" in h and ".zip" in h and not re.search(r"\.bak(?!\.zip)", h)
+    assert re.search(r'class="unverified"[^>]*>\s*These steps are not yet verified against SMART Desktop\.', h)
+    assert "superuser" in h and "administrator" in h and 'href="sites.html' in h
+    assert "example.pamdas.org" in h
+
+
+def test_your_first_migration_walks_the_steps_in_order_and_links_the_reference(site, tmp_path):
+    h = _guide(site, tmp_path)["your-first-migration"]
+    order = [h.index(w) for w in ("Sign in", "Upload", "Browse", "Add a site", "Make the plan", "Confirm and load")]
+    assert order == sorted(order)
+    for ref in ("overview.html", "sites.html", "loading.html", "statuses.html", "stops.html"):
+        assert f'href="{ref}' in h, ref
+
+
+def test_the_guide_names_no_real_site_and_no_token(site, tmp_path):
+    for name, h in _guide(site, tmp_path).items():
+        hosts = set(re.findall(r"[a-z0-9-]+\.pamdas\.org", h))
+        assert hosts <= {"example.pamdas.org"}, (name, hosts)
+        assert not re.search(r"\b[0-9a-f]{32,}\b", h), name
+
+
+# ---- publishing
+def test_the_workflow_builds_and_deploys_on_main_for_the_sites_sources():
+    y = (ROOT / ".github" / "workflows" / "pages.yml").read_text()
+    for path in ("web/guide/**", "web/help/**", "web/site/**", "web/static/**", "scripts/build_pages.py", "browse/build_quirks.py", "web/help_pages.py", ".github/workflows/pages.yml"):
+        assert path in y, path
+    assert "workflow_dispatch" in y and "branches: [main]" in y
+    assert "pages: write" in y and "id-token: write" in y and "contents: read" in y
+    assert "scripts/build_pages.py --out _site" in y and "actions/upload-pages-artifact" in y and "actions/deploy-pages" in y
+    assert "/_site/" in (ROOT / ".gitignore").read_text()
+
+
+# ---- review fixes
+def test_the_build_refuses_to_empty_a_folder_it_did_not_write(site, tmp_path, monkeypatch):
+    # against a stand-in repository only: a regression here must never reach the real one
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A"}, {})
+    root = site.ROOT
+    (root / "precious.txt").write_text("keep")
+    for target in (root, root / "web", site.GUIDE_DIR):
+        with pytest.raises(site.BuildError, match="refusing"):
+            site.build(target)
+    other = tmp_path / "docs"; other.mkdir(); (other / "precious.txt").write_text("keep")
+    with pytest.raises(site.BuildError, match="refusing"):
+        site.build(other)
+    assert (root / "precious.txt").read_text() == "keep" and (other / "precious.txt").read_text() == "keep"
+    assert (site.GUIDE_DIR / "01-a.md").is_file()
+
+
+def test_a_heading_mark_alone_is_not_a_title(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "#\nBody para\n"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_two_sources_with_one_slug_fail_the_build_naming_both(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A", "02-overview.md": "# Mine"}, {"01-overview.md": "# Overview"})
+    with pytest.raises(site.BuildError, match=r"02-overview\.md.*01-overview\.md|01-overview\.md.*02-overview\.md"):
+        site.build(tmp_path / "o")
+
+
+def test_the_guide_says_only_what_the_app_does(site, tmp_path):
+    g = _guide(site, tmp_path)
+    assert "icons" in g["index"] and "warns" in g["index"], "a missing patrol type icon is a warning, not a stop"
+    assert "A plan takes a few minutes" not in g["index"]
+    assert "quickest to extract" not in g["get-your-inputs"]
+    m = g["your-first-migration"]
+    assert re.search(r"<strong>uploading</strong>, then <strong>queued</strong>, then <strong>running</strong>, then <strong>ready</strong>", m)
+    assert "until it closes" in m
+
+
+def _contrast(a: str, b: str) -> float:
+    def lum(h):
+        c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_link_text_meets_wcag_aa_in_both_themes():
+    """Links are body-size text, so each theme's link colour needs 4.5:1 on the page and on the
+    navigation's current-page highlight."""
+    tokens = (ROOT / "web" / "static" / "er-tokens.css").read_text()
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    split = tokens.index('[data-theme="dark"]')
+    for theme, block in (("light", tokens[:split]), ("dark", tokens[split:])):
+        value = dict(re.findall(r"--(er-ui-[\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+        link = re.search(r'\[data-theme="%s"\][^{]*\{[^}]*--link:\s*var\(--(er-ui-[\w-]+)\)' % theme, css)
+        assert link, f"site.css sets --link for the {theme} theme"
+        for bg in ("er-ui-background-secondary-background", "er-ui-background-elevated-component"):
+            assert _contrast(value[link.group(1)], value[bg]) >= 4.5, (theme, link.group(1), bg)
+    assert "var(--er-ui-cta-primary)" not in re.sub(r"\[data-theme=\"dark\"\][^}]*\}", "", css).replace(":focus-visible { outline: 2px solid var(--er-ui-cta-primary)", ""), \
+        "outside the dark theme's --link, text is never the low-contrast primary green"
+
+
+def test_the_header_fits_a_320px_phone():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    phone = css[css.index("@media (max-width: 700px)"):]
+    assert re.search(r"\.brand\s*\{[^}]*flex-wrap:\s*wrap", phone), "the lockup and the name wrap instead of overflowing"
+    assert re.search(r"\.brand img\s*\{[^}]*max-width:\s*100%", phone), "the lockup shrinks to the band"

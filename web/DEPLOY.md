@@ -179,6 +179,29 @@ past it, with every process the run started, and marks it `failed`.
    with a colleague; they see it in their list and can open it, but have
    no Share or Delete buttons.
 
+## The getting-started site
+
+`https://padas.github.io/er-smart-able/` is the guide for support people
+migrating a site with the hosted app. It is built from `web/guide/*.md`
+(the guide) and `web/help/*.md` (the app's help drawer, from the same
+files) by `scripts/build_pages.py`, with the page shell and stylesheet in
+`web/site/` and the app's tokens, font and lockup.
+
+To build it locally and look:
+
+```sh
+python scripts/build_pages.py        # writes _site/ (git-ignored)
+open _site/index.html
+```
+
+A link in a page to another page's `.md` becomes that page; a link to any
+other repository file goes to it on GitHub; a link to a file that does not
+exist fails the build.
+
+`.github/workflows/pages.yml` publishes it on every merge to `main` that
+touches its sources, and can be run by hand from the Actions tab. Once, a
+repository admin sets Settings → Pages → Source to **GitHub Actions**.
+
 ## Running locally
 
 No GCP needed: the local backend keeps everything under `web-data/` and
