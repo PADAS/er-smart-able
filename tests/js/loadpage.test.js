@@ -52,3 +52,9 @@ test('a load that cannot be opened says so in the load\'s words', () => {
   assert.match(P.renderNotFound('load'), /Not found or not shared with you[\s\S]*This load does not exist[\s\S]*href="#\/"/);
   assert.match(P.renderNotFound(), /This dataset does not exist/);
 });
+test('run and plan-again are disabled, with the reason, while the dataset is being extracted', () => {
+  const h = P.renderLoadTitle({ ...base, dataset_extracting: true });
+  assert.match(h, /data-run disabled/); assert.match(h, /data-replan disabled/); assert.match(h, /being extracted; the load can go on when that finishes/);
+  assert.doesNotMatch(h, /data-del[^>]*disabled/);
+  assert.doesNotMatch(P.renderLoadTitle(base), /disabled|being extracted/);
+});

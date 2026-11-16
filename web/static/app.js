@@ -14,6 +14,7 @@ function closeLayers() { if (!$('#modal').hidden) closeDialog(); if (!$('#help')
 // an action that failed says why; on a 401 the sign-in form is already up and says it
 function oops(e) { if (e.status !== 401) alert(e.message); }
 function showSignIn(err) {
+  ME = null;       // signed out: Back, the lockup and Help do nothing until the next sign-in
   closeLayers();   // the form must not sit behind a dialog's scrim
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
   listGen++; datasetGen++; loadGen++; sitesGen++;   // a page fetch still in flight cannot paint over the form
@@ -90,14 +91,17 @@ async function openLegacyLoad(id) {
   } catch (e) { if (e.status !== 401 && location.hash === mine) navigate({ page: 'home' }, 'replace'); }
 }
 window.addEventListener('popstate', () => { if (ME) renderRoute(parseRoute(location.hash)); });
-// A link to the address already shown changes nothing, so no popstate fires and the router never runs.
+// In-app links. A link to the address already shown changes nothing, so no popstate fires and the router never runs.
 // That is the not-found notice's case: its entry was rewritten to #/ and its links point at #/. Render it here.
 document.addEventListener('click', e => {
   if (!ME || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const a = e.target.closest && e.target.closest('a[href^="#/"]');
-  if (!a || a.getAttribute('aria-disabled') === 'true' || a.getAttribute('href') !== (location.hash || '#/')) return;
+  if (!a || a.getAttribute('aria-disabled') === 'true' || a.target) return;
   e.preventDefault();
-  renderRoute(parseRoute(location.hash));
+  // every in-app link goes through navigate, so its entry records where the reader came from (the
+  // home link and the load page's dataset crumb step back on that); the address already shown just renders
+  if (a.getAttribute('href') === (location.hash || '#/')) renderRoute(parseRoute(location.hash));
+  else navigate(parseRoute(a.getAttribute('href')));
 });
 
 async function boot() {
@@ -352,7 +356,9 @@ function uploadDialog() {
       text.textContent = 'Uploaded. Starting extraction…';
       await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
       if (onScreen()) closeDialog();                                   // still on screen: close it
-      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, extracting
+      const at = parseRoute(location.hash);
+      if (at.page === 'home') showHome();                              // the new dataset appears, extracting
+      else if (at.page === 'dataset' && at.id === created.id) showDataset(at);   // opened while it uploaded: now it extracts, and polls
     } catch (e) {
       if (onScreen()) { text.textContent = e.message; btn.disabled = false; }
       else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
@@ -541,7 +547,7 @@ async function showLoad(route) {
   const paint = x => {
     paintLoad(x, refresh, up);
     clearTimeout(loadTimer);   // a click's refresh and a poll can both land: one timer stays
-    if (x.held) loadTimer = setTimeout(refresh, 4000);
+    if (x.held || x.dataset_extracting) loadTimer = setTimeout(refresh, 4000);   // an extraction ending re-enables the actions
   };
   paint(l);
 }

@@ -231,16 +231,18 @@ function renderLoadTitle(l) {
   const facts = [l.site ? l.site.url : '', o.event_category ? 'event category ' + o.event_category : '', o.language ? 'language ' + o.language : '', loadScope(l),
     o.configurable_model ? 'configurable model ' + o.configurable_model : '', l.owner_email ? 'started by ' + l.owner_email + (l.created_at ? ', ' + fmtWhen(l.created_at) : '') : ''].filter(Boolean);
   let actions = '';
+  const busy = l.dataset_extracting ? ' disabled title="The dataset is being extracted"' : '';   // the server refuses a run or a plan meanwhile
   if (!active && l.site) {
     // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
-    if (l.status === 'planned') actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' + (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button>';
-    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run><span class="mi" aria-hidden="true">play_arrow</span>Continue</button>';
-    if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan><span class="mi" aria-hidden="true">refresh</span>Plan again</button>';
+    if (l.status === 'planned') actions += '<button class="primary" data-run' + busy + '><span class="mi" aria-hidden="true">play_arrow</span>Confirm and load' + (blocking ? ' (stops at ' + blocking + ' blocking)' : '') + '</button>';
+    if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run' + busy + '><span class="mi" aria-hidden="true">play_arrow</span>Continue</button>';
+    if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan' + busy + '><span class="mi" aria-hidden="true">refresh</span>Plan again</button>';
   }
   if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>Delete this load</button>';
   let notes = '';
   if (!active && l.site && l.status === 'planned' && blocking) notes += '<div class="tiny">The run will write what the plan lists, then stop at the ' +
     (blocking === 1 ? 'blocking finding' : blocking + ' blocking findings') + ' below until they are fixed.</div>';
+  if (busy && !active && l.site) notes += '<div class="tiny">The dataset is being extracted; the load can go on when that finishes.</div>';
   if (stale) notes += '<div class="tiny">The job stopped without reporting; continue to resume from the last checkpoint.</div>';
   if (l.error) notes += '<div class="tiny card-error">' + esc(l.error) + '</div>';
   return '<div class="title-block"><div><h1>' + esc(loadName(l)) + ' ' + pill(l.status) +
