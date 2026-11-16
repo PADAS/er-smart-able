@@ -11,6 +11,7 @@ Usage: job.py [dataset_id]
 import os
 import queue
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -50,7 +51,33 @@ def tail_of(log_lines: list) -> str:
     return "\n".join([l for l in log_lines if not l.strip().endswith(" rows")][-60:])
 
 
+def stop_tree(proc, grace: float = 30.0):
+    """Stop the extract and everything it started. `smart-able` is a Bash wrapper around Java, DuckDB
+    and Python: stopping only the wrapper leaves those running in the work folder. It was started as
+    the leader of its own process group, so the group is the tree: TERM it, give it `grace` seconds,
+    KILL what is left, and reap the wrapper."""
+    def group(sig) -> bool:   # False once the group has no member left
+        try:
+            os.killpg(proc.pid, sig)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+    group(signal.SIGTERM)
+    deadline = time.monotonic() + grace
+    try:
+        proc.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        pass
+    while group(0) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    group(signal.SIGKILL)
+    proc.wait()
+
+
 def main(dataset_id: str) -> int:
+    # a TERM (the local backend's timeout, Cloud Run's) unwinds through the finally below, which stops the tree
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
     store = get_store()
     doc = store.get(dataset_id)
     if not doc:
@@ -66,7 +93,8 @@ def main(dataset_id: str) -> int:
         env = {**os.environ, "SMART_ABLE_WORK": str(work / "out")}
         print(f"extracting {src} -> {work / 'out'}", flush=True)
         proc = subprocess.Popen([str(ROOT / "smart-able"), "all", str(src)], cwd=str(ROOT), env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                start_new_session=True)  # its own process group, so stop_tree reaches every descendant
         # a thread reads the child's output, so the live log is also published while the child is quiet
         # (a long step prints nothing): the lines before the silence must not wait for the next one
         lines = queue.Queue()
@@ -130,13 +158,8 @@ def main(dataset_id: str) -> int:
         store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail=tail_of(log_lines), finished_at=now())
         raise
     finally:
-        if proc is not None and proc.poll() is None:  # abandoned mid-run: stop it before its files go
-            proc.terminate()
-            try:
-                proc.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
+        if proc is not None and proc.poll() is None:  # abandoned mid-run: stop it, and all it started, before its files go
+            stop_tree(proc)
         if not os.environ.get("JOB_KEEP_WORK"):
             shutil.rmtree(work, ignore_errors=True)
 

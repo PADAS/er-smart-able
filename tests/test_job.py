@@ -59,7 +59,7 @@ class FakeProc:
 
 @pytest.fixture
 def run(tmp_path, monkeypatch):
-    def go(store, proc, every=0):
+    def go(store, proc, every=0, popen=None):
         site = tmp_path / "out" / "site" / "data"
         site.mkdir(parents=True)
         (site / "meta.json").write_text(json.dumps([{"cas": [{"id": "050500", "n": "Albay"}], "db_version": "7.5.4", "patrols": 3}]))
@@ -67,7 +67,8 @@ def run(tmp_path, monkeypatch):
         monkeypatch.setenv("JOB_KEEP_WORK", "1")
         monkeypatch.setattr(job, "get_store", lambda: store)
         monkeypatch.setattr(job, "LIVE_TAIL_EVERY", every)
-        monkeypatch.setattr(job.subprocess, "Popen", lambda *a, **k: proc)
+        monkeypatch.setattr(job.subprocess, "Popen", popen or (lambda *a, **k: proc))
+        monkeypatch.setattr(job.signal, "signal", lambda *a: None)   # the handler is the real job's, not the test runner's
         return job.main("d1")
     return go
 
@@ -88,12 +89,51 @@ def test_a_failed_live_log_write_does_not_fail_the_extraction(run, capsys):
     assert "live log not published" in capsys.readouterr().err
 
 
-def test_an_abandoned_run_stops_its_child_before_the_work_goes(run):
-    store, proc = FakeStore(), FakeProc(["one", "two"], raise_after=1)
-    with pytest.raises(OSError):
-        run(store, proc)
-    assert proc.terminated and not proc.running, "terminated and waited for"
+def test_an_abandoned_run_stops_the_whole_process_tree_before_the_work_goes(run):
+    """smart-able is a wrapper: what it started must be gone too, not only the wrapper."""
+    import os
+    import subprocess
+    import time
+    real = subprocess.Popen(["bash", "-c", "sleep 300 & echo $!; wait"], stdout=subprocess.PIPE, text=True, start_new_session=True)
+    seen = {}
+
+    class MidRunFailure:   # the real process, with an output stream that breaks after the first line
+        pid, wait, poll = real.pid, real.wait, real.poll
+
+        @property
+        def stdout(self):
+            seen["grandchild"] = int(real.stdout.readline())
+            yield "started\n"
+            raise OSError("pipe broke")
+
+    store = FakeStore()
+    try:
+        with pytest.raises(OSError):
+            run(store, MidRunFailure())
+        assert real.poll() is not None, "the wrapper was stopped and reaped"
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                os.kill(seen["grandchild"], 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("what the wrapper started outlived the cleanup")
+    finally:
+        for pid in (seen.get("grandchild"), real.pid):
+            try:
+                os.kill(pid, 9)
+            except (ProcessLookupError, TypeError):
+                pass
     assert store.doc["status"] == "failed" and "pipe broke" in store.doc["error"] and store.doc["finished_at"]
+
+
+def test_the_extract_runs_in_its_own_process_group(run, monkeypatch):
+    store, kwargs = FakeStore(), {}
+    proc = FakeProc(["one"])
+    assert run(store, proc, popen=lambda *a, **k: kwargs.update(k) or proc) == 0
+    assert kwargs.get("start_new_session") is True
 
 
 def test_the_tail_drops_row_counts_before_taking_the_last_lines():

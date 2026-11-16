@@ -32,7 +32,7 @@ code, pre, kbd, .mono { font-family: var(--mono); }
 .empty .btn { margin-top: 10px; }
 
 /* ---- header and menu */
-header { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; overflow: hidden; background: var(--er-ui-cta-secondary); color: var(--er-ui-cta-text); }
+header { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; background: var(--er-ui-cta-secondary); color: var(--er-ui-cta-text); }
 header .mi { color: inherit; }
 #home { flex: none; display: flex; align-items: center; }
 #home img { height: 26px; display: block; }
@@ -191,11 +191,12 @@ table.rangers { margin-top: 6px; }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .page-head h1 { margin: 0; }
 .cards { display: flex; flex-direction: column; gap: 10px; }
-a.dataset-card { display: flex; justify-content: space-between; gap: 16px; color: inherit; text-decoration: none; }
+a.dataset-card { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; color: inherit; text-decoration: none; overflow-wrap: anywhere; }   /* a long name, filename or address wraps, never widens the page */
+.dataset-card .card-main { flex: 1 1 240px; min-width: 0; }
 a.dataset-card:hover { border-color: var(--er-ui-cta-primary); }
 .dataset-card .card-meta { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .card-error { color: var(--er-ui-status-error-destructive); }
-.dataset-card .card-side { text-align: right; white-space: nowrap; }
+.dataset-card .card-side { flex: 0 1 auto; min-width: 0; margin-left: auto; text-align: right; }
 .dataset-card .shared-mark { text-transform: uppercase; letter-spacing: 0.04em; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .stack label { display: flex; flex-direction: column; gap: 4px; }

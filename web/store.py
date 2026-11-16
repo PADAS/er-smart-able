@@ -328,11 +328,14 @@ class LocalStore:
             try:
                 proc.wait(timeout=EXTRACT_TIMEOUT.total_seconds())
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                proc.wait()
+                # TERM first: the job runs the extract in a process group of its own and stops that
+                # tree on its way out. Then KILL the job's group, for a job that did not go.
+                for sig, wait in ((signal.SIGTERM, 45), (signal.SIGKILL, None)):
+                    try:
+                        os.killpg(proc.pid, sig)
+                        proc.wait(timeout=wait)
+                    except (ProcessLookupError, subprocess.TimeoutExpired):
+                        pass
                 self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}", finished_at=now())
         threading.Thread(target=run, daemon=True).start()
         return "local-thread"
