@@ -57,7 +57,7 @@ def main(dataset_id: str) -> int:
         print(f"no dataset {dataset_id}", file=sys.stderr)
         return 2
     # log_tail is cleared, so the Overview's live log is this run's, never the previous run's error
-    store.update(dataset_id, status="running", error=None, started_at=now(), log_tail="")
+    store.update(dataset_id, status="running", error=None, started_at=now(), finished_at=None, log_tail="")
     work = Path(os.environ.get("JOB_WORK_DIR") or tempfile.mkdtemp(prefix="smart-able-"))
     log_lines = []
     proc = None
@@ -106,7 +106,7 @@ def main(dataset_id: str) -> int:
         rc = proc.wait()
         tail = tail_of(log_lines)
         if rc != 0:
-            store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail)
+            store.update(dataset_id, status="failed", error=f"smart-able exited with {rc}", log_tail=tail, finished_at=now())
             return rc
         site = work / "out" / "site"
         meta = json.loads((site / "data" / "meta.json").read_text())
@@ -120,14 +120,14 @@ def main(dataset_id: str) -> int:
         if export:
             print("publishing export", flush=True)
             store.put_export(dataset_id, export_dir)
-        store.update(dataset_id, status="ready", log_tail=tail, export=export,
+        store.update(dataset_id, status="ready", log_tail=tail, export=export, finished_at=now(),
                      cas=[{"id": c.get("id"), "n": c.get("n")} for c in meta.get("cas", [])],
                      db_version=meta.get("db_version"),
                      counts={k: meta.get(k) for k in ("patrols", "waypoints", "observations", "employees")})
         print("done", flush=True)
         return 0
     except Exception as e:  # noqa: BLE001
-        store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail="\n".join(log_lines[-60:]))
+        store.update(dataset_id, status="failed", error=f"{type(e).__name__}: {e}", log_tail=tail_of(log_lines), finished_at=now())
         raise
     finally:
         if proc is not None and proc.poll() is None:  # abandoned mid-run: stop it before its files go

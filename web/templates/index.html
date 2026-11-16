@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>smart-able</title>
+  <!-- the tokens hang on data-theme, so it is set before anything paints; app.js keeps it in step afterwards -->
+  <script>(function () { var t; try { t = localStorage.theme; } catch (e) {} document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; })();</script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
   <link rel="stylesheet" href="/static/er-tokens.css?v={{ assets['er-tokens.css'] }}">
   <link rel="stylesheet" href="/static/fonts/roboto.css?v={{ assets['fonts/roboto.css'] }}">

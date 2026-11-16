@@ -76,6 +76,7 @@ def test_the_running_job_publishes_its_log_as_it_goes(run):
     store = FakeStore()
     assert run(store, FakeProc(["one", "two"])) == 0
     assert store.live_attempts == 2 and store.doc["status"] == "ready" and store.doc["log_tail"] == "one\ntwo"
+    assert store.doc["started_at"] and store.doc["finished_at"] >= store.doc["started_at"]
 
 
 def test_a_failed_live_log_write_does_not_fail_the_extraction(run, capsys):
@@ -92,7 +93,7 @@ def test_an_abandoned_run_stops_its_child_before_the_work_goes(run):
     with pytest.raises(OSError):
         run(store, proc)
     assert proc.terminated and not proc.running, "terminated and waited for"
-    assert store.doc["status"] == "failed" and "pipe broke" in store.doc["error"]
+    assert store.doc["status"] == "failed" and "pipe broke" in store.doc["error"] and store.doc["finished_at"]
 
 
 def test_the_tail_drops_row_counts_before_taking_the_last_lines():

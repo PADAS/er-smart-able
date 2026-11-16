@@ -11,6 +11,8 @@ async function api(path, opts = {}) {
 
 // a dialog or the help drawer belongs to the page it was opened on: leaving that page closes it
 function closeLayers() { if (!$('#modal').hidden) closeDialog(); if (!$('#help').hidden) closeHelp(); }
+// an action that failed says why; on a 401 the sign-in form is already up and says it
+function oops(e) { if (e.status !== 401) alert(e.message); }
 function showSignIn(err) {
   closeLayers();   // the form must not sit behind a dialog's scrim
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
@@ -229,8 +231,8 @@ function shareDialog(d, base = '/api/datasets/', note) {
       '<p class="muted tiny">' + esc(note) + (allowed.length ? ' Addresses must be ' + (allowed.length === 1 ? esc(allowed[0]) : 'one of ' + allowed.map(esc).join(', ')) + '.' : '') + '</p>' +
       '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(domain || '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
       '<div class="shared"><ul>' + (shared.length ? shared.map(e => '<li><span class="mi" aria-hidden="true">person</span>' + esc(e) + ' <button class="ghost" data-unshare="' + esc(e) + '" title="Remove"><span class="mi" aria-hidden="true">close</span></button></li>').join('') : '<li class="tiny">Not shared with anyone yet.</li>') + '</ul></div>');
-    $('#shareForm').onsubmit = async ev => { ev.preventDefault(); try { const r = await api(base + d.id + '/share', { method: 'POST', body: JSON.stringify({ email: $('#shareEmail').value }) }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } };
-    $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { alert(e.message); } });
+    $('#shareForm').onsubmit = async ev => { ev.preventDefault(); try { const r = await api(base + d.id + '/share', { method: 'POST', body: JSON.stringify({ email: $('#shareEmail').value }) }); render(r.shared_with); refresh(); } catch (e) { oops(e); } };
+    $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { oops(e); } });
   };
   render(d.shared_with || []);
 }
@@ -279,7 +281,7 @@ async function showDataset(route, poll) {
   if (!current()) return;
   setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
   if (paintDataset(renderDatasetPage(d, tab, extra), !!poll)) bindDataset(d, tab, route, extra);
-  if (['running', 'queued', 'pending'].includes(d.status) || (tab === 'loads' && (extra.loads || []).some(l => l.held))) again(0);
+  if (d.extract_held || (tab === 'loads' && (extra.loads || []).some(l => l.held))) again(0);
 }
 // Mounts the dataset page; false when the page already shows exactly this, which is then left alone.
 // A refresh (keep) carries over what the reader did: open and closed sections, the element with focus,
@@ -306,11 +308,11 @@ function bindDataset(d, tab, route, extra) {
   document.querySelectorAll('.tabs [aria-disabled="true"]').forEach(a => { a.onclick = ev => ev.preventDefault(); });
   const share = $('#shareBtn'); if (share) share.onclick = () => shareDialog(d);
   const ex = $('#extractBtn'); if (ex) ex.onclick = async () => {
-    try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { alert(e.message); }
+    try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { oops(e); }
   };
   const del = $('#deleteBtn'); if (del) del.onclick = async () => {
     if (!confirm('Delete "' + d.name + '" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.')) return;
-    try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { alert(e.message); }
+    try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { oops(e); }
   };
   document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
   const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d, (d.export.find(hasBundle) || {}).dir);
@@ -418,7 +420,9 @@ function defaultEventCategory(caId) {
 // keep: the form's values and site choice, when the dialog is reopened after the add-a-site detour
 async function loadDialog(d, caId, keep) {
   let sites;
-  try { sites = await api('/api/sites'); } catch (e) { if (e.status !== 401) alert(e.message); return; }   // 401: the sign-in form is up
+  const from = location.hash;
+  try { sites = await api('/api/sites'); } catch (e) { oops(e); return; }
+  if (location.hash !== from) return;   // the reader left while the sites loaded: the dialog belongs to the page they left
   if (!sites.length) return siteDialog(() => loadDialog(d, caId));
   const addSite = kept => siteDialog(site => loadDialog(d, kept.ca || caId, { ...kept, site: site.id }), () => loadDialog(d, kept.ca || caId, kept));
   let lastDefault = null, autoDm = false;
@@ -476,7 +480,7 @@ async function loadDialog(d, caId, keep) {
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
       closeDialog(); navigate({ page: 'load', id: d.id, load: l.id });
-    } catch (e) { alert(e.message); }
+    } catch (e) { oops(e); }
   };
 }
 
@@ -570,8 +574,8 @@ function paintLoad(l, refresh, up) {
 
 function bindLoad(page, l, refresh, up, newRangers) {
   $('.title-block [data-help]', page).onclick = () => openHelp('help-statuses');
-  const run = $('[data-run]', page); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
-  const re = $('[data-replan]', page); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); refresh(); } catch (e) { alert(e.message); } };
+  const run = $('[data-run]', page); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); refresh(); } catch (e) { oops(e); } };
+  const re = $('[data-replan]', page); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); refresh(); } catch (e) { oops(e); } };
   const del = $('[data-del]', page); if (del) del.onclick = async () => {
     if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return;
     try {
@@ -580,7 +584,7 @@ function bindLoad(page, l, refresh, up, newRangers) {
       // moved on meanwhile, the page they are on is left alone and a list they are on is refreshed
       if (location.hash === routeHash({ page: 'load', id: up.id, load: l.id })) navigate(up, 'replace');
       else { const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); }
-    } catch (e) { alert(e.message); }
+    } catch (e) { oops(e); }
   };
   $('#loadFindings', page).querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyValue(b));
   $('#loadFindings', page).querySelectorAll('[data-help]').forEach(b => b.onclick = () => openHelp(b.dataset.help));
@@ -605,10 +609,11 @@ async function openHelp(anchor) {
   const a = document.activeElement;
   helpOpener = a && a.dataset && a.dataset.help ? { help: a.dataset.help } : { node: a };
   if (!HELP) {
+    const from = location.hash;
     // one fetch, however many clicks arrive while it is pending; a failure alerts once and resolves null for all
-    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { helpLoading = null; alert(e.message); return null; });
+    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { helpLoading = null; oops(e); return null; });
     const sections = await helpLoading;
-    if (!sections) return;
+    if (!sections || location.hash !== from || !ME) return;   // failed, or the reader left meanwhile
     if (!HELP) {
       HELP = sections;
       body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');

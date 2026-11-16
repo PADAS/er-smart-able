@@ -289,7 +289,7 @@ class LocalStore:
                 except ProcessLookupError:
                     pass
                 proc.wait()
-                self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}")
+                self.update(id, status="failed", error=f"Extraction timed out after {EXTRACT_TIMEOUT}", finished_at=now())
         threading.Thread(target=run, daemon=True).start()
         return "local-thread"
 

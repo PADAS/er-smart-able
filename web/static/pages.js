@@ -162,7 +162,8 @@ function renderTabs(d, tab) {
 }
 
 function renderOverview(d) {
-  var running = ['running', 'queued', 'pending'].includes(d.status);
+  var running = !!d.extract_held;   // queued or running, and its job still holding
+  var lapsed = ['queued', 'running'].includes(d.status) && !running;   // the job was killed outright and never reported
   var times = (d.started_at ? 'Started ' + esc(fmtWhen(d.started_at)) : '') + (d.finished_at ? (d.started_at ? ' · ' : '') + 'Finished ' + esc(fmtWhen(d.finished_at)) : '');
   // datasets extracted before the bundle existed have no export entries: list their areas from cas, browsable but not loadable
   var areaRows = (d.export || []).length ? d.export : (d.status === 'ready' ? (d.cas || []).map(c => ({ ca_id: c.id, name: c.n })) : []);
@@ -172,7 +173,9 @@ function renderOverview(d) {
     (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>Extraction</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
+    (lapsed ? '<p class="tiny">The extraction stopped without reporting.' + (d.mine ? ' Run it again with Re-extract.' : '') + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">Log' + (running ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
+    (!rows && d.status === 'ready' ? '<div class="panel"><h2>Conservation areas</h2><p class="tiny">None listed for this dataset.</p><a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a></div>' : '') +
     (rows ? '<div class="panel"><h2>Conservation areas</h2><table><thead><tr><th>Name</th><th>SMART id</th><th>Version</th><th>Contents</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
 }
 
@@ -218,7 +221,6 @@ var FINDING_RANK = { blocking: 0, warning: 1, info: 2 };
 
 function fmtDur(s) { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m ? m + ' min ' + (s % 60) + ' s' : s + ' s'; }
 function secondsSince(iso) { return iso ? (now() - Date.parse(iso)) / 1000 : null; }
-function count(n, one, many) { return n.toLocaleString() + ' ' + (n === 1 ? one : (many || one + 's')); }
 function notStarted(l) { return ['queued', 'planning'].includes(l.status); }   // claimed, but the job has not reset the rows yet
 function loadName(l) { return l.ca_id + ' → ' + (l.site ? l.site.name : 'removed site'); }
 
@@ -307,9 +309,9 @@ function stageSummary(stage, row, l, active) {
     if (m.schema_written) parts.push(dry ? 'patrol fields to write' : 'patrol fields written');
     else if (m.schema_skipped) parts.push('patrol fields skipped: ' + m.schema_skipped);
   } else if (stage === 'preflight') {
-    if ('blocking' in m) parts.push(count(m.blocking, 'blocking finding') + ', ' + count(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + count(m.patrols, 'patrol') + ' checked' : ''));
+    if ('blocking' in m) parts.push(plural(m.blocking, 'blocking finding') + ', ' + plural(m.warnings || 0, 'warning') + (m.patrols != null ? ' · ' + plural(m.patrols, 'patrol') + ' checked' : ''));
   } else if (stage === 'import') {
-    if (dry) { if ('planned' in m) parts.push(count(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
+    if (dry) { if ('planned' in m) parts.push(plural(m.planned, 'patrol') + ' to load' + (m.already_done ? ', ' + m.already_done + ' already done' : '')); }
     else if (l.progress && l.progress.patrols_total) parts.push(importSummary(l, active && row.status === 'running'));
   }
   return parts.join(' · ');
@@ -326,7 +328,7 @@ function importSummary(l, live) {
     // what this execution did (a continuation's counts are its own, not the load's): the events it wrote,
     // how many of the events it handled (written or already there) report who made them, and the ones
     // from an earlier load it gave a reporter
-    const did = m.events_written != null ? ' · this execution wrote ' + count(m.events_written, 'event') +
+    const did = m.events_written != null ? ' · this execution wrote ' + plural(m.events_written, 'event') +
       (m.events_reported_by ? '; ' + m.events_reported_by.toLocaleString() + ' of the events it handled report who made them' : '') +
       (m.events_reported_by_backfilled ? ', ' + m.events_reported_by_backfilled.toLocaleString() + ' of them from an earlier load, given one now' : '') : '';
     return of + (secs != null ? ' · ' + fmtDur(secs) : '') + did;

@@ -77,3 +77,17 @@ test('the rangers tab names its source load, or points at the viewer when there 
   assert.match(P.renderDatasetPage(d, 'rangers', { load: null }), /No rangers listed yet/);
 });
 test('not found names the problem and links home', () => { assert.match(P.renderNotFound(), /Not found or not shared with you[\s\S]*href="#\/"/); });
+test('overview says when the extraction started and finished', () => {
+  const h = P.renderDatasetPage({ ...d, started_at: '2026-11-13T10:00:00+00:00', finished_at: '2026-11-13T10:07:00+00:00' }, 'overview', {});
+  assert.match(h, /Started 2026-11-13 10:00 · Finished 2026-11-13 10:07/);
+});
+test('a run that stopped reporting is not shown as live, and says what to do', () => {
+  const h = P.renderDatasetPage({ ...d, status: 'running', extract_held: false, log_tail: 'unzipping' }, 'overview', {});
+  assert.match(h, /stopped without reporting\. Run it again with Re-extract/); assert.match(h, /Log tail/); assert.doesNotMatch(h, /<details open/);
+  assert.doesNotMatch(P.renderDatasetPage({ ...d, status: 'running', extract_held: true }, 'overview', {}), /stopped without reporting/);
+});
+test('a ready dataset that lists no areas still has its way into the viewer', () => {
+  const h = P.renderDatasetPage({ ...d, export: [], cas: [] }, 'overview', {});
+  assert.match(h, /None listed[\s\S]*href="\/d\/a1\/"/);
+  assert.doesNotMatch(P.renderDatasetPage({ ...d, status: 'failed', export: [], cas: [] }, 'overview', {}), /href="\/d\/a1\/"/);
+});
