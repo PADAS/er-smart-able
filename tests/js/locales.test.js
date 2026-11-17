@@ -19,3 +19,11 @@ test('every key the code and the template ask for is in the English file', () =>
 test('no message holds markup', () => {
   for (const [k, v] of Object.entries(EN)) assert.doesNotMatch(v, /<[a-z/]/i, k);
 });
+test('changing language forgets the loaded help and drops a pending fetch', () => {
+  const src = read('static/app.js');
+  const body = src.slice(src.indexOf('async function useLang'), src.indexOf('async function boot'));
+  assert.match(body, /HELP = null;\s*helpLoading = null;\s*helpGen\+\+/);
+  const open = src.slice(src.indexOf('async function openHelp'));
+  assert.match(open, /gen = helpGen/);
+  assert.match(open, /gen !== helpGen/);
+});

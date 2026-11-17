@@ -131,7 +131,7 @@ async function useLang(lang, remember) {
   applyShell();
   const entry = LANGS.find(l => l.code === lang);
   $('#langNote').hidden = !entry || entry.reviewed !== false;
-  HELP = null;   // the help text is per language: fetched again on the next open
+  HELP = null; helpLoading = null; helpGen++;   // the help text is per language: fetched again on the next open, and a fetch still pending is dropped
   if (remember) { try { localStorage.lang = lang; } catch (e) { /* storage blocked: the choice lasts this page */ } }
 }
 
@@ -647,18 +647,18 @@ async function copyValue(btn) {
 }
 
 // ---- help: a drawer of sections, deep-linked by heading id (a finding opens finding-<code>)
-let HELP = null, helpLoading = null, helpOpener = null;
+let HELP = null, helpLoading = null, helpOpener = null, helpGen = 0;
 async function openHelp(anchor) {
   const drawer = $('#help'), body = $('#helpBody');
   // the opener is remembered by its help id: the load page re-renders its buttons on every poll
   const a = document.activeElement;
   helpOpener = a && a.dataset && a.dataset.help ? { help: a.dataset.help } : { node: a };
   if (!HELP) {
-    const from = location.hash;
+    const from = location.hash, gen = helpGen;
     // one fetch, however many clicks arrive while it is pending; a failure alerts once and resolves null for all
-    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { helpLoading = null; oops(e); return null; });
+    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { if (gen === helpGen) helpLoading = null; oops(e); return null; });
     const sections = await helpLoading;
-    if (!sections || location.hash !== from || !ME) return;   // failed, or the reader left meanwhile
+    if (!sections || gen !== helpGen || location.hash !== from || !ME) return;   // failed, or the reader left meanwhile
     if (!HELP) {
       HELP = sections;
       body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
