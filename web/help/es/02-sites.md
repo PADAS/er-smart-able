@@ -2,7 +2,7 @@
 
 Un sitio es un host de EarthRanger, por ejemplo `example.pamdas.org`, y un token de API de un usuario de EarthRanger de ese sitio. Las cargas escriben en el sitio como ese usuario.
 
-**Registrar un sitio.** Escriba un nombre, el host y el token. smart-able llama a `/user/me` del sitio con el token antes de guardar nada, de modo que un host equivocado o un token que ya no es válido se rechaza en el momento. La fila del sitio en la página EarthRanger sites muestra los últimos caracteres del token y el usuario con el que actúa.
+**Registrar un sitio.** Escriba un nombre, el host y el token. smart-able llama a `/user/me` del sitio con el token antes de guardar nada, de modo que un host equivocado o un token que ya no es válido se rechaza en el momento. La fila del sitio en la página **Sitios de EarthRanger** muestra los últimos caracteres del token y el usuario con el que actúa.
 
 **Dónde se guarda el token.** En Google Secret Manager, en un secreto con el nombre del sitio. Nunca se almacena en la base de datos, nunca se escribe en un registro de actividad y nunca lo devuelve la API. Si el token se renueva o se revoca, quite el sitio y regístrelo de nuevo; las cargas que hacían referencia al sitio anterior siguen siendo legibles, pero no se pueden continuar.
 

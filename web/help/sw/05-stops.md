@@ -4,13 +4,13 @@ Utekelezaji unasimama pale ambapo tovuti inahitaji jambo ambalo API haiwezi kuli
 
 Majina ya menyu za usimamizi wa EarthRanger yanatolewa kwa Kiingereza, jinsi yanavyoonekana humo.
 
-Baada ya kurekebisha tovuti, bonyeza **Continue** (endelea). Utekelezaji unarudia hatua za mwanzo, jambo ambalo ni la haraka, kisha unaendelea.
+Baada ya kurekebisha tovuti, bonyeza **Endelea**. Utekelezaji unarudia hatua za mwanzo, jambo ambalo ni la haraka, kisha unaendelea.
 
-## Maandalizi ya doria (Patrol setup)
+## Maandalizi ya doria
 
 ### Unda timu ya doria {#finding-team}
 
-Doria za SMART zinataja timu; API ya EarthRanger haiwezi kuunda timu. Kwenye usimamizi wa Django, fungua **Patrol configuration › Teams** na uongeze timu ambayo sehemu yake ya *display* ni jina la timu lililoonyeshwa, kama lilivyo hasa. Tokeo linaorodhesha wanachama wa timu kwenye SMART, kwa taarifa yako; uingizaji unaitambua timu kwa jina lake tu. Kuna ingizo moja kwa kila timu inayokosekana; ziunde zote, kisha Continue.
+Doria za SMART zinataja timu; API ya EarthRanger haiwezi kuunda timu. Kwenye usimamizi wa Django, fungua **Patrol configuration › Teams** na uongeze timu ambayo sehemu yake ya *display* ni jina la timu lililoonyeshwa, kama lilivyo hasa. Tokeo linaorodhesha wanachama wa timu kwenye SMART, kwa taarifa yako; uingizaji unaitambua timu kwa jina lake tu. Kuna ingizo moja kwa kila timu inayokosekana; ziunde zote, kisha bonyeza **Endelea**.
 
 ### Waweke askari kwenye kundi la wahusika la orodha ya askari {#finding-roster_group}
 
@@ -18,27 +18,27 @@ Hakuna kundi la orodha ya askari lililotajwa uingizaji ulipoundwa, kwa hiyo wahu
 
 ### Ongeza wahusika kwenye kundi la wahusika {#finding-permission_subject_group}
 
-Kundi la orodha ya askari lipo lakini mtumiaji wa tovuti hawezi kubadilisha uanachama wa makundi ya wahusika. Mpe mtumiaji ruhusa hiyo kisha Continue, au ongeza wahusika kwenye kundi wewe mwenyewe kwenye **Django admin › Subject groups**. Jina la kundi linaonyeshwa pamoja na kitufe cha kunakili.
+Kundi la orodha ya askari lipo lakini mtumiaji wa tovuti hawezi kubadilisha uanachama wa makundi ya wahusika. Mpe mtumiaji ruhusa hiyo kisha bonyeza **Endelea**, au ongeza wahusika kwenye kundi wewe mwenyewe kwenye **Django admin › Subject groups**. Jina la kundi linaonyeshwa pamoja na kitufe cha kunakili.
 
 ### Washa kipengele cha patrol_schemas {#finding-enable_patrol_schemas}
 
-Tovuti imezima kipengele cha majaribio cha `patrol_schemas`, kwa hiyo haina vituo vya doria (legs), sehemu za jumla za kujaza za doria, timu wala orodha za kuingizia. Kwenye usimamizi wa Django, fungua **Preview features › patrol_schemas** na ukiwashe kwa mpangaji (tenant) huyu. Uliza EarthRanger Core kama ukurasa haupatikani. Kisha Continue; sehemu za jumla za kujaza za doria zinaandikwa katika mzunguko unaofuata.
+Tovuti imezima kipengele cha majaribio cha `patrol_schemas`, kwa hiyo haina vituo vya doria (legs), sehemu za jumla za kujaza za doria, timu wala orodha za kuingizia. Kwenye usimamizi wa Django, fungua **Preview features › patrol_schemas** na ukiwashe kwa mpangaji (tenant) huyu. Uliza EarthRanger Core kama ukurasa haupatikani. Kisha **Endelea**; sehemu za jumla za kujaza za doria zinaandikwa katika mzunguko unaofuata.
 
 ### Toa ruhusa: aina za doria {#finding-permission_patrol_types}
 
-Mtumiaji wa tovuti hawezi kuunda wala kubadilisha aina za doria. Kwenye usimamizi wa Django, fungua **Users › the user** (mtumiaji husika) na uongeze `activity | patrol type | Can add/change patrol type`. Kisha Continue.
+Mtumiaji wa tovuti hawezi kuunda wala kubadilisha aina za doria. Kwenye usimamizi wa Django, fungua **Users › the user** (mtumiaji husika) na uongeze `activity | patrol type | Can add/change patrol type`. Kisha **Endelea**.
 
 ### Toa ruhusa: sehemu za jumla za kujaza za doria {#finding-permission_segment_schema}
 
-Mtumiaji wa tovuti hawezi kuandika sehemu za jumla za kujaza za doria (skima ya kipande). Ongeza `activity | segment type | Can change segment type`; kwa sasa hilo linahitaji mtumiaji mkuu (superuser). Kisha Continue.
+Mtumiaji wa tovuti hawezi kuandika sehemu za jumla za kujaza za doria (skima ya kipande). Ongeza `activity | segment type | Can change segment type`; kwa sasa hilo linahitaji mtumiaji mkuu (superuser). Kisha **Endelea**.
 
 ### Toa ruhusa: wahusika {#finding-permission_subjects}
 
-Mtumiaji wa tovuti hawezi kuona, kuongeza wala kubadilisha wahusika, kwa hiyo wahusika askari hawakuweza kuundwa wala kupatikana. Ongeza `observations | subject | Can view/add/change subject`. Kisha Continue.
+Mtumiaji wa tovuti hawezi kuona, kuongeza wala kubadilisha wahusika, kwa hiyo wahusika askari hawakuweza kuundwa wala kupatikana. Ongeza `observations | subject | Can view/add/change subject`. Kisha **Endelea**.
 
 ### Toa ruhusa: usanidi wa doria {#finding-permission_patrol_config}
 
-Mtumiaji wa tovuti hawezi kusoma usanidi wa doria, ambao hutumika kukagua timu na orodha za askari. Ongeza `activity | patrol | Can view patrol`. Kisha Continue.
+Mtumiaji wa tovuti hawezi kusoma usanidi wa doria, ambao hutumika kukagua timu na orodha za askari. Ongeza `activity | patrol | Can view patrol`. Kisha **Endelea**.
 
 ### Chagua aikoni kwa kila aina ya doria {#finding-patrol_type_icons}
 
@@ -48,7 +48,7 @@ Ni onyo, si kusimama. API haiwezi kuweka aikoni ya aina ya doria, kwa hiyo aina 
 
 Ni onyo, si kusimama. Baadhi ya vituo (stations) havina jina katika lugha yoyote ya SMART, kwa hiyo viliundwa kwa jina la muda kama `Unnamed station 1a2b3c4d`. Vipe majina kwenye SMART, kisha hamisha tena kutoka SMART (export) na upakie faili mpya, au badilisha jina la chaguo kwenye **Django admin › Choices** (sehemu ya `patrol_station`); utekelezaji wa baadaye unarudisha jina la muda hadi SMART iwe na jina.
 
-## Ukaguzi wa awali (Preflight)
+## Ukaguzi wa awali
 
 ### Kanda ya saa ya kifurushi ilikisiwa {#finding-timezone}
 
@@ -64,23 +64,23 @@ Ni onyo, hakuna la kufanya. Baadhi ya siku za kituo cha doria (leg) hazina alama
 
 ### Ukaguzi mmoja wa awali haukuweza kufanyika {#finding-check_failed}
 
-Mojawapo ya kaguzi ilitoa hitilafu kabla ya kuweza kutoa taarifa, kwa kawaida ni tatizo la muunganisho au la ruhusa na tovuti. Ujumbe unataja ukaguzi na hitilafu. Rekebisha chanzo, kisha Continue; ukaguzi wa awali unafanyika tena tangu mwanzo.
+Mojawapo ya kaguzi ilitoa hitilafu kabla ya kuweza kutoa taarifa, kwa kawaida ni tatizo la muunganisho au la ruhusa na tovuti. Ujumbe unataja ukaguzi na hitilafu. Rekebisha chanzo, kisha bonyeza **Endelea**; ukaguzi wa awali unafanyika tena tangu mwanzo.
 
 ### Kipengele cha patrol_schemas kimezimwa {#finding-feature_flag}
 
-Ni hali ileile ya *Washa kipengele cha patrol_schemas* hapo juu, ikionekana kutoka kwenye ukaguzi wa awali. Washa kipengele, kisha Continue.
+Ni hali ileile ya *Washa kipengele cha patrol_schemas* hapo juu, ikionekana kutoka kwenye ukaguzi wa awali. Washa kipengele, kisha bonyeza **Endelea**.
 
 ### Mtumiaji wa tovuti hana ruhusa {#finding-permissions}
 
-Tokeo linaorodhesha kila ruhusa ambayo uingizaji unahitaji na mtumiaji hana. Mpe mtumiaji ruhusa hizo kwenye **Django admin › Users › the user**, programu ya `activity`. Kuunda matukio kwenye kategoria ya matukio kunahitaji ruhusa ya kuunda ya kategoria hiyo, ambayo kwa kawaida inatolewa kupitia seti ya ruhusa. Kisha Continue.
+Tokeo linaorodhesha kila ruhusa ambayo uingizaji unahitaji na mtumiaji hana. Mpe mtumiaji ruhusa hizo kwenye **Django admin › Users › the user**, programu ya `activity`. Kuunda matukio kwenye kategoria ya matukio kunahitaji ruhusa ya kuunda ya kategoria hiyo, ambayo kwa kawaida inatolewa kupitia seti ya ruhusa. Kisha **Endelea**.
 
 ### Aina za doria zinakosekana au zimezimwa {#finding-patrol_types}
 
-Maandalizi ya doria yanaunda aina ambazo vituo vya doria (legs) vinahitaji, kwa hiyo katika utekelezaji hili kwa kawaida linamaanisha aina fulani ilizimwa baadaye. Iwashe kwenye **EarthRanger admin › Patrol types**, au Continue ili kuyaacha maandalizi ya doria yaiunde upya. Katika mpango hili linatarajiwa: mpango hauandiki chochote, na tokeo linawekwa alama kuwa ni kitu ambacho utekelezaji utakiunda.
+Maandalizi ya doria yanaunda aina ambazo vituo vya doria (legs) vinahitaji, kwa hiyo katika utekelezaji hili kwa kawaida linamaanisha aina fulani ilizimwa baadaye. Iwashe kwenye **EarthRanger admin › Patrol types**, au bonyeza **Endelea** ili kuyaacha maandalizi ya doria yaiunde upya. Katika mpango hili linatarajiwa: mpango hauandiki chochote, na tokeo linawekwa alama kuwa ni kitu ambacho utekelezaji utakiunda.
 
 ### Sehemu za jumla za kujaza za doria zinakosekana au zimeondolewa matumizi {#finding-segment_schema}
 
-Maandalizi ya doria yanaandika sehemu hizi. Kama msimamizi aliiondoa mojawapo matumizi (deprecated) kwa makusudi, irudishe kwenye kitengeneza fomu za doria; vinginevyo Continue. Katika mpango hili linatarajiwa.
+Maandalizi ya doria yanaandika sehemu hizi. Kama msimamizi aliiondoa mojawapo matumizi (deprecated) kwa makusudi, irudishe kwenye kitengeneza fomu za doria; vinginevyo bonyeza **Endelea**. Katika mpango hili linatarajiwa.
 
 ### Machaguo yanayotumiwa na doria yanakosekana au yamezimwa {#finding-choices}
 
@@ -127,7 +127,7 @@ Ni onyo. smart-able iliandika mambo kuhusu data ilipoandika kifurushi. Yameorodh
 
 ### Doria zilishindwa kuingizwa {#finding-patrols_failed}
 
-Kila doria iliyoshindwa inaorodheshwa pamoja na hitilafu yake. Hitilafu nyingi zinataja kitu kinachokosekana kwenye tovuti: timu, mhusika, aina ya tukio. Rekebisha hayo, kisha Continue; ni doria zilizoshindwa tu zinazojaribiwa tena. `500` kwenye kitambulisho cha doria ambacho tayari kipo kwenye tovuti ni EarthRanger ikikataa nakala rudufu; jaribio jipya linasoma doria iliyopo na kuendelea.
+Kila doria iliyoshindwa inaorodheshwa pamoja na hitilafu yake. Hitilafu nyingi zinataja kitu kinachokosekana kwenye tovuti: timu, mhusika, aina ya tukio. Rekebisha hayo, kisha bonyeza **Endelea**; ni doria zilizoshindwa tu zinazojaribiwa tena. `500` kwenye kitambulisho cha doria ambacho tayari kipo kwenye tovuti ni EarthRanger ikikataa nakala rudufu; jaribio jipya linasoma doria iliyopo na kuendelea.
 
 ### Tokeni ya tovuti haifanyi kazi tena {#finding-site_token_rejected}
 

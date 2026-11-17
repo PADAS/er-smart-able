@@ -2,7 +2,7 @@
 
 Un site est un hôte EarthRanger, par exemple `example.pamdas.org`, et un jeton d'API d'un utilisateur EarthRanger de ce site. Les chargements écrivent dans le site en tant que cet utilisateur.
 
-**Enregistrer un site.** Saisissez un nom, l'hôte et le jeton. smart-able appelle `/user/me` sur le site avec le jeton avant d'enregistrer quoi que ce soit ; un mauvais hôte ou un jeton qui n'est plus valable est donc refusé immédiatement. La ligne du site, sur la page EarthRanger sites, montre les derniers caractères du jeton et l'utilisateur sous lequel il agit.
+**Enregistrer un site.** Saisissez un nom, l'hôte et le jeton. smart-able appelle `/user/me` sur le site avec le jeton avant d'enregistrer quoi que ce soit ; un mauvais hôte ou un jeton qui n'est plus valable est donc refusé immédiatement. La ligne du site, sur la page **Sites EarthRanger**, montre les derniers caractères du jeton et l'utilisateur sous lequel il agit.
 
 **Où le jeton est conservé.** Dans Google Secret Manager, sous un secret nommé d'après le site. Il n'est jamais stocké dans la base de données, jamais écrit dans un journal, et jamais renvoyé par l'API. Si le jeton est renouvelé ou révoqué, retirez le site et enregistrez-le de nouveau ; les chargements qui faisaient référence à l'ancien site restent lisibles mais ne peuvent pas être poursuivis.
 

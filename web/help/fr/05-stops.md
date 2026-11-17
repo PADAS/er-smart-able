@@ -4,13 +4,13 @@ Une exécution s'arrête là où le site a besoin de quelque chose que l'API ne 
 
 Les noms de menus de l'administration d'EarthRanger sont donnés en anglais, tels qu'elle les affiche.
 
-Après avoir corrigé le site, appuyez sur **Continue** (continuer). L'exécution répète les premières étapes, ce qui est rapide, et poursuit.
+Après avoir corrigé le site, appuyez sur **Continuer**. L'exécution répète les premières étapes, ce qui est rapide, et poursuit.
 
-## Configuration des patrouilles (Patrol setup)
+## Configuration des patrouilles
 
 ### Créer une équipe de patrouille {#finding-team}
 
-Les patrouilles SMART nomment une équipe ; l'API d'EarthRanger ne peut pas créer d'équipes. Dans l'administration Django, ouvrez **Patrol configuration › Teams** et ajoutez une équipe dont le champ *display* est exactement le nom d'équipe affiché. Le constat énumère les membres SMART de l'équipe, pour information ; l'import identifie l'équipe par son nom seulement. Une entrée par équipe manquante ; créez-les toutes, puis Continue.
+Les patrouilles SMART nomment une équipe ; l'API d'EarthRanger ne peut pas créer d'équipes. Dans l'administration Django, ouvrez **Patrol configuration › Teams** et ajoutez une équipe dont le champ *display* est exactement le nom d'équipe affiché. Le constat énumère les membres SMART de l'équipe, pour information ; l'import identifie l'équipe par son nom seulement. Une entrée par équipe manquante ; créez-les toutes, puis **Continuer**.
 
 ### Mettre les écogardes dans le groupe de sujets de la liste des écogardes {#finding-roster_group}
 
@@ -18,27 +18,27 @@ Aucun groupe n'a été indiqué pour la liste des écogardes à la création du 
 
 ### Ajouter les sujets au groupe de sujets {#finding-permission_subject_group}
 
-Le groupe de la liste des écogardes existe, mais l'utilisateur du site ne peut pas modifier l'appartenance aux groupes de sujets. Soit accordez cette autorisation à l'utilisateur et faites Continue, soit ajoutez vous-même les sujets au groupe dans **Django admin › Subject groups**. Le nom du groupe est affiché avec un bouton de copie.
+Le groupe de la liste des écogardes existe, mais l'utilisateur du site ne peut pas modifier l'appartenance aux groupes de sujets. Soit accordez cette autorisation à l'utilisateur et appuyez sur **Continuer**, soit ajoutez vous-même les sujets au groupe dans **Django admin › Subject groups**. Le nom du groupe est affiché avec un bouton de copie.
 
 ### Activer la fonctionnalité patrol_schemas {#finding-enable_patrol_schemas}
 
-La fonctionnalité en préversion `patrol_schemas` est désactivée sur le site ; il n'a donc ni étapes de patrouille, ni champs de patrouille universels, ni équipes, ni listes d'écogardes dans lesquels importer. Dans l'administration Django, ouvrez **Preview features › patrol_schemas** et activez-la pour ce locataire (tenant). Adressez-vous à EarthRanger Core si la page n'est pas disponible. Puis Continue ; les champs de patrouille universels sont écrits au passage suivant.
+La fonctionnalité en préversion `patrol_schemas` est désactivée sur le site ; il n'a donc ni étapes de patrouille, ni champs de patrouille universels, ni équipes, ni listes d'écogardes dans lesquels importer. Dans l'administration Django, ouvrez **Preview features › patrol_schemas** et activez-la pour ce locataire (tenant). Adressez-vous à EarthRanger Core si la page n'est pas disponible. Puis **Continuer** ; les champs de patrouille universels sont écrits au passage suivant.
 
 ### Accorder l'autorisation : types de patrouille {#finding-permission_patrol_types}
 
-L'utilisateur du site ne peut pas créer ni modifier les types de patrouille. Dans l'administration Django, ouvrez **Users › the user** (l'utilisateur) et ajoutez `activity | patrol type | Can add/change patrol type`. Puis Continue.
+L'utilisateur du site ne peut pas créer ni modifier les types de patrouille. Dans l'administration Django, ouvrez **Users › the user** (l'utilisateur) et ajoutez `activity | patrol type | Can add/change patrol type`. Puis **Continuer**.
 
 ### Accorder l'autorisation : champs de patrouille universels {#finding-permission_segment_schema}
 
-L'utilisateur du site ne peut pas écrire les champs de patrouille universels (le schéma de segment). Ajoutez `activity | segment type | Can change segment type` ; aujourd'hui, cela exige un superutilisateur. Puis Continue.
+L'utilisateur du site ne peut pas écrire les champs de patrouille universels (le schéma de segment). Ajoutez `activity | segment type | Can change segment type` ; aujourd'hui, cela exige un superutilisateur. Puis **Continuer**.
 
 ### Accorder l'autorisation : sujets {#finding-permission_subjects}
 
-L'utilisateur du site ne peut pas voir, ajouter ni modifier les sujets ; les sujets écogardes n'ont donc pas pu être créés ni retrouvés. Ajoutez `observations | subject | Can view/add/change subject`. Puis Continue.
+L'utilisateur du site ne peut pas voir, ajouter ni modifier les sujets ; les sujets écogardes n'ont donc pas pu être créés ni retrouvés. Ajoutez `observations | subject | Can view/add/change subject`. Puis **Continuer**.
 
 ### Accorder l'autorisation : configuration des patrouilles {#finding-permission_patrol_config}
 
-L'utilisateur du site ne peut pas lire la configuration des patrouilles, par rapport à laquelle les équipes et les listes d'écogardes sont vérifiées. Ajoutez `activity | patrol | Can view patrol`. Puis Continue.
+L'utilisateur du site ne peut pas lire la configuration des patrouilles, par rapport à laquelle les équipes et les listes d'écogardes sont vérifiées. Ajoutez `activity | patrol | Can view patrol`. Puis **Continuer**.
 
 ### Choisir une icône pour chaque type de patrouille {#finding-patrol_type_icons}
 
@@ -48,7 +48,7 @@ Un avertissement, pas un arrêt. L'API ne peut pas définir l'icône d'un type d
 
 Un avertissement, pas un arrêt. Certaines stations n'ont de nom dans aucune langue de SMART ; elles ont donc été créées avec un nom provisoire tel que `Unnamed station 1a2b3c4d`. Nommez-les dans SMART et refaites l'export, ou renommez le choix dans **Django admin › Choices** (champ `patrol_station`) ; une exécution ultérieure remet le nom provisoire tant que SMART n'a pas de nom.
 
-## Vérification préalable (Preflight)
+## Vérification préalable
 
 ### Le fuseau horaire du lot a été déduit {#finding-timezone}
 
@@ -64,23 +64,23 @@ Un avertissement, rien à faire. Certains jours d'étape de patrouille n'ont ni 
 
 ### Une vérification préalable n'a pas pu s'exécuter {#finding-check_failed}
 
-L'une des vérifications a levé une erreur avant de pouvoir rendre compte, en général un problème de connexion ou d'autorisation avec le site. Le message nomme la vérification et l'erreur. Corrigez la cause, puis Continue ; la vérification préalable reprend du début.
+L'une des vérifications a levé une erreur avant de pouvoir rendre compte, en général un problème de connexion ou d'autorisation avec le site. Le message nomme la vérification et l'erreur. Corrigez la cause, puis **Continuer** ; la vérification préalable reprend du début.
 
 ### La fonctionnalité patrol_schemas est désactivée {#finding-feature_flag}
 
-La même situation que *Activer la fonctionnalité patrol_schemas* ci-dessus, vue depuis la vérification préalable. Activez la fonctionnalité, puis Continue.
+La même situation que *Activer la fonctionnalité patrol_schemas* ci-dessus, vue depuis la vérification préalable. Activez la fonctionnalité, puis **Continuer**.
 
 ### L'utilisateur du site n'a pas les autorisations {#finding-permissions}
 
-Le constat énumère chaque autorisation dont l'import a besoin et que l'utilisateur n'a pas. Accordez-les dans **Django admin › Users › the user**, application `activity`. Créer des événements dans une catégorie exige l'autorisation de création de cette catégorie, en général accordée par un jeu d'autorisations. Puis Continue.
+Le constat énumère chaque autorisation dont l'import a besoin et que l'utilisateur n'a pas. Accordez-les dans **Django admin › Users › the user**, application `activity`. Créer des événements dans une catégorie exige l'autorisation de création de cette catégorie, en général accordée par un jeu d'autorisations. Puis **Continuer**.
 
 ### Des types de patrouille manquent ou sont inactifs {#finding-patrol_types}
 
-La configuration des patrouilles crée les types dont les étapes de patrouille ont besoin ; lors d'une exécution, cela signifie donc normalement qu'un type a été désactivé après coup. Activez-le dans **EarthRanger admin › Patrol types**, ou faites Continue pour laisser la configuration des patrouilles le recréer. Dans un plan, c'est attendu : le plan n'écrit rien, et le constat est marqué comme quelque chose que l'exécution créera.
+La configuration des patrouilles crée les types dont les étapes de patrouille ont besoin ; lors d'une exécution, cela signifie donc normalement qu'un type a été désactivé après coup. Activez-le dans **EarthRanger admin › Patrol types**, ou appuyez sur **Continuer** pour laisser la configuration des patrouilles le recréer. Dans un plan, c'est attendu : le plan n'écrit rien, et le constat est marqué comme quelque chose que l'exécution créera.
 
 ### Des champs de patrouille universels manquent ou sont obsolètes {#finding-segment_schema}
 
-La configuration des patrouilles écrit ces champs. Si un administrateur en a volontairement rendu un obsolète, rétablissez-le dans le générateur de formulaires de patrouille ; sinon, Continue. Dans un plan, c'est attendu.
+La configuration des patrouilles écrit ces champs. Si un administrateur en a volontairement rendu un obsolète, rétablissez-le dans le générateur de formulaires de patrouille ; sinon, **Continuer**. Dans un plan, c'est attendu.
 
 ### Des options utilisées par les patrouilles manquent ou sont inactives {#finding-choices}
 
@@ -127,7 +127,7 @@ Un avertissement. smart-able a noté des choses au sujet des données en écriva
 
 ### Des patrouilles n'ont pas pu être importées {#finding-patrols_failed}
 
-Chaque patrouille en échec est listée avec son erreur. La plupart des erreurs nomment quelque chose qui manque sur le site : une équipe, un sujet, un type d'événement. Corrigez cela, puis Continue ; seules les patrouilles en échec sont réessayées. Un `500` sur un identifiant de patrouille déjà présent sur le site est EarthRanger qui refuse un doublon ; la nouvelle tentative lit la patrouille existante et poursuit.
+Chaque patrouille en échec est listée avec son erreur. La plupart des erreurs nomment quelque chose qui manque sur le site : une équipe, un sujet, un type d'événement. Corrigez cela, puis **Continuer** ; seules les patrouilles en échec sont réessayées. Un `500` sur un identifiant de patrouille déjà présent sur le site est EarthRanger qui refuse un doublon ; la nouvelle tentative lit la patrouille existante et poursuit.
 
 ### Le jeton du site ne fonctionne plus {#finding-site_token_rejected}
 

@@ -2,6 +2,7 @@
 help to static pages. The build's structure and links, then the guide's content, then the workflow."""
 from __future__ import annotations
 
+import html
 import importlib.util
 import json
 import re
@@ -570,6 +571,36 @@ def test_status_values_survive_translation(site, tmp_path):
         h = (out / code / "statuses.html").read_text(encoding="utf-8")
         for v in ("planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"):
             assert f"<code>{v}</code>" in h, (code, v)
+
+
+NAMED_IN_THE_GUIDE = ["home.title", "home.upload", "upload.submit", "dataset.browse", "shell.sites", "sites.add", "dataset.load",
+                      "loadDialog.what", "loadDialog.modelOnly", "loadDialog.modelAndPatrols", "loadDialog.makePlan",
+                      "load.confirm", "load.continue", "rangers.title"]
+
+
+def _message(code, key):
+    node = json.loads((ROOT / "web" / "static" / "locales" / f"{code}.json").read_text(encoding="utf-8"))
+    for part in key.split("."):
+        node = node[part]
+    return node
+
+
+def test_the_translated_guide_names_each_button_as_the_app_shows_it(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = html.unescape((out / code / "your-first-migration.html").read_text(encoding="utf-8"))
+        for key in NAMED_IN_THE_GUIDE:
+            assert f"<strong>{_message(code, key)}</strong>" in h, (code, key)
+        for english in ("Upload a backup or export", "Confirm and load", "Make the plan"):
+            assert english not in h, (code, english)
+
+
+def test_the_translated_statuses_page_gives_the_value_and_the_apps_label(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = html.unescape((out / code / "statuses.html").read_text(encoding="utf-8"))
+        for value in ("planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"):
+            assert re.search(rf"<code>{value}</code>[^<]*{re.escape(_message(code, 'status.' + value))}", h), (code, value)
 
 
 def test_the_deploy_notes_say_how_to_correct_and_review_a_translation():

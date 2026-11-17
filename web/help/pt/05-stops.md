@@ -4,13 +4,13 @@ Uma execução para onde o site precisa de algo que a API não consegue fazer, o
 
 Os nomes dos menus da administração do EarthRanger são dados em inglês, como ela os exibe.
 
-Depois de corrigir o site, pressione **Continue** (continuar). A execução repete as primeiras etapas, o que é rápido, e segue em frente.
+Depois de corrigir o site, pressione **Continuar**. A execução repete as primeiras etapas, o que é rápido, e segue em frente.
 
-## Preparação de patrulhas (Patrol setup)
+## Preparação de patrulhas
 
 ### Criar uma equipe de patrulha {#finding-team}
 
-As patrulhas do SMART citam uma equipe; a API do EarthRanger não consegue criar equipes. Na administração do Django, abra **Patrol configuration › Teams** e adicione uma equipe cujo campo *display* seja exatamente o nome de equipe mostrado. A constatação lista os membros da equipe no SMART, para sua referência; a importação identifica a equipe só pelo nome. Há uma entrada para cada equipe que falta; crie todas e depois Continue.
+As patrulhas do SMART citam uma equipe; a API do EarthRanger não consegue criar equipes. Na administração do Django, abra **Patrol configuration › Teams** e adicione uma equipe cujo campo *display* seja exatamente o nome de equipe mostrado. A constatação lista os membros da equipe no SMART, para sua referência; a importação identifica a equipe só pelo nome. Há uma entrada para cada equipe que falta; crie todas e depois **Continuar**.
 
 ### Colocar os guarda-parques no grupo de sujeitos da lista de guarda-parques {#finding-roster_group}
 
@@ -18,27 +18,27 @@ Nenhum grupo foi informado para a lista de guarda-parques quando a carga foi cri
 
 ### Adicionar os sujeitos ao grupo de sujeitos {#finding-permission_subject_group}
 
-O grupo da lista de guarda-parques existe, mas o usuário do site não pode alterar a participação em grupos de sujeitos. Conceda essa permissão ao usuário e faça Continue, ou adicione você mesmo os sujeitos ao grupo em **Django admin › Subject groups**. O nome do grupo é mostrado com um botão de copiar.
+O grupo da lista de guarda-parques existe, mas o usuário do site não pode alterar a participação em grupos de sujeitos. Conceda essa permissão ao usuário e pressione **Continuar**, ou adicione você mesmo os sujeitos ao grupo em **Django admin › Subject groups**. O nome do grupo é mostrado com um botão de copiar.
 
 ### Ativar o recurso patrol_schemas {#finding-enable_patrol_schemas}
 
-O site está com o recurso em prévia `patrol_schemas` desativado, então não tem pernas de patrulha, campos universais de patrulha, equipes nem listas de guarda-parques para onde importar. Na administração do Django, abra **Preview features › patrol_schemas** e ative-o para este locatário (tenant). Consulte o EarthRanger Core se a página não estiver disponível. Depois Continue; os campos universais de patrulha são gravados na passagem seguinte.
+O site está com o recurso em prévia `patrol_schemas` desativado, então não tem pernas de patrulha, campos universais de patrulha, equipes nem listas de guarda-parques para onde importar. Na administração do Django, abra **Preview features › patrol_schemas** e ative-o para este locatário (tenant). Consulte o EarthRanger Core se a página não estiver disponível. Depois **Continuar**; os campos universais de patrulha são gravados na passagem seguinte.
 
 ### Conceder permissão: tipos de patrulha {#finding-permission_patrol_types}
 
-O usuário do site não pode criar nem alterar tipos de patrulha. Na administração do Django, abra **Users › the user** (o usuário) e adicione `activity | patrol type | Can add/change patrol type`. Depois Continue.
+O usuário do site não pode criar nem alterar tipos de patrulha. Na administração do Django, abra **Users › the user** (o usuário) e adicione `activity | patrol type | Can add/change patrol type`. Depois **Continuar**.
 
 ### Conceder permissão: campos universais de patrulha {#finding-permission_segment_schema}
 
-O usuário do site não pode gravar os campos universais de patrulha (o esquema de segmento). Adicione `activity | segment type | Can change segment type`; hoje isso exige um superusuário. Depois Continue.
+O usuário do site não pode gravar os campos universais de patrulha (o esquema de segmento). Adicione `activity | segment type | Can change segment type`; hoje isso exige um superusuário. Depois **Continuar**.
 
 ### Conceder permissão: sujeitos {#finding-permission_subjects}
 
-O usuário do site não pode ver, adicionar nem alterar sujeitos, então os sujeitos guarda-parques não puderam ser criados nem encontrados. Adicione `observations | subject | Can view/add/change subject`. Depois Continue.
+O usuário do site não pode ver, adicionar nem alterar sujeitos, então os sujeitos guarda-parques não puderam ser criados nem encontrados. Adicione `observations | subject | Can view/add/change subject`. Depois **Continuar**.
 
 ### Conceder permissão: configuração de patrulhas {#finding-permission_patrol_config}
 
-O usuário do site não pode ler a configuração de patrulhas, com a qual as equipes e as listas de guarda-parques são conferidas. Adicione `activity | patrol | Can view patrol`. Depois Continue.
+O usuário do site não pode ler a configuração de patrulhas, com a qual as equipes e as listas de guarda-parques são conferidas. Adicione `activity | patrol | Can view patrol`. Depois **Continuar**.
 
 ### Escolher um ícone para cada tipo de patrulha {#finding-patrol_type_icons}
 
@@ -48,7 +48,7 @@ Um aviso, não uma parada. A API não consegue definir o ícone de um tipo de pa
 
 Um aviso, não uma parada. Algumas bases não têm nome em nenhum idioma do SMART, então foram criadas com um nome provisório como `Unnamed station 1a2b3c4d`. Dê nome a elas no SMART e exporte de novo, ou renomeie a opção em **Django admin › Choices** (campo `patrol_station`); uma execução posterior coloca o nome provisório de volta até que o SMART tenha um nome.
 
-## Verificação prévia (Preflight)
+## Verificação prévia
 
 ### O fuso horário do pacote foi deduzido {#finding-timezone}
 
@@ -64,23 +64,23 @@ Um aviso, nada a fazer. Alguns dias de perna não têm trilha, nem horário de i
 
 ### Uma verificação prévia não pôde rodar {#finding-check_failed}
 
-Uma das verificações gerou um erro antes de poder informar, normalmente um problema de conexão ou de permissão com o site. A mensagem informa a verificação e o erro. Corrija a causa e depois Continue; a verificação prévia roda de novo desde o início.
+Uma das verificações gerou um erro antes de poder informar, normalmente um problema de conexão ou de permissão com o site. A mensagem informa a verificação e o erro. Corrija a causa e depois **Continuar**; a verificação prévia roda de novo desde o início.
 
 ### O recurso patrol_schemas está desativado {#finding-feature_flag}
 
-A mesma situação de *Ativar o recurso patrol_schemas* acima, vista pela verificação prévia. Ative o recurso e depois Continue.
+A mesma situação de *Ativar o recurso patrol_schemas* acima, vista pela verificação prévia. Ative o recurso e depois **Continuar**.
 
 ### O usuário do site não tem as permissões {#finding-permissions}
 
-A constatação lista cada permissão de que a importação precisa e que o usuário não tem. Conceda-as em **Django admin › Users › the user**, app `activity`. Criar eventos em uma categoria exige a permissão de criação dessa categoria, normalmente concedida por um conjunto de permissões. Depois Continue.
+A constatação lista cada permissão de que a importação precisa e que o usuário não tem. Conceda-as em **Django admin › Users › the user**, app `activity`. Criar eventos em uma categoria exige a permissão de criação dessa categoria, normalmente concedida por um conjunto de permissões. Depois **Continuar**.
 
 ### Faltam tipos de patrulha ou eles estão inativos {#finding-patrol_types}
 
-A preparação de patrulhas cria os tipos de que as pernas precisam, então em uma execução isso normalmente significa que um tipo foi desativado depois. Ative-o em **EarthRanger admin › Patrol types**, ou faça Continue para deixar a preparação de patrulhas recriá-lo. Em um plano isso é esperado: o plano não grava nada, e a constatação é marcada como algo que a execução vai criar.
+A preparação de patrulhas cria os tipos de que as pernas precisam, então em uma execução isso normalmente significa que um tipo foi desativado depois. Ative-o em **EarthRanger admin › Patrol types**, ou pressione **Continuar** para deixar a preparação de patrulhas recriá-lo. Em um plano isso é esperado: o plano não grava nada, e a constatação é marcada como algo que a execução vai criar.
 
 ### Faltam campos universais de patrulha ou eles estão obsoletos {#finding-segment_schema}
 
-A preparação de patrulhas grava esses campos. Se um administrador tornou um deles obsoleto de propósito, restaure-o no construtor de formulários de patrulha; caso contrário, Continue. Em um plano isso é esperado.
+A preparação de patrulhas grava esses campos. Se um administrador tornou um deles obsoleto de propósito, restaure-o no construtor de formulários de patrulha; caso contrário, **Continuar**. Em um plano isso é esperado.
 
 ### Faltam opções que as patrulhas usam ou elas estão inativas {#finding-choices}
 
@@ -127,7 +127,7 @@ Um aviso. O smart-able anotou coisas sobre os dados quando gravou o pacote. Elas
 
 ### Houve patrulhas que não puderam ser importadas {#finding-patrols_failed}
 
-Cada patrulha que falhou é listada com o erro dela. A maioria dos erros informa algo que falta no site: uma equipe, um sujeito, um tipo de evento. Corrija isso e depois Continue; só as patrulhas que falharam são tentadas de novo. Um `500` em um identificador de patrulha que já está no site é o EarthRanger recusando uma duplicata; a nova tentativa lê a patrulha existente e segue em frente.
+Cada patrulha que falhou é listada com o erro dela. A maioria dos erros informa algo que falta no site: uma equipe, um sujeito, um tipo de evento. Corrija isso e depois **Continuar**; só as patrulhas que falharam são tentadas de novo. Um `500` em um identificador de patrulha que já está no site é o EarthRanger recusando uma duplicata; a nova tentativa lê a patrulha existente e segue em frente.
 
 ### O token do site não funciona mais {#finding-site_token_rejected}
 
