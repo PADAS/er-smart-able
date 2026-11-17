@@ -25,7 +25,7 @@ function standIn(node, prefix) {
   const out = {};
   for (const [k, v] of Object.entries(node)) {
     const key = prefix + k;
-    out[k] = typeof v === 'object' ? standIn(v, key + '.') : '⟦' + key + '⟧' + (v.match(/\{\{\w+\}\}/g) || []).join('');
+    out[k] = typeof v === 'object' ? standIn(v, key + '.') : '⟦' + key + '⟧' + (v.match(/\{\{\w+\}\}/g) || []).map(ph => ' ' + ph).join('');
   }
   return out;
 }
@@ -33,11 +33,11 @@ const P = load({ lang: 'xx', messages: standIn(EN, '') });
 P.now = () => Date.parse('2026-11-13T10:05:00+00:00');
 
 // ---- fixtures
-const area = (dir, more) => Object.assign({ dir, ca_id: 'ca' + dir, name: 'Reserve ' + dir, version: '7.5.1', patrols: 12, waypoints: 1 }, more);
-const DATASETS = ['queued', 'running', 'ready', 'failed', 'uploading', 'extracting', 'odd_status'].map((status, i) => ({
-  id: 'ds' + i, name: 'Dataset ' + status, source_name: 'backup-' + i + '.zip', source_size: [5e9, 5e6, 5e3, 5, 0, 2e9, 1][i], status,
+const area = (dir, more) => Object.assign({ dir, ca_id: 'ca' + dir, name: 'Zzyzx ' + dir, version: '7.5.1', patrols: 12, waypoints: 1 }, more);
+const DATASETS = ['queued', 'running', 'ready', 'failed', 'uploading', 'extracting', 'zzodd_state'].map((status, i) => ({
+  id: 'ds' + i, name: 'Zzset ' + status, source_name: 'backup-' + i + '.zip', source_size: [5e9, 5e6, 5e3, 5, 0, 2e9, 1][i], status,
   created_at: '2026-11-1' + i + 'T10:00:00+00:00', started_at: '2026-11-13T10:00:00+00:00', finished_at: i % 2 ? '2026-11-13T10:30:00+00:00' : null,
-  cas: [{ id: 'cas' + i, n: 'Area ' + status }, { id: 'noname' + i }], counts: i % 3 ? { patrols: 3, waypoints: 1 } : { patrols: 1234 },
+  cas: [{ id: 'cas' + i, n: 'Zzarea ' + status }, { id: 'noname' + i }], counts: i % 3 ? { patrols: 3, waypoints: 1 } : { patrols: 1234 },
   error: i === 3 ? 'The extraction broke: disk full' : '', mine: i % 2 === 0, owner_email: 'owner' + i + '@example.org', shared_with: i < 2 ? ['pal@example.org', 'kin@example.org'] : [],
   extract_held: status === 'running', db_version: '7.4', log_tail: i < 3 ? 'extracting line one' : '',
   export: i === 2 ? [area('d1'), area('d2', { dir: '', version: null, patrols: null, waypoints: null })] : [],
@@ -51,7 +51,7 @@ const RANGERS = [{ name: 'Ana Cruz', smart_employee_id: 'E1', active: true, patr
 const FINDINGS = [
   { stage: 'patrol_datamodel', code: 'team', severity: 'blocking', title: 'Create a patrol team', detail: 'Stored detail lines', fix: 'Add it by hand', values: [{ label: 'Team id', value: 'team-77' }], affected: { count: 5 } },
   { stage: 'preflight', code: 'icons', severity: 'warning', title: 'Pick some icons', values: [] },
-  { stage: 'mystery_stage', code: 'odd', severity: 'curious', title: 'Something unusual', affected: {} },
+  { stage: 'zzmystery_stage', code: 'odd', severity: 'zzcurious', title: 'Something unusual', affected: {} },
   { stage: 'import', code: 'note', severity: 'info', title: 'For your information' },
 ];
 const SITE = { name: 'Site One', url: 'one.example.org' };
@@ -67,7 +67,7 @@ const FULL_METRICS = {
 const stagesOf = (status, extra) => Object.fromEntries(Object.keys(FULL_METRICS).map(s => [s, { status, started_at: T0, finished_at: T1, metrics: FULL_METRICS[s], ...extra }]));
 const PLAN = { event_categories: { create: [{ label: 'Cat new' }], update: [], deactivate: [{ label: 'Cat old', value: 'cat-old' }], unchanged: 2 },
   event_types: { create: [{ label: 'Type new', value: 'type-new' }], update: [{ label: 'Type same', value: 'Type same' }], more: { create: 4 }, unchanged: 1 },
-  patrol_types: { create: [], update: [] }, universal_patrol_fields: 'written', choices: { update: [{ label: 'Choice up', value: 'ch-1' }], more: 3 },
+  patrol_types: { create: [], update: [] }, universal_patrol_fields: 'zzwritten', choices: { update: [{ label: 'Choice up', value: 'ch-1' }], more: 3 },
   subjects: { create: [{ label: 'Subj new', value: 'subj-id' }] }, roster: { group: 'Rangers group', add: 3 },
   patrols: { total: 12, first: '2024-01-02', last: '2024-06-01', already_done: 2, events: 40, track_points: 900 } };
 const LOADS = [
@@ -86,13 +86,14 @@ const LOADS = [
   { ...LOAD, status: 'running', held: false, mode: 'run', started_at: T0, updated_at: T2, stages: { datamodel: { status: 'running', started_at: T0, metrics: {} } } },
   { ...LOAD, status: 'queued', held: true, mode: null, claimed_at: T0, stages: {} },
   { ...LOAD, status: 'planning', held: true, mode: null, claimed_at: T0 },
+  { ...LOAD, status: 'planned', stages: { import: { status: 'done', metrics: { planned: 2 } } } },   // a plan with nothing already done
   // loads from before the stage table: only `stage` and `status`
   { ...LOAD, status: 'needs_attention', mode: null, stage: 'preflight', stages: undefined },
   { ...LOAD, status: 'done', mode: null, stage: 'import', stages: undefined, progress: { done: 2, patrols_total: 2, failed: 0, skipped: 0 } },
   { ...LOAD, status: 'failed', mode: null, stage: 'datamodel', stages: undefined },
 ];
 const CALLS = {
-  renderBreadcrumb: [[[{ label: 'Crumb one', hash: '#/' }, { label: 'Crumb two' }]]],
+  renderBreadcrumb: [[[{ label: 'Zzcrumb a', hash: '#/' }, { label: 'Zzcrumb b' }]]],
   renderSignIn: [[{}], [{ allowed: ['@one.example.org'] }], [{ allowed: ['@a.example.org', '@b.example.org', '@c.example.org'] }], [{ allowed: '@str.example.org' }]],
   renderDatasetCard: DATASETS.map(d => [d]),
   renderCardList: [[DATASETS], [[]]],
@@ -118,8 +119,15 @@ function values(x, out) {
   else if (x && typeof x === 'object') Object.values(x).forEach(v => values(v, out));
   return out;
 }
-// a status the page has no word for is shown as stored, with its underscores read as spaces
-const FIXTURE_VALUES = [...values([CALLS, FILE_NAMES], new Set())].flatMap(v => [v, v.replace(/_/g, ' ')]).filter(v => v.length >= 3).sort((a, b) => b.length - a.length);
+// Known codes the page has words for (statuses, modes, scopes, tabs, severities, stages, phases): these
+// are never stripped, so a word of the page that happens to match one still shows up as English.
+const CODES = new Set(['queued', 'running', 'ready', 'failed', 'uploading', 'extracting', 'done', 'planned', 'planning', 'continuing', 'needs_attention', 'stopped', 'pending',
+  'plan', 'run', 'all', 'datamodel', 'patrol_datamodel', 'preflight', 'import', 'overview', 'loads', 'rangers', 'events', 'tracks', 'blocking', 'warning', 'info', 'load', 'dataset', 'en', 'xx']);
+// What is stripped is display data only: names, ids, hosts, dates, stored text, and the unknown statuses
+// the page shows as stored (with underscores read as spaces). Matched on word boundaries.
+const FIXTURE_VALUES = [...values([CALLS, FILE_NAMES], new Set())].filter(v => !CODES.has(v)).flatMap(v => [v, v.replace(/_/g, ' ')]).filter(v => v.length >= 3).sort((a, b) => b.length - a.length);
+const esc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const FIXTURE_RE = new RegExp('(?<![\\p{L}\\p{N}_])(?:' + FIXTURE_VALUES.map(esc).join('|') + ')(?![\\p{L}\\p{N}_])', 'gu');
 
 const decode = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 // keep what a reader can see or hear: the text, and the title, aria-label, alt and placeholder values
@@ -129,7 +137,7 @@ function visible(html) {
 }
 function leftover(html) {
   let s = decode(visible(html)).replace(/⟦[^⟧]*⟧/g, ' ');
-  for (const v of FIXTURE_VALUES) s = s.split(v).join(' ');
+  s = s.replace(FIXTURE_RE, ' ');
   for (const w of ALLOWED) s = s.split(w).join(' ');
   return s.match(/\p{L}{3,}/gu) || [];
 }
