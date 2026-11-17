@@ -67,7 +67,9 @@ Notes:
 ## SMART's data
 
 Words for what a SMART database holds. Where a page talks about SMART's
-data, it uses SMART's word.
+data, it uses SMART's word. One exception: for a patrol, the Spanish pages
+use EarthRanger's *patrulla* throughout, because the reader goes on to see
+the patrols there; *tipo de patrullaje* is the same in both products.
 
 | English | Français | Español | Português | Kiswahili | Source |
 |---|---|---|---|---|---|

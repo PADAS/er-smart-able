@@ -526,3 +526,28 @@ def test_a_translation_with_fewer_tabs_or_a_missing_picture_fails_the_build(site
     (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "s.png").write_bytes(PNG)
     with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*pictures.*s\.png"):
         site.build(tmp_path / "o2")
+
+
+# ---- the translations
+def test_the_guide_is_translated_into_every_language(site, tmp_path):
+    for l in site.languages()[1:]:
+        ps = {p.slug: p for p in site.pages(l.code)}
+        for slug in ("index", "get-your-inputs", "your-first-migration"):
+            assert ps[slug].translated, (l.code, slug)
+            assert ps[slug].title != {p.slug: p for p in site.pages("en")}[slug].title or l.code == "en", (l.code, slug)
+
+
+def test_no_page_in_any_language_names_a_real_site_or_a_token(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for page in out.rglob("*.html"):
+        h = page.read_text(encoding="utf-8")
+        assert set(re.findall(r"[a-z0-9-]+\.pamdas\.org", h)) <= {"example.pamdas.org"}, page
+        assert not re.search(r"\b[0-9a-f]{32,}\b", h), page
+
+
+def test_translated_smart_steps_give_the_english_menu_name_beside_the_translated_one(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = (out / code / "get-your-inputs.html").read_text(encoding="utf-8")
+        assert "Export Conservation Area..." in h and "Backup System" in h, code   # the picture shows these words
+        assert h.count('<section class="tab-panel">') == 3, code
