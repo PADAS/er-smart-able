@@ -24,7 +24,7 @@ Choose the one you will make, and follow its steps. The steps and pictures for t
 
 2. Choose **File → Export Conservation Area...**. It is the first item in the File menu.
 
-    ![The SMART window with the File menu open and its first item, Export Conservation Area, highlighted; Backup System is the item below it](img/smart-export-2-menu.png)
+    ![The top left of the SMART window, with the File menu open and its first item, Export Conservation Area, highlighted; Backup System is the item below it](img/smart-export-2-menu.png)
 
 3. In the **Export Conservation Area** window, check the **File** box. It says where the export will be saved and what it will be called. SMART suggests a folder named `backup` inside its own folder; select **Browse...** to save somewhere else. Then select **Export**.
 
@@ -43,7 +43,7 @@ Choose the one you will make, and follow its steps. The steps and pictures for t
 1. Open SMART Desktop. On the sign-in screen, choose any conservation area, enter the username and password of an administrator of that area, and select **Login**.
 2. Choose **File → Backup System**.
 
-    ![The SMART window with the File menu open and its second item, Backup System, highlighted](img/smart-backup-1-menu.png)
+    ![The top left of the SMART window, with the File menu open and its second item, Backup System, highlighted](img/smart-backup-1-menu.png)
 
 3. In the **Backup SMART System** window, check the **File** box, or select **Browse...** to save somewhere else. Leave **Exclude filestore from backup** unticked: the filestore holds the photos attached to patrols, and a backup without it loads without them. Then select **Backup**.
 

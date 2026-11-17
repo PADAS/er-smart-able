@@ -323,3 +323,8 @@ def test_get_your_inputs_offers_the_three_smart_files_as_one_choice(site, tmp_pa
     h = _guide(site, tmp_path)["get-your-inputs"]
     assert re.findall(r'<label for="tabs-1-\d">([^<]+)</label>', h) == ["Conservation Area export", "System backup", "Zipped SMART folder"]
     assert h.count('<section class="tab-panel">') == 3 and h.index("</div>", h.rindex("</section>")) < h.index("From EarthRanger")
+
+
+def test_a_tables_first_column_is_never_broken_mid_word():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert re.search(r"td:first-child\s*\{[^}]*white-space:\s*nowrap", css), "main wraps anywhere, which split 'planning' across lines"

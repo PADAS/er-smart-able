@@ -37,7 +37,10 @@ code { background: var(--er-ui-background-tertiary-background); padding: 1px 4px
 pre { overflow-x: auto; padding: 10px 12px; border: 1px solid var(--er-ui-divider-lines); border-radius: 8px; background: var(--er-ui-background-elevated-component); }
 pre code { background: none; padding: 0; }
 table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 12px; }
-th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--er-ui-divider-lines); text-align: left; vertical-align: top; }
+th, td { padding: 8px 24px 8px 0; border-bottom: 1px solid var(--er-ui-divider-lines); text-align: left; vertical-align: top; }
+/* the first column is a short label (a status, a stage): kept on one line, so it is never broken mid-word */
+th:first-child, td:first-child { white-space: nowrap; overflow-wrap: normal; }
+th:last-child, td:last-child { padding-right: 0; }
 :target { scroll-margin-top: 16px; }
 /* a screenshot: never wider than the text, framed so a white window does not bleed into the page */
 main img { display: block; max-width: 100%; height: auto; margin: 8px 0 16px; border: 1px solid var(--er-ui-divider-lines); border-radius: 8px; }
