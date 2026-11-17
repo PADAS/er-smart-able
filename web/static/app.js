@@ -4,8 +4,8 @@ let CONFIG = null, ME = null, pollTimer = null;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
-  if (r.status === 401) { showSignIn(); const err = new Error(t('signin.required')); err.status = 401; throw err; }
-  if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} const err = new Error(d || r.statusText); err.status = r.status; throw err; }
+  if (r.status === 401) { showSignIn(); const err = new Error(t('errors.signin_required')); err.status = 401; throw err; }
+  if (!r.ok) { let b = null; try { b = await r.json(); } catch (e) {} const err = new Error(errorMessage(r.status, r.statusText, b)); err.status = r.status; throw err; }
   return r.status === 204 ? null : r.json();
 }
 

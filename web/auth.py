@@ -17,6 +17,8 @@ from datetime import timedelta
 
 from fastapi import HTTPException, Request, Response
 
+from errors import ApiError
+
 logger = logging.getLogger(__name__)
 
 AUTH_DISABLED = os.environ.get("AUTH_DISABLED", "").lower() == "true"
@@ -60,7 +62,7 @@ def _dev_user(request: Request) -> dict:
 def _from_decoded(decoded: dict) -> dict:
     email = decoded.get("email", "")
     if not email_allowed(email):
-        raise HTTPException(status_code=403, detail="This email is not allowed to use smart-able")
+        raise ApiError(403, "email_not_allowed", "This email is not allowed to use smart-able")
     return {"uid": decoded["uid"], "email": email, "name": decoded.get("name") or email}
 
 
@@ -87,8 +89,8 @@ async def current_user(request: Request) -> dict:
             raise
         except Exception as e:
             logger.info("id token rejected: %s", e)
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-    raise HTTPException(status_code=401, detail="Sign in required")
+            raise ApiError(401, "token_invalid", "Invalid or expired token")
+    raise ApiError(401, "signin_required", "Sign in required")
 
 
 def start_session(response: Response, request: Request, id_token: str) -> dict:
@@ -104,7 +106,7 @@ def start_session(response: Response, request: Request, id_token: str) -> dict:
     try:
         decoded = auth.verify_id_token(id_token)
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise ApiError(401, "token_invalid", "Invalid or expired token")
     user = _from_decoded(decoded)
     expires = timedelta(days=SESSION_DAYS)
     cookie = auth.create_session_cookie(id_token, expires_in=expires)

@@ -5,6 +5,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..', 'web');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const flat = (o, p = '') => Object.entries(o).flatMap(([k, v]) => typeof v === 'object' ? flat(v, p + k + '.') : [[p + k, v]]);
+const { load } = require('./shim');
 const EN = Object.fromEntries(flat(JSON.parse(read('static/locales/en.json'))));
 
 test('every key the code and the template ask for is in the English file', () => {
@@ -31,8 +32,8 @@ test('changing language forgets the loaded help and drops a pending fetch', () =
 // fmtBytes and fmtDur are wrapped in esc() or handed to a message as a value; loadScope and loadName are wrapped in
 // esc() (or passed as a breadcrumb label, which renderBreadcrumb escapes); loadFacts returns the facts under a
 // load's title, which the title block escapes with facts.map(esc); stageLabel returns the words handed to pill(),
-// which escapes its label.
-const PLAIN_TEXT_FUNCTIONS = ['fmtBytes', 'fmtDur', 'loadScope', 'loadName', 'loadFacts', 'stageLabel'];
+// which escapes its label; errorMessage returns the words for alert() or textContent.
+const PLAIN_TEXT_FUNCTIONS = ['fmtBytes', 'fmtDur', 'loadScope', 'loadName', 'loadFacts', 'stageLabel', 'errorMessage'];
 test('t() is used only where plain text is wanted; markup is built with T()', () => {
   const src = read('static/app.js') + read('static/pages.js');
   // dialog( and prompt( write or show their first argument as text; renderBreadcrumb escapes each label
@@ -60,4 +61,21 @@ test('every csv column the rangers download names has a header message', () => {
   assert.ok(cols.length > 0);
   assert.deepEqual(cols.filter(c => !('csv.' + c in EN)), []);
   assert.deepEqual(Object.keys(EN).filter(k => k.startsWith('csv.') && !cols.includes(k.slice(4))), []);
+});
+test('an error is shown in the language when its code is known, and as the server worded it when not', () => {
+  const P = load({ lang: 'xx', messages: { errors: { dataset_not_found: 'INTROUVABLE', language_not_in_bundle: 'LANGUE {{language}}' } } });
+  assert.equal(P.errorMessage(404, 'Not Found', { detail: 'Dataset not found', code: 'dataset_not_found', values: {} }), 'INTROUVABLE');
+  assert.equal(P.errorMessage(400, 'Bad Request', { detail: 'x', code: 'language_not_in_bundle', values: { language: 'zz' } }), 'LANGUE zz');
+  assert.equal(P.errorMessage(409, 'Conflict', { detail: 'Something new', code: 'brand_new_code' }), 'Something new');
+  assert.equal(P.errorMessage(409, 'Conflict', { detail: 'Old server, no code' }), 'Old server, no code');
+  assert.equal(P.errorMessage(422, 'Unprocessable', { detail: [{ loc: ['body', 'name'], msg: 'field required' }], code: 'invalid_request' }), 'The request was not valid.');
+  assert.equal(P.errorMessage(500, 'Internal Server Error', null), 'Internal Server Error');
+});
+test('an error with odd values does not throw, and values are plain text', () => {
+  const P = load({ lang: 'xx', messages: { errors: { dataset_status: 'STATUT {{status}}' } } });
+  for (const values of [undefined, null, 'x', 5, []]) {
+    assert.doesNotThrow(() => P.errorMessage(409, 'Conflict', { detail: 'd', code: 'dataset_status', values }));
+  }
+  assert.equal(P.errorMessage(409, 'Conflict', { detail: 'd', code: 'dataset_status', values: { status: '<b>x</b>' } }), 'STATUT <b>x</b>');
+  assert.equal(P.errorMessage(401, '', undefined), '401');
 });

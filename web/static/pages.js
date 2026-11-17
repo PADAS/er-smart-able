@@ -18,6 +18,18 @@ function loadScope(l) {
   return '';
 }
 
+// the words for a failed API call, as plain text for alert or textContent: in the reader's language when the
+// server's code has a message, else the server's own English, else a generic line, else the status text.
+// `values` are data from the server; t() inserts them as text.
+function errorMessage(status, statusText, body) {
+  var b = body && typeof body === 'object' ? body : {};
+  var values = b.values && typeof b.values === 'object' ? b.values : {};
+  if (typeof b.code === 'string' && hasMessage('errors.' + b.code)) return t('errors.' + b.code, values);
+  if (typeof b.detail === 'string' && b.detail) return b.detail;
+  if (b.code === 'invalid_request' || Array.isArray(b.detail)) return t('errors.invalid_request');
+  return statusText || String(status);
+}
+
 // ---- routes: the location hash is the truth. Ids are [A-Za-z0-9]+; anything unrecognised is home.
 function parseRoute(hash) {
   var h = String(hash || '');
