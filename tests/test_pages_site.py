@@ -328,3 +328,11 @@ def test_get_your_inputs_offers_the_three_smart_files_as_one_choice(site, tmp_pa
 def test_a_tables_first_column_is_never_broken_mid_word():
     css = (ROOT / "web" / "site" / "site.css").read_text()
     assert re.search(r"td:first-child\s*\{[^}]*white-space:\s*nowrap", css), "main wraps anywhere, which split 'planning' across lines"
+
+
+def test_the_zipped_folder_steps_insist_that_smart_is_closed(site, tmp_path):
+    h = _guide(site, tmp_path)["get-your-inputs"]
+    panel = h[h.rindex('<section class="tab-panel">'):]
+    assert re.search(r'<p class="important"><strong>SMART Desktop must be closed', panel), "said before the steps, and set apart"
+    assert panel.index('class="important"') < panel.index("<ol>")
+    assert ".important {" in (ROOT / "web" / "site" / "site.css").read_text()

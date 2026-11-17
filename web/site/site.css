@@ -47,6 +47,8 @@ main img { display: block; max-width: 100%; height: auto; margin: 8px 0 16px; bo
 
 /* a step the guide has not yet checked against the real thing */
 .unverified { padding: 10px 14px; border: 1px solid var(--er-ui-status-warning); border-radius: 8px; background: var(--er-ui-status-bg-warning-bg); font-weight: 500; }
+/* something the reader must not skip */
+.important { padding: 10px 14px; border: 1px solid var(--er-ui-status-warning); border-radius: 8px; background: var(--er-ui-status-bg-warning-bg); }
 
 /* tabs: alternatives, of which the reader follows one. Radio buttons and their labels, so they work
    from the keyboard (arrow keys) and without a script. The buttons are kept focusable but unseen;

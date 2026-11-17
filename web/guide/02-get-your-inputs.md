@@ -8,7 +8,7 @@ You need one file, not all three. The app accepts any one of these, as a single 
 
 - **A Conservation Area export.** It holds one conservation area. SMART names it `SMART_<area identifier>_<date>.bak.zip`.
 - **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It holds every conservation area in that copy of SMART; you choose which to load later.
-- **A zipped SMART Desktop folder.** Zip the whole folder SMART Desktop runs from. Use this when you cannot run SMART to make an export or a backup.
+- **A zipped SMART Desktop folder.** Zip the whole folder SMART Desktop runs from, with SMART Desktop closed. Use this when you cannot run SMART to make an export or a backup.
 
 Upload the `.zip` as it is. Do not unzip it, and do not upload a file from inside it.
 
@@ -61,7 +61,10 @@ A backup with photos can be large, because it holds the photos of every conserva
 
 ### Zipped SMART folder {: .tab }
 
-1. Close SMART Desktop if it is open.
+**SMART Desktop must be closed before you zip its folder.** While SMART is open it is still writing to its database, and a zip made then can hold a database that cannot be read.
+{: .important }
+
+1. Close SMART Desktop: choose **File → Exit**, and wait for its window to go.
 2. In File Explorer, find the folder SMART Desktop runs from. It is the folder that holds `SMART.exe` and a folder named `data`. SMART has no fixed place on the disk: it runs from wherever its folder was put when it was set up.
 
     ![File Explorer showing the inside of a SMART Desktop folder: folders named configuration, data, features, GPSBabel, jre, p2, plugins, readme, updatesite and workspace, and files including SMART.exe and SMART.ini](img/smart-installzip-1-folder.png)
@@ -70,7 +73,7 @@ A backup with photos can be large, because it holds the photos of every conserva
 
     ![A folder named SMART 7.5.6 right-clicked in File Explorer, with the Send to menu open and Compressed (zipped) folder highlighted](img/smart-installzip-2-zip.png)
 
-4. Windows writes a `.zip` beside the folder. This can take several minutes and several gigabytes of free disk space.
+4. Windows writes a `.zip` beside the folder. This can take several minutes and several gigabytes of free disk space. Keep SMART Desktop closed until it has finished.
 
 ## From EarthRanger: the site and a token
 
