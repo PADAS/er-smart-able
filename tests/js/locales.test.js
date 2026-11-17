@@ -27,3 +27,36 @@ test('changing language forgets the loaded help and drops a pending fetch', () =
   assert.match(open, /gen = helpGen/);
   assert.match(open, /gen !== helpGen/);
 });
+// Functions in pages.js that build plain text for a caller that escapes it (or passes it to t() or textContent):
+// fmtBytes and fmtDur are wrapped in esc() or handed to a message as a value; loadScope and loadName are wrapped in
+// esc() (or passed as a breadcrumb label, which renderBreadcrumb escapes); renderLoadTitle's facts list goes
+// through facts.map(esc); renderStages passes its one t() to pill(), which escapes its label.
+const PLAIN_TEXT_FUNCTIONS = ['fmtBytes', 'fmtDur', 'loadScope', 'loadName', 'renderLoadTitle', 'renderStages'];
+test('t() is used only where plain text is wanted; markup is built with T()', () => {
+  const src = read('static/app.js') + read('static/pages.js');
+  // dialog( and prompt( write or show their first argument as text; renderBreadcrumb escapes each label
+  const ok = /(?:esc\(|alert\(|confirm\(|prompt\(|dialog\(|\.textContent = |\.title = |\.placeholder = |new Error\(|label: |setAttribute\([^,]+, )\s*$/;
+  const bad = [...src.matchAll(/\bt\(\s*'[\w.]+'/g)]
+    .filter(m => !m[0].endsWith(".'"))   // a key ending in '.' is a prefix completed from the data
+    .filter(m => !ok.test(src.slice(Math.max(0, m.index - 40), m.index)))
+    .filter(m => !PLAIN_TEXT_FUNCTIONS.includes(([...src.slice(0, m.index).matchAll(/\bfunction (\w+)\(/g)].pop() || [])[1]))
+    .map(m => src.slice(Math.max(0, m.index - 40), m.index + m[0].length));
+  assert.deepEqual(bad, []);
+});
+test('the wiring script holds no confirm or alert with words of its own', () => {
+  const src = read('static/app.js');
+  assert.deepEqual([...src.matchAll(/\b(?:alert|confirm)\(\s*'[^']*[A-Za-z]{3,} [a-z]/g)].map(m => m[0]), []);
+});
+test('every English message is used by the code or the template', () => {
+  const src = read('static/pages.js') + read('static/app.js') + read('templates/index.html');
+  const dynamic = [/^status\./, /^stages\./, /^findings\.severity\./, /^errors\./, /^csv\./, /^plan\.(?:create|update|deactivate)$/];   // looked up by a value from the data
+  const unused = Object.keys(EN).filter(k => !dynamic.some(d => d.test(k)) && !src.includes("'" + k.replace(/_(one|other)$/, '') + "'") && !src.includes('"' + k + '"'));
+  assert.deepEqual(unused, []);
+});
+test('every csv column the rangers download names has a header message', () => {
+  const src = read('static/app.js');
+  const cols = [...src.match(/const CSV_COLUMNS = \[([^\]]*)\]/)[1].matchAll(/'(\w+)'/g)].map(m => m[1]);
+  assert.ok(cols.length > 0);
+  assert.deepEqual(cols.filter(c => !('csv.' + c in EN)), []);
+  assert.deepEqual(Object.keys(EN).filter(k => k.startsWith('csv.') && !cols.includes(k.slice(4))), []);
+});

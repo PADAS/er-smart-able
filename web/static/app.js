@@ -4,7 +4,7 @@ let CONFIG = null, ME = null, pollTimer = null;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
-  if (r.status === 401) { showSignIn(); const err = new Error('Sign in required'); err.status = 401; throw err; }
+  if (r.status === 401) { showSignIn(); const err = new Error(t('signin.required')); err.status = 401; throw err; }
   if (!r.ok) { let d = ''; try { d = (await r.json()).detail; } catch (e) {} const err = new Error(d || r.statusText); err.status = r.status; throw err; }
   return r.status === 204 ? null : r.json();
 }
@@ -223,7 +223,7 @@ function pollHome(list, gen, fails = 0) {
 function retryNote(after, show) {
   if (!after) return;
   const next = after.nextElementSibling, shown = !!(next && next.hasAttribute('data-retry'));
-  if (show && !shown) after.insertAdjacentHTML('afterend', '<p class="tiny" data-retry>Could not refresh; retrying…</p>');
+  if (show && !shown) after.insertAdjacentHTML('afterend', '<p class="tiny" data-retry>' + T('retry.note') + '</p>');
   else if (!show && shown) next.remove();
 }
 
@@ -264,16 +264,15 @@ function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
-function shareDialog(d, base = '/api/datasets/', note) {
+function shareDialog(d, base = '/api/datasets/') {
   const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
-  note = note || 'People you share with can open the dataset. Only you can share, re-extract, or delete it.';
   const allowed = Array.isArray(CONFIG.allowed) ? CONFIG.allowed : CONFIG.allowed ? [CONFIG.allowed] : [];
   const domain = allowed.find(e => e.startsWith('@'));   // the placeholder's suggestion; whole addresses give none
   const render = shared => {
-    dialog('Share "' + d.name + '"',
-      '<p class="muted tiny">' + esc(note) + (allowed.length ? ' Addresses must be ' + (allowed.length === 1 ? esc(allowed[0]) : 'one of ' + allowed.map(esc).join(', ')) + '.' : '') + '</p>' +
-      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="colleague' + esc(domain || '@example.org') + '" required><button type="submit" class="primary">Share</button></form>' +
-      '<div class="shared"><ul>' + (shared.length ? shared.map(e => '<li><span class="mi" aria-hidden="true">person</span>' + esc(e) + ' <button class="ghost" data-unshare="' + esc(e) + '" title="Remove"><span class="mi" aria-hidden="true">close</span></button></li>').join('') : '<li class="tiny">Not shared with anyone yet.</li>') + '</ul></div>');
+    dialog(t('share.title', { name: d.name }),
+      '<p class="muted tiny">' + T(base === '/api/sites/' ? 'share.siteNote' : 'share.note') + (allowed.length ? ' ' + (allowed.length === 1 ? T('share.addressOne', { address: allowed[0] }) : T('share.addressMany', { list: allowed.join(', ') })) : '') + '</p>' +
+      '<form id="shareForm" class="row"><input type="email" id="shareEmail" placeholder="' + T('share.emailPlaceholder', { domain: domain || '@example.org' }) + '" required><button type="submit" class="primary">' + T('share.submit') + '</button></form>' +
+      '<div class="shared"><ul>' + (shared.length ? shared.map(e => '<li><span class="mi" aria-hidden="true">person</span>' + esc(e) + ' <button class="ghost" data-unshare="' + esc(e) + '" title="' + T('share.remove') + '"><span class="mi" aria-hidden="true">close</span></button></li>').join('') : '<li class="tiny">' + T('share.none') + '</li>') + '</ul></div>');
     $('#shareForm').onsubmit = async ev => { ev.preventDefault(); try { const r = await api(base + d.id + '/share', { method: 'POST', body: JSON.stringify({ email: $('#shareEmail').value }) }); render(r.shared_with); refresh(); } catch (e) { oops(e); } };
     $('#modalBody').querySelectorAll('[data-unshare]').forEach(b => b.onclick = async () => { try { const r = await api(base + d.id + '/share/' + encodeURIComponent(b.dataset.unshare), { method: 'DELETE' }); render(r.shared_with); refresh(); } catch (e) { oops(e); } });
   };
@@ -284,7 +283,7 @@ function shareDialog(d, base = '/api/datasets/', note) {
 // never lands on it; the page stays the not-found notice
 function showNotFound(what) {
   history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
-  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'Not found' }]);
+  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: t('dataset.notFoundCrumb') }]);
   mountPage(renderNotFound(what));
 }
 
@@ -322,7 +321,7 @@ async function showDataset(route, poll) {
     }
   } catch (e) { if (!current() || e.status === 401) return; failed(e); return; }
   if (!current()) return;
-  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: d.name }]);
+  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: d.name }]);
   if (paintDataset(renderDatasetPage(d, tab, extra), !!poll)) bindDataset(d, tab, route, extra);
   if (d.extract_held || (tab === 'loads' && (extra.loads || []).some(l => l.held))) again(0);
 }
@@ -354,7 +353,7 @@ function bindDataset(d, tab, route, extra) {
     try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { oops(e); }
   };
   const del = $('#deleteBtn'); if (del) del.onclick = async () => {
-    if (!confirm('Delete "' + d.name + '" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.')) return;
+    if (!confirm(t('confirm.deleteDataset', { name: d.name }))) return;
     try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { oops(e); }
   };
   document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
@@ -366,19 +365,19 @@ function bindDataset(d, tab, route, extra) {
 // GCS URL in production, the service itself locally), then start extraction. The XHR keeps
 // running if the dialog is closed; the elements it updates are then just detached.
 function uploadDialog() {
-  dialog('Upload a backup or export',
+  dialog(t('home.upload'),
     '<form id="uploadForm" class="stack">' +
-    '<label>Name <input id="dsName" required placeholder="e.g. Lawin R5"></label>' +
-    '<label>File <input id="dsFile" type="file" accept=".zip,.bak" required></label>' +
+    '<label>' + T('upload.name') + ' <input id="dsName" required placeholder="' + T('upload.namePlaceholder') + '"></label>' +
+    '<label>' + T('upload.file') + ' <input id="dsFile" type="file" accept=".zip,.bak" required></label>' +
     '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
-    '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">Upload</button></div></form>');
+    '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">' + T('upload.submit') + '</button></div></form>');
   const form = $('#uploadForm');
   form.onsubmit = async ev => {
     ev.preventDefault();
     const file = $('#dsFile', form).files[0]; if (!file) return;
     const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
     const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
-    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = 'Preparing…';
+    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
     try {
       const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
       if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
@@ -387,12 +386,12 @@ function uploadDialog() {
         xhr.open(created.upload.method, created.upload.url);
         for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
         xhr.withCredentials = created.upload.url.startsWith('/');
-        xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = 'Uploading ' + fmtBytes(e.loaded) + ' of ' + fmtBytes(e.total); } };
-        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error('Upload failed (' + xhr.status + ')'));
-        xhr.onerror = () => reject(new Error('Upload failed (network)'));
+        xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = t('upload.progress', { done: fmtBytes(e.loaded), total: fmtBytes(e.total) }); } };
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(t('upload.failed', { status: xhr.status })));
+        xhr.onerror = () => reject(new Error(t('upload.failedNetwork')));
         xhr.send(file);
       });
-      text.textContent = 'Uploaded. Starting extraction…';
+      text.textContent = t('upload.starting');
       await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
       if (onScreen()) closeDialog();                                   // still on screen: close it
       const at = parseRoute(location.hash);
@@ -418,14 +417,14 @@ async function showSites() {
     setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return;
   }
   if (!current()) return;
-  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'EarthRanger sites' }]);
+  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: t('shell.sites') }]);
   mountPage(renderSites(list));
   $('#addSiteBtn').onclick = () => siteDialog();
   $('#page').querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
     const s = list.find(x => x.id === b.dataset.id);
     try {
-      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/', 'People you share with can load datasets into this site using your token.');
-      if (!confirm('Remove "' + s.name + '"? Loads that reference this site stay readable but cannot be continued; register the site again to load into it.')) return;
+      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/');
+      if (!confirm(t('confirm.removeSite', { name: s.name }))) return;
       await api('/api/sites/' + s.id, { method: 'DELETE' }); showSites();
     } catch (e) { if (e.status !== 401) alert(e.message); }
   });
@@ -434,19 +433,19 @@ async function showSites() {
 // the add-site dialog. The token is read from the field on submit and goes only to the POST.
 // onCreated(site) runs after a successful save; onCancel runs when the reader closes the dialog instead.
 function siteDialog(onCreated, onCancel) {
-  dialog('Add an EarthRanger site',
-    '<p class="muted tiny">The token is checked against the site before it is saved.</p>' +
+  dialog(t('siteDialog.title'),
+    '<p class="muted tiny">' + T('siteDialog.hint') + '</p>' +
     '<form id="siteForm" class="col" autocomplete="off">' +
-    '<label class="field"><span>Name</span><input type="text" id="siteName" required placeholder="phinney"></label>' +
-    '<label class="field"><span>Host</span><input type="text" id="siteUrl" required placeholder="example.pamdas.org"></label>' +
-    '<label class="field"><span>Token</span><input type="password" id="siteToken" autocomplete="off" required></label>' +
+    '<label class="field"><span>' + T('siteDialog.name') + '</span><input type="text" id="siteName" required placeholder="phinney"></label>' +
+    '<label class="field"><span>' + T('siteDialog.host') + '</span><input type="text" id="siteUrl" required placeholder="example.pamdas.org"></label>' +
+    '<label class="field"><span>' + T('siteDialog.token') + '</span><input type="password" id="siteToken" autocomplete="off" required></label>' +
     '<p class="tiny" id="siteError" role="alert"></p>' +
-    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary" id="siteBtn">Add site</button></div></form>');
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary" id="siteBtn">' + T('siteDialog.submit') + '</button></div></form>');
   const close = $('#modalBody').querySelector('[data-close]'), plain = close.onclick;
   close.onclick = () => { plain(); if (onCancel) onCancel(); };
   $('#siteForm').onsubmit = async ev => {
     ev.preventDefault();
-    const btn = $('#siteBtn'), err = $('#siteError'); btn.disabled = true; err.textContent = 'Checking the token…';
+    const btn = $('#siteBtn'), err = $('#siteError'); btn.disabled = true; err.textContent = t('siteDialog.checking');
     try {
       const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
       closeDialog();
@@ -479,29 +478,28 @@ async function loadDialog(d, caId, keep) {
     if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
     lastDefault = def;
     $('#ldLang').innerHTML = ca.languages.map(l => '<option' + (l === ca.default_language ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
-    $('#ldCm').innerHTML = '<option value="">none</option>' + ca.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
+    $('#ldCm').innerHTML = '<option value="">' + T('loadDialog.none') + '</option>' + ca.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
   };
-  dialog('Load "' + d.name + '" into EarthRanger',
-    '<p class="muted tiny">First a plan is made without writing anything. You confirm it before the site is changed.</p>' +
+  dialog(t('loadDialog.title', { name: d.name }),
+    '<p class="muted tiny">' + T('loadDialog.intro') + '</p>' +
     '<form id="ldForm" class="col">' +
-    '<label>Conservation area <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + esc(e.name || e.ca_id) + ' (' + esc(e.patrols) + ' patrols)</option>').join('') + '</select></label>' +
-    '<label>Site <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">Add a site…</option></select></label>' +
-    '<label>Label language <select id="ldLang"></select></label>' +
-    '<label>Configurable model <select id="ldCm"></select></label>' +
-    '<p class="muted tiny">none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.</p>' +
-    '<label>Roster group <input type="text" id="ldRoster" placeholder="optional; default: the patrol configuration\'s first member group"></label>' +
-    '<label>Event category <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
-    '<p class="muted tiny">Use the identifier an earlier CLI push used, if any (for example, site-xyz).</p>' +
-    '<label>What to load <select id="ldScope"><option value="all">The data model and patrols</option><option value="datamodel">The data model only</option></select></label>' +
-    '<div class="row" id="ldWindow"><label>Patrols from <input type="date" id="ldSince"></label><label>to <input type="date" id="ldUntil"></label></div>' +
+    '<label>' + T('loadDialog.area') + ' <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + T('loadDialog.areaOption', { name: e.name || e.ca_id }, { patrols: tn('units.patrols', e.patrols || 0) }) + '</option>').join('') + '</select></label>' +
+    '<label>' + T('loadDialog.site') + ' <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">' + T('loadDialog.addSite') + '</option></select></label>' +
+    '<label>' + T('loadDialog.labelLanguage') + ' <select id="ldLang"></select></label>' +
+    '<label>' + T('loadDialog.configurableModel') + ' <select id="ldCm"></select></label>' +
+    '<p class="muted tiny">' + T('loadDialog.modelHint') + '</p>' +
+    '<label>' + T('loadDialog.roster') + ' <input type="text" id="ldRoster" placeholder="' + T('loadDialog.rosterPlaceholder') + '"></label>' +
+    '<label>' + T('loadDialog.category') + ' <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
+    '<p class="muted tiny">' + T('loadDialog.categoryHint') + '</p>' +
+    '<label>' + T('loadDialog.what') + ' <select id="ldScope"><option value="all">' + T('loadDialog.modelAndPatrols') + '</option><option value="datamodel">' + T('loadDialog.modelOnly') + '</option></select></label>' +
+    '<div class="row" id="ldWindow"><label>' + T('loadDialog.patrolsFrom') + ' <input type="date" id="ldSince"></label><label>' + T('loadDialog.to') + ' <input type="date" id="ldUntil"></label></div>' +
     '<p class="muted tiny" id="ldScopeHint"></p>' +
-    '<div class="row right"><button type="button" class="ghost" data-close>Close</button><button type="submit" class="primary">Make the plan</button></div></form>');
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary">' + T('loadDialog.makePlan') + '</button></div></form>');
   const scopeChanged = () => {
     const dm = $('#ldScope').value === 'datamodel';
     $('#ldWindow').hidden = dm;
-    $('#ldScopeHint').textContent = dm
-      ? 'Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.'
-      : 'Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.';
+    if (dm) $('#ldScopeHint').textContent = t('loadDialog.hintDatamodel');
+    else $('#ldScopeHint').textContent = t('loadDialog.hintAll');
   };
   if (caId) $('#ldCa').value = caId;
   const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
@@ -519,7 +517,7 @@ async function loadDialog(d, caId, keep) {
   $('#ldForm').onsubmit = async ev => {
     ev.preventDefault();
     const dm = $('#ldScope').value === 'datamodel', since = dm ? '' : $('#ldSince').value, until = dm ? '' : $('#ldUntil').value;
-    if (since && until && since > until) return alert('The window starts after it ends.');
+    if (since && until && since > until) return alert(t('loadDialog.windowBackwards'));
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
@@ -558,7 +556,7 @@ async function showLoad(route) {
   try { name = (await api('/api/datasets/' + l.dataset_id)).name || name; } catch (e) { if (e.status === 401) return; }
   if (!current()) return;
   const up = { page: 'dataset', id: l.dataset_id, tab: 'loads' };
-  setBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: name, hash: routeHash(up) }, { label: loadName(l) }]);
+  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: name, hash: routeHash(up) }, { label: loadName(l) }]);
   // the dataset crumb steps back when the reader came from that dataset's page, so Back after it does not return here
   const crumb = $('#crumbs a[href="' + routeHash(up) + '"]');
   if (crumb) crumb.onclick = ev => {
@@ -622,7 +620,7 @@ function bindLoad(page, l, refresh, up, newRangers) {
   const run = $('[data-run]', page); if (run) run.onclick = async () => { try { await api('/api/loads/' + l.id + '/run', { method: 'POST' }); refresh(); } catch (e) { oops(e); } };
   const re = $('[data-replan]', page); if (re) re.onclick = async () => { try { await api('/api/loads/' + l.id + '/replan', { method: 'POST' }); refresh(); } catch (e) { oops(e); } };
   const del = $('[data-del]', page); if (del) del.onclick = async () => {
-    if (!confirm('Delete this load\'s records? Nothing in EarthRanger is removed.')) return;
+    if (!confirm(t('confirm.deleteLoad'))) return;
     try {
       await api('/api/loads/' + l.id, { method: 'DELETE' });
       // the deleted load's entry becomes its dataset's loads, so Back never lands on it; if the reader has
@@ -642,7 +640,7 @@ const restoreOpen = (host, state) => host.querySelectorAll('details').forEach((d
 async function copyValue(btn) {
   const icon = btn.querySelector('.mi');
   try { await navigator.clipboard.writeText(btn.dataset.copy); icon.textContent = 'check'; }
-  catch (e) { window.prompt('Copy this value:', btn.dataset.copy); return; }
+  catch (e) { window.prompt(t('findings.copyPrompt'), btn.dataset.copy); return; }
   setTimeout(() => { icon.textContent = 'content_copy'; }, 1500);
 }
 
@@ -683,7 +681,7 @@ function gotoHelp(id) {
   note.hidden = true;
   if (!el && /^finding-/.test(id)) {   // a finding without an entry yet: say so rather than land silently
     el = body.querySelector('#help-stops');
-    note.textContent = 'No help entry yet for the finding "' + id.slice(8) + '". The finding\'s own fix text is the guidance.';
+    note.textContent = t('help.noEntry', { id: id.slice(8) });
     note.hidden = false;
   }
   if (!el) return;
@@ -720,10 +718,11 @@ function helpKeydown(e) {   // a dialog keeps Tab inside it
 }
 
 // ---- rangers: the markup is renderRangersSection (pages.js); this binds its help and CSV buttons
+const CSV_COLUMNS = ['name', 'smartEmployeeId', 'smartMemberId', 'active', 'deletedInSmart', 'patrolsThisLoad', 'patrolsAll', 'subjectId', 'email'];   // csv.<column>: the header row, in this order
 function bindRangers(host, l) {
   const rows = l.rangers || [];
   host.querySelector('[data-help]').onclick = ev => { ev.preventDefault(); openHelp('rangers-accounts'); };
-  host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', ['name', 'smart_employee_id', 'smart_member_id', 'active', 'deleted_in_smart', 'patrols_this_load', 'patrols_all', 'subject_id', 'email'],
+  host.querySelector('[data-csv]').onclick = ev => { ev.preventDefault(); downloadCsv('rangers-' + l.ca_id + '.csv', CSV_COLUMNS.map(c => t('csv.' + c)),
     rows.map(r => [r.name, r.smart_employee_id, r.smart_member_id, r.active, !!r.deleted, r.patrols, r.patrols_total, r.subject_id, ''])); };
 }
 function downloadCsv(filename, header, rows) {

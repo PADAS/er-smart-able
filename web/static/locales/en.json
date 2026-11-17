@@ -19,7 +19,8 @@
     "button": "Sign in with Google",
     "yourAccount": "your Google account",
     "yourDomainAccount": "your {{domain}} Google account",
-    "accountAt": "a Google account at {{list}} or {{last}}"
+    "accountAt": "a Google account at {{list}} or {{last}}",
+    "required": "Sign in required"
   },
   "home": {
     "title": "Datasets",
@@ -70,7 +71,8 @@
     "delete": "Delete",
     "sharedWith": "shared with {{list}}",
     "uploaded": "uploaded {{date}}",
-    "ownedByYou": "owned by you"
+    "ownedByYou": "owned by you",
+    "notFoundCrumb": "Not found"
   },
   "sites": {
     "add": "Add a site",
@@ -229,7 +231,8 @@
     },
     "fix": "Fix:",
     "howToFix": "How to fix this",
-    "copy": "Copy to clipboard"
+    "copy": "Copy to clipboard",
+    "copyPrompt": "Copy this value:"
   },
   "progress": {
     "title": "Progress",
@@ -274,5 +277,83 @@
     "patrolsFrom": "{{total}} from {{first}} to {{last}} · {{events}} · {{points}}",
     "patrolsDone": "{{total}}, {{done}} already imported · {{events}} · {{points}}",
     "patrolsFromDone": "{{total}} from {{first}} to {{last}}, {{done}} already imported · {{events}} · {{points}}"
+  },
+  "retry": {
+    "note": "Could not refresh; retrying…"
+  },
+  "help": {
+    "noEntry": "No help entry yet for the finding \"{{id}}\". The finding's own fix text is the guidance."
+  },
+  "upload": {
+    "name": "Name",
+    "namePlaceholder": "e.g. Lawin R5",
+    "file": "File",
+    "submit": "Upload",
+    "preparing": "Preparing…",
+    "progress": "Uploading {{done}} of {{total}}",
+    "starting": "Uploaded. Starting extraction…",
+    "failed": "Upload failed ({{status}})",
+    "failedNetwork": "Upload failed (network)"
+  },
+  "siteDialog": {
+    "title": "Add an EarthRanger site",
+    "hint": "The token is checked against the site before it is saved.",
+    "name": "Name",
+    "host": "Host",
+    "token": "Token",
+    "submit": "Add site",
+    "checking": "Checking the token…"
+  },
+  "loadDialog": {
+    "title": "Load \"{{name}}\" into EarthRanger",
+    "intro": "First a plan is made without writing anything. You confirm it before the site is changed.",
+    "area": "Conservation area",
+    "areaOption": "{{name}} ({{patrols}})",
+    "site": "Site",
+    "addSite": "Add a site…",
+    "labelLanguage": "Label language",
+    "configurableModel": "Configurable model",
+    "none": "none",
+    "modelHint": "none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.",
+    "roster": "Roster group",
+    "rosterPlaceholder": "optional; default: the patrol configuration's first member group",
+    "category": "Event category",
+    "categoryHint": "Use the identifier an earlier CLI push used, if any (for example, site-xyz).",
+    "what": "What to load",
+    "modelAndPatrols": "The data model and patrols",
+    "modelOnly": "The data model only",
+    "patrolsFrom": "Patrols from",
+    "to": "to",
+    "hintDatamodel": "Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.",
+    "hintAll": "Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.",
+    "makePlan": "Make the plan",
+    "windowBackwards": "The window starts after it ends."
+  },
+  "share": {
+    "title": "Share \"{{name}}\"",
+    "note": "People you share with can open the dataset. Only you can share, re-extract, or delete it.",
+    "siteNote": "People you share with can load datasets into this site using your token.",
+    "addressOne": "Addresses must be {{address}}.",
+    "addressMany": "Addresses must be one of {{list}}.",
+    "emailPlaceholder": "colleague{{domain}}",
+    "submit": "Share",
+    "remove": "Remove",
+    "none": "Not shared with anyone yet."
+  },
+  "confirm": {
+    "deleteDataset": "Delete \"{{name}}\" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.",
+    "removeSite": "Remove \"{{name}}\"? Loads that reference this site stay readable but cannot be continued; register the site again to load into it.",
+    "deleteLoad": "Delete this load's records? Nothing in EarthRanger is removed."
+  },
+  "csv": {
+    "name": "name",
+    "smartEmployeeId": "smart_employee_id",
+    "smartMemberId": "smart_member_id",
+    "active": "active",
+    "deletedInSmart": "deleted_in_smart",
+    "patrolsThisLoad": "patrols_this_load",
+    "patrolsAll": "patrols_all",
+    "subjectId": "subject_id",
+    "email": "email"
   }
 }

@@ -184,7 +184,7 @@ function renderOverview(d) {
     (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : ' <span class="tiny">' + T('dataset.reExtractToLoad') + '</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>' + T('dataset.extraction') + '</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
-    (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', { action: t('dataset.reExtract') }) : '') + '</p>' : '') +
+    (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', {}, { action: T('dataset.reExtract') }) : '') + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">' + T(running ? 'dataset.logLive' : 'dataset.logTail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
     (!rows && d.status === 'ready' ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><p class="tiny">' + T('dataset.noAreas') + '</p>' + browseLink(d) + '</div>' : '') +
     (rows ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><table><thead><tr><th>' + T('dataset.colName') + '</th><th>' + T('dataset.colSmartId') + '</th><th>' + T('dataset.colVersion') + '</th><th>' + T('dataset.colContents') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
@@ -198,7 +198,7 @@ function renderLoadsTab(d, loads) {
   return '<div class="page-head"><h2>' + T('dataset.tabLoads') + '</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>' + T('dataset.colAreaSite') + '</th><th>' + T('dataset.colStatus') + '</th><th>' + T('dataset.colProgress') + '</th><th>' + T('dataset.colStarted') + '</th><th>' + T('dataset.colBy') + '</th></tr></thead><tbody>' +
     list.map(l => {
       var p = l.progress, prog = p && p.patrols_total ? T('dataset.progress', { done: fmtNum(p.done || 0) }, { total: tn('units.patrols', p.patrols_total) }) : '';
-      return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + esc(l.site ? l.site.name : t('dataset.removedSite')) + '</a></td>' +
+      return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + (l.site ? esc(l.site.name) : T('dataset.removedSite')) + '</a></td>' +
         '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">' + T('dataset.held') + '</span>' : '') + (loadScope(l) ? '<div class="tiny">' + esc(loadScope(l)) + '</div>' : '') + '</td><td class="tiny">' + prog + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 }
@@ -206,7 +206,7 @@ function renderLoadsTab(d, loads) {
 function renderRangersTab(load) {
   var rows = load && load.rangers || [];
   if (!rows.length) return '<p class="empty">' + T('rangers.empty') + '</p>';
-  return '<p class="tiny">' + T('rangers.fromLoad', { area: load.ca_id, site: load.site ? load.site.name : t('rangers.removedSite'), date: fmtDate(load.created_at) }) + '</p><div class="panel">' + renderRangersSection(load, true) + '</div>';
+  return '<p class="tiny">' + T('rangers.fromLoad', { area: load.ca_id, date: fmtDate(load.created_at) }, { site: load.site ? esc(load.site.name) : T('rangers.removedSite') }) + '</p><div class="panel">' + renderRangersSection(load, true) + '</div>';
 }
 
 function renderDatasetPage(d, tab, extra) {
