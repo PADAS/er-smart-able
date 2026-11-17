@@ -205,6 +205,46 @@ A link in a page to another page's `.md` becomes that page; a link to any
 other repository file goes to it on GitHub; a link to a file that does not
 exist fails the build.
 
+### Languages
+
+The site is in English, French, Spanish, Portuguese and Swahili. English is
+the source; its pages keep their addresses, and each other language is a
+folder (`fr/`, `es/`, `pt/`, `sw/`) with the same page names.
+
+- `web/static/locales/languages.json` lists the languages, in the order the
+  header's switcher offers them.
+- `web/site/locales/<code>.json` holds the words of the page shell
+  (navigation, previous and next, the footer, the notes) in one language.
+- A translated page sits beside its English page in a folder named for the
+  language: `web/guide/<code>/` and `web/help/<code>/`, with the same file
+  name. A page with no translation is built from the English page and says
+  so.
+- `docs/translation-glossary.md` lists the terms the translations use and
+  where each came from. Read it before changing a translation.
+
+The four translations were written by machine. Until a fluent speaker has
+read a language through, every page in it carries a note saying so.
+
+**To correct a translation,** edit the page under `web/guide/<code>/` or
+`web/help/<code>/`. Keep its steps, tabs, pictures, set-apart notes, links
+and the names in code exactly as the English page has them; if one is
+lost, the build fails and says which. A translated page links to another
+page by its real path (`03-your-first-migration.md`,
+`../../help/<code>/02-sites.md`) and to a picture as `../img/name.png`.
+
+**To mark a language reviewed,** set `"reviewed": true` for it in
+`web/static/locales/languages.json` and add the reviewer's name to the
+glossary. The note goes from that language's pages.
+
+**When an English page changes,** change its four translations in the same
+pull request. The build catches a missing step, not a changed sentence.
+
+**To add a language,** add it to `languages.json` and add its
+`web/site/locales/<code>.json`. Its pages show in English until they are
+translated.
+
+The app's own help drawer still serves the English `web/help/*.md` only.
+
 `.github/workflows/pages.yml` publishes it on every merge to `main` that
 touches its sources, and can be run by hand from the Actions tab. Once, a
 repository admin sets Settings → Pages → Source to **GitHub Actions**.

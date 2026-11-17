@@ -570,3 +570,9 @@ def test_status_values_survive_translation(site, tmp_path):
         h = (out / code / "statuses.html").read_text(encoding="utf-8")
         for v in ("planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"):
             assert f"<code>{v}</code>" in h, (code, v)
+
+
+def test_the_deploy_notes_say_how_to_correct_and_review_a_translation():
+    d = (ROOT / "web" / "DEPLOY.md").read_text()
+    assert "languages.json" in d and '"reviewed": true' in d and "translation-glossary.md" in d
+    assert "web/guide/<code>/" in d
