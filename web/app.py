@@ -285,6 +285,8 @@ def create_site(req: SiteCreate, user=Depends(current_user)):
         host = normalize_host(req.url)
     except HostError as e:
         raise ApiError(400, e.code, str(e))
+    except ValueError as e:   # urlparse's own refusal of a malformed bracketed host
+        raise ApiError(400, "site_host_missing", str(e))
     token = req.token.strip()
     if not token:
         raise ApiError(400, "token_required", "A token is required")
@@ -339,7 +341,7 @@ def _window_date(value, which: str) -> str | None:
     try:
         return date.fromisoformat(value.strip()).isoformat()
     except (AttributeError, TypeError, ValueError):
-        raise ApiError(400, "window_not_date", f"The window's {which} must be a date (YYYY-MM-DD)", which=which)
+        raise ApiError(400, "window_not_date", f"The window's {which} must be a date (YYYY-MM-DD)", which=which) from None
 
 
 class LoadCreate(BaseModel):

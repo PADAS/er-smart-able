@@ -124,3 +124,14 @@ def test_no_route_raises_a_bare_http_exception():
     codes |= {"site_host_only", "site_host_missing", "token_rejected", "site_unreachable", "invalid_request"}
     en = json.loads((ROOT / "web" / "static" / "locales" / "en.json").read_text())["errors"]
     assert codes and codes <= set(en), codes - set(en)
+
+
+@pytest.mark.parametrize("url", ["[abc", "https://[::1", "a.pamdas.org]"])
+def test_a_malformed_bracketed_host_is_a_400_with_the_host_guidance(client, url):
+    import er_site
+    try:
+        er_site.normalize_host(url)
+    except ValueError as e:
+        raised = str(e)
+    r = client.post("/api/sites", json={"name": "x", "url": url, "token": "t"})
+    assert r.status_code == 400 and r.json()["code"] == "site_host_missing" and r.json()["detail"] == raised
