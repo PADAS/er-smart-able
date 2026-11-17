@@ -1,0 +1,14 @@
+{
+  "site_name": "SMART migration",
+  "subtitle": "Getting started",
+  "pages_label": "Pages",
+  "group_guide": "Get started",
+  "group_reference": "Reference",
+  "previous": "Previous",
+  "next": "Next",
+  "footer": "The tool's source and engineering notes are on {{github}}.",
+  "language_label": "Language",
+  "not_translated": "This page is not yet translated. It is shown in English.",
+  "machine_translated": "This translation was made by machine and has not yet been reviewed by a fluent speaker. The {{english}} is the reference.",
+  "english_page": "English page"
+}
