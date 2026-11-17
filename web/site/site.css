@@ -37,11 +37,41 @@ code { background: var(--er-ui-background-tertiary-background); padding: 1px 4px
 pre { overflow-x: auto; padding: 10px 12px; border: 1px solid var(--er-ui-divider-lines); border-radius: 8px; background: var(--er-ui-background-elevated-component); }
 pre code { background: none; padding: 0; }
 table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 12px; }
-th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--er-ui-divider-lines); text-align: left; vertical-align: top; }
+th, td { padding: 8px 24px 8px 0; border-bottom: 1px solid var(--er-ui-divider-lines); text-align: left; vertical-align: top; }
+/* the first column is a short label (a status, a stage): kept on one line, so it is never broken mid-word */
+th:first-child, td:first-child { white-space: nowrap; overflow-wrap: normal; }
+th:last-child, td:last-child { padding-right: 0; }
 :target { scroll-margin-top: 16px; }
+/* a screenshot: never wider than the text, framed so a white window does not bleed into the page */
+main img { display: block; max-width: 100%; height: auto; margin: 8px 0 16px; border: 1px solid var(--er-ui-divider-lines); border-radius: 8px; }
 
 /* a step the guide has not yet checked against the real thing */
 .unverified { padding: 10px 14px; border: 1px solid var(--er-ui-status-warning); border-radius: 8px; background: var(--er-ui-status-bg-warning-bg); font-weight: 500; }
+/* something the reader must not skip */
+.important { padding: 10px 14px; border: 1px solid var(--er-ui-status-warning); border-radius: 8px; background: var(--er-ui-status-bg-warning-bg); }
+
+/* tabs: alternatives, of which the reader follows one. Radio buttons and their labels, so they work
+   from the keyboard (arrow keys) and without a script. The buttons are kept focusable but unseen;
+   each label is the tab, and the panel that shows is the one whose button is checked. */
+.tabs { position: relative; display: flex; flex-wrap: wrap; column-gap: 4px; margin: 16px 0 20px; }
+.tabs > input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs > label { order: 1; padding: 8px 14px; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 500; color: var(--er-ui-text-secondary-text); }
+.tabs > label:hover { background: var(--er-ui-background-tertiary-background); }
+.tabs > input:checked + label { color: var(--link); border-bottom-color: var(--link); background: var(--er-ui-background-elevated-component); }
+.tabs > input:focus-visible + label { outline: 2px solid var(--link); outline-offset: 2px; }
+.tab-panel { order: 2; flex: 0 0 100%; min-width: 0; display: none; margin-top: -1px; padding-top: 16px; border-top: 1px solid var(--er-ui-divider-lines); }
+.tabs > input:nth-of-type(1):checked ~ .tab-panel:nth-of-type(1),
+.tabs > input:nth-of-type(2):checked ~ .tab-panel:nth-of-type(2),
+.tabs > input:nth-of-type(3):checked ~ .tab-panel:nth-of-type(3),
+.tabs > input:nth-of-type(4):checked ~ .tab-panel:nth-of-type(4) { display: block; }
+/* the panel's own heading repeats its tab: kept for a screen reader, unseen beside the tab */
+.tab-panel > h3:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media print {
+  .tabs { display: block; }
+  .tabs > input, .tabs > label { display: none; }
+  .tab-panel { display: block; }
+  .tab-panel > h3:first-child { position: static; width: auto; height: auto; clip-path: none; }
+}
 
 .prev-next { display: flex; justify-content: space-between; gap: 16px; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--er-ui-divider-lines); }
 .prev-next a { font-weight: 500; text-underline-offset: 3px; }

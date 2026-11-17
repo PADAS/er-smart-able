@@ -152,7 +152,7 @@ def test_before_you_start_says_where_the_app_is_who_signs_in_and_what_migrates(s
 def test_get_your_inputs_covers_the_backup_the_export_and_the_token(site, tmp_path):
     h = _guide(site, tmp_path)["get-your-inputs"]
     assert "Export Conservation Area" in h and ".zip" in h and not re.search(r"\.bak(?!\.zip)", h)
-    assert re.search(r'class="unverified"[^>]*>\s*These steps are not yet verified against SMART Desktop\.', h)
+    assert 'class="unverified"' not in h, "every SMART step on the page has been walked in SMART Desktop or signed off"
     assert "superuser" in h and "administrator" in h and 'href="sites.html' in h
     assert "example.pamdas.org" in h
 
@@ -251,3 +251,88 @@ def test_the_header_fits_a_320px_phone():
     phone = css[css.index("@media (max-width: 700px)"):]
     assert re.search(r"\.brand\s*\{[^}]*flex-wrap:\s*wrap", phone), "the lockup and the name wrap instead of overflowing"
     assert re.search(r"\.brand img\s*\{[^}]*max-width:\s*100%", phone), "the lockup shrinks to the band"
+
+
+# ---- images (screenshots in the guide)
+PNG = bytes.fromhex("89504e470d0a1a0a")
+
+
+def test_an_image_is_copied_and_its_src_points_at_the_copy(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![The export menu](img/smart-export-1.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "smart-export-1.png").write_bytes(PNG)
+    out = tmp_path / "o"; site.build(out)
+    a = (out / "index.html").read_text()
+    assert 'src="img/smart-export-1.png"' in a and 'alt="The export menu"' in a
+    assert (out / "img" / "smart-export-1.png").read_bytes() == PNG
+
+
+def test_a_missing_image_fails_the_build_naming_file_and_image(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![x](img/nope.png)"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*nope\.png"):
+        site.build(tmp_path / "o")
+
+
+def test_an_image_needs_alt_text(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![](img/p.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "p.png").write_bytes(PNG)
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*p\.png.*alt"):
+        site.build(tmp_path / "o")
+
+
+def test_two_different_images_with_one_name_fail_the_build(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![g](img/p.png)"}, {"01-h.md": "# H\n\n![h](img/p.png)"})
+    for d, data in ((site.GUIDE_DIR, PNG), (site.HELP_DIR, PNG + b"x")):
+        (d / "img").mkdir(); (d / "img" / "p.png").write_bytes(data)
+    with pytest.raises(site.BuildError, match=r"p\.png"):
+        site.build(tmp_path / "o")
+
+
+def test_images_fit_the_page():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert re.search(r"main img\s*\{[^}]*max-width:\s*100%[^}]*height:\s*auto", css)
+
+
+# ---- tabs (alternatives in the guide)
+def test_headings_marked_as_tabs_become_one_choice_with_a_panel_each(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nintro\n\n### One {: .tab }\n\nfirst\n\n### Two {: .tab }\n\nsecond\n\n## After\n\nrest"}, {})
+    out = tmp_path / "o"; site.build(out)
+    a = (out / "index.html").read_text()
+    tabs = a[a.index('<div class="tabs">'):a.index("<h2>After</h2>")]
+    assert re.findall(r'<input type="radio" name="tabs-1" id="(tabs-1-\d)"( checked)?><label for="\1">(\w+)</label>', tabs) == \
+        [("tabs-1-1", " checked", "One"), ("tabs-1-2", "", "Two")], "radio buttons, so the tabs need no script; the first is open"
+    panels = re.findall(r'<section class="tab-panel">\s*<h3>(\w+)</h3>(.*?)</section>', tabs, re.S)
+    assert [p[0] for p in panels] == ["One", "Two"] and "first" in panels[0][1] and "second" in panels[1][1]
+    assert "intro" in a[:a.index('<div class="tabs">')] and "rest" in a[a.index("<h2>After</h2>"):], "what surrounds the tabs stays outside them"
+
+
+def test_a_lone_tab_fails_the_build(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n### One {: .tab }\n\nfirst\n\n### Plain\n\n### Two {: .tab }\n\nsecond"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*One.*alone"):
+        site.build(tmp_path / "o")
+
+
+def test_the_stylesheet_shows_only_the_chosen_tabs_panel_and_all_of_them_on_paper():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert re.search(r"\.tab-panel\s*\{[^}]*display:\s*none", css)
+    assert re.search(r"input:nth-of-type\(3\):checked ~ \.tab-panel:nth-of-type\(3\)", css), "the guide's three-way choice"
+    assert re.search(r"input:focus-visible \+ label\s*\{[^}]*outline", css), "the hidden button's focus shows on its tab"
+    assert re.search(r"\.tab-panel\s*\{\s*display:\s*block", css[css.index("@media print"):])
+
+
+def test_get_your_inputs_offers_the_three_smart_files_as_one_choice(site, tmp_path):
+    h = _guide(site, tmp_path)["get-your-inputs"]
+    assert re.findall(r'<label for="tabs-1-\d">([^<]+)</label>', h) == ["Conservation Area export", "System backup", "Zipped SMART folder"]
+    assert h.count('<section class="tab-panel">') == 3 and h.index("</div>", h.rindex("</section>")) < h.index("From EarthRanger")
+
+
+def test_a_tables_first_column_is_never_broken_mid_word():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert re.search(r"td:first-child\s*\{[^}]*white-space:\s*nowrap", css), "main wraps anywhere, which split 'planning' across lines"
+
+
+def test_the_zipped_folder_steps_insist_that_smart_is_closed(site, tmp_path):
+    h = _guide(site, tmp_path)["get-your-inputs"]
+    panel = h[h.rindex('<section class="tab-panel">'):]
+    assert re.search(r'<p class="important"><strong>SMART Desktop must be closed', panel), "said before the steps, and set apart"
+    assert panel.index('class="important"') < panel.index("<ol>")
+    assert ".important {" in (ROOT / "web" / "site" / "site.css").read_text()
