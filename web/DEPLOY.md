@@ -197,6 +197,10 @@ open _site/index.html
 A screenshot goes in `web/guide/img/` and is written `![what it shows](img/name.png)`;
 the build copies it, and fails on a missing file or empty alt text.
 
+Alternatives, of which the reader follows one, are tabs: mark each heading
+`### Name {: .tab }`, one section after another. A tab that stands alone fails
+the build.
+
 A link in a page to another page's `.md` becomes that page; a link to any
 other repository file goes to it on GitHub; a link to a file that does not
 exist fails the build.
