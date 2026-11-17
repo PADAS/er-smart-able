@@ -1,0 +1,7 @@
+[
+  {"code": "en", "name": "English", "reviewed": true},
+  {"code": "fr", "name": "Français", "reviewed": false},
+  {"code": "es", "name": "Español", "reviewed": false},
+  {"code": "pt", "name": "Português", "reviewed": false},
+  {"code": "sw", "name": "Kiswahili", "reviewed": false}
+]

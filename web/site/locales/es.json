@@ -1,0 +1,14 @@
+{
+  "site_name": "Migración de SMART",
+  "subtitle": "Primeros pasos",
+  "pages_label": "Páginas",
+  "group_guide": "Para empezar",
+  "group_reference": "Referencia",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "footer": "El código fuente de la herramienta y las notas técnicas están en {{github}}.",
+  "language_label": "Idioma",
+  "not_translated": "Esta página aún no está traducida. Se muestra en inglés.",
+  "machine_translated": "Esta traducción fue hecha por una máquina y todavía no ha sido revisada por una persona que domine el idioma. La {{english}} es la referencia.",
+  "english_page": "página en inglés"
+}

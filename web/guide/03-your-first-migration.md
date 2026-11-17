@@ -52,7 +52,7 @@ The status becomes **needs attention** and the findings say what is needed. Noth
 
 ## 8. Load the patrols
 
-When the data model load is **done**, start a second load of the same conservation area into the same site, with **What to load** set to **The data model and patrols**. Leave the dates empty for every patrol, or set them to bring across a few months first.
+When the data model load is **done**, start a second load of the same conservation area into the same site, with **What to load** set to **The data model and patrols**. Leave the dates empty to load every patrol, or set them to bring across a few months first.
 
 A long load keeps running on its own. The load page shows its progress and the time left; you can close the page and come back.
 

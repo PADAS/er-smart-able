@@ -1,0 +1,14 @@
+{
+  "site_name": "Uhamishaji wa SMART",
+  "subtitle": "Kuanza",
+  "pages_label": "Kurasa",
+  "group_guide": "Anza hapa",
+  "group_reference": "Marejeo",
+  "previous": "Iliyotangulia",
+  "next": "Inayofuata",
+  "footer": "Msimbo wa zana hii na maelezo ya kiufundi yapo kwenye {{github}}.",
+  "language_label": "Lugha",
+  "not_translated": "Ukurasa huu bado haujatafsiriwa. Unaonyeshwa kwa Kiingereza.",
+  "machine_translated": "Tafsiri hii imefanywa na mashine na bado haijakaguliwa na mtu anayeijua lugha vizuri. {{english}} ndio rejeo.",
+  "english_page": "Ukurasa wa Kiingereza"
+}

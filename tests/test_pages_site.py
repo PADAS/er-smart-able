@@ -3,6 +3,7 @@ help to static pages. The build's structure and links, then the guide's content,
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -22,15 +23,27 @@ def site(monkeypatch):
     return mod
 
 
-def tree(tmp_path, monkeypatch, mod, guide: dict, help: dict):
+def tree(tmp_path, monkeypatch, mod, guide: dict, help: dict, langs: list = None, words: dict = None):
     """A stand-in repository under tmp_path: web/guide and web/help with the given files, and the
-    two repository files the link tests point at."""
+    two repository files the link tests point at. A file name may sit in a language's folder
+    ("fr/01-a.md"). langs and words stand in for the registry and the shell's words; without them
+    the real ones are used."""
     root = tmp_path / "repo"
     for folder, files in (("guide", guide), ("help", help)):
         d = root / "web" / folder
         d.mkdir(parents=True)
         for name, text in files.items():
+            (d / name).parent.mkdir(exist_ok=True)
             (d / name).write_text(text, encoding="utf-8")
+    if langs is not None:
+        (root / "locales").mkdir()
+        (root / "locales" / "languages.json").write_text(json.dumps(langs), encoding="utf-8")
+        monkeypatch.setattr(mod, "LOCALES_DIR", root / "locales")
+    if words is not None:
+        (root / "words").mkdir()
+        for code, w in words.items():
+            (root / "words" / f"{code}.json").write_text(json.dumps(w), encoding="utf-8")
+        monkeypatch.setattr(mod, "WORDS_DIR", root / "words")
     (root / "docs").mkdir()
     (root / "README.md").write_text("# readme")
     (root / "docs" / "smart-data-quirks.md").write_text("# quirks")
@@ -42,8 +55,8 @@ def tree(tmp_path, monkeypatch, mod, guide: dict, help: dict):
 def test_the_real_site_builds_a_page_per_source_with_index_first(site, tmp_path):
     out = tmp_path / "_site"
     written = site.build(out)
-    names = [p.name for p in written]
-    assert names[0] == "index.html"
+    names = [p.name for p in written if p.parent == out]   # the English pages, at the top; each language adds a folder of the same
+    assert names[0] == "index.html" and len(written) == len(names) * len(site.languages())
     assert {"overview.html", "sites.html", "loading.html", "statuses.html", "stops.html"} <= set(names)
     assert len(names) == len(list(site.GUIDE_DIR.glob("*.md"))) + len(list(site.HELP_DIR.glob("*.md")))
     for f in ("static/er-tokens.css", "static/site.css", "static/fonts/roboto.css", "static/fonts/roboto.woff2", "static/img/er-lockup-white-h-short.svg"):
@@ -65,7 +78,7 @@ def test_each_page_has_its_title_nav_groups_current_mark_and_neighbours(site, tm
 
 def test_links_between_sources_become_pages_and_keep_their_anchor(site, tmp_path, monkeypatch):
     tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n[s](../help/02-sites.md#which-user) [b](02-b.md) [h](#here)", "02-b.md": "# B\n\n[a](01-a.md)"},
-         {"02-sites.md": "# Sites\n\nx"})
+         {"02-sites.md": "# Sites\n\n## Which user {#which-user}\n\nx"})
     out = tmp_path / "o"; site.build(out)
     a = (out / "index.html").read_text()
     assert 'href="sites.html#which-user"' in a and 'href="b.html"' in a and 'href="#here"' in a
@@ -336,3 +349,303 @@ def test_the_zipped_folder_steps_insist_that_smart_is_closed(site, tmp_path):
     assert re.search(r'<p class="important"><strong>SMART Desktop must be closed', panel), "said before the steps, and set apart"
     assert panel.index('class="important"') < panel.index("<ol>")
     assert ".important {" in (ROOT / "web" / "site" / "site.css").read_text()
+
+
+# ---- languages: the registry, a folder per language, the switcher, and what a translation must keep
+# ---- languages
+def test_the_registry_lists_the_five_languages_english_first(site):
+    langs = site.languages()
+    assert [(l.code, l.name) for l in langs] == [("en", "English"), ("fr", "Français"), ("es", "Español"), ("pt", "Português"), ("sw", "Kiswahili")]
+    assert langs[0].reviewed is True and all(isinstance(l.reviewed, bool) for l in langs)
+
+
+def test_every_language_has_every_shell_word_with_its_placeholders(site):
+    en = site.words("en")
+    assert {"site_name", "subtitle", "pages_label", "group_guide", "group_reference", "previous", "next", "footer",
+            "language_label", "not_translated", "machine_translated", "english_page"} == set(en)
+    for l in site.languages():
+        w = site.words(l.code)
+        assert set(w) == set(en), l.code
+        for k in en:
+            assert re.findall(r"\{\{\w+\}\}", w[k]) == re.findall(r"\{\{\w+\}\}", en[k]), (l.code, k)
+            assert w[k].strip(), (l.code, k)
+
+
+def test_a_words_file_missing_a_key_fails_the_build_naming_it(site, tmp_path, monkeypatch):
+    d = tmp_path / "words"; d.mkdir()
+    (d / "en.json").write_text('{"next": "Next", "previous": "Previous"}')
+    (d / "fr.json").write_text('{"next": "Suivant"}')
+    monkeypatch.setattr(site, "WORDS_DIR", d)
+    with pytest.raises(site.BuildError, match=r"fr\.json.*previous"):
+        site.words("fr")
+
+def test_each_language_gets_a_folder_with_every_page_and_english_keeps_its_addresses(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# Alpha\n\nx", "02-b.md": "# Beta\n\ny", "fr/02-b.md": "# Bêta\n\nmot"}, {"01-c.md": "# Gamma\n\nz"})
+    out = tmp_path / "o"; written = site.build(out)
+    assert [p.name for p in written if p.parent == out] == ["index.html", "b.html", "c.html"]
+    for code in ("fr", "es", "pt", "sw"):
+        assert sorted(p.name for p in (out / code).glob("*.html")) == ["b.html", "c.html", "index.html"], code
+    assert not (out / "en").exists()
+
+
+def test_a_translated_page_is_in_its_language_and_its_shell_is_too(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# Alpha\n\nx", "fr/01-a.md": "# Alpha en français\n\nmot"}, {})
+    out = tmp_path / "o"; site.build(out)
+    fr = (out / "fr" / "index.html").read_text(encoding="utf-8")
+    w = site.words("fr")
+    assert '<html lang="fr"' in fr and "<h1>Alpha en français</h1>" in fr and "mot" in fr
+    assert w["group_guide"] in fr and w["subtitle"] in fr and f'· {w["site_name"]}</title>' in fr
+    assert 'class="note"' not in fr.split("<main>")[1].split("mot")[0], "a translated page carries no 'not yet translated' line"
+    assert '<html lang="en"' in (out / "index.html").read_text(encoding="utf-8")
+
+
+def test_a_page_with_no_translation_is_built_from_english_and_says_so(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# Alpha\n\nenglish words"}, {})
+    out = tmp_path / "o"; site.build(out)
+    sw = (out / "sw" / "index.html").read_text(encoding="utf-8")
+    assert '<html lang="sw"' in sw and '<h1><span lang="en">Alpha</span></h1>' in sw, "the title is English too, and says so"
+    assert re.search(r'<p class="note">' + re.escape(site.words("sw")["not_translated"]) + r'</p>\s*<div lang="en">', sw)
+    assert "english words" in sw[sw.index('<div lang="en">'):]
+
+
+def test_a_translated_page_links_to_pages_in_its_own_language_translated_or_not(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site,
+         {"01-a.md": "# A\n\n[b](02-b.md) [s](../help/02-sites.md#which)", "02-b.md": "# B\n\nx",
+          "fr/01-a.md": "# A fr\n\n[b](02-b.md) [s](../../help/fr/02-sites.md#which)"},
+         {"02-sites.md": "# Sites\n\n## Which {#which}\n\nx"})
+    out = tmp_path / "o"; site.build(out)
+    fr = (out / "fr" / "index.html").read_text(encoding="utf-8")
+    assert 'href="b.html"' in fr and 'href="sites.html#which"' in fr, "neither target is translated; both lead to the page in fr/"
+    assert (out / "fr" / "b.html").is_file() and (out / "fr" / "sites.html").is_file()
+
+
+def test_other_languages_reach_shared_assets_and_pictures_by_climbing(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![shot](img/s.png)", "fr/01-a.md": "# A fr\n\n![capture](../img/s.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "s.png").write_bytes(b"png")
+    out = tmp_path / "o"; site.build(out)
+    en, fr = (out / "index.html").read_text(encoding="utf-8"), (out / "fr" / "index.html").read_text(encoding="utf-8")
+    assert 'src="img/s.png"' in en and 'href="static/site.css"' in en
+    assert 'src="../img/s.png"' in fr and 'alt="capture"' in fr and 'href="../static/site.css"' in fr and 'src="../static/img/' in fr
+    assert (out / "img" / "s.png").is_file() and not (out / "fr" / "img").exists() and not (out / "fr" / "static").exists()
+    for page in out.rglob("*.html"):   # opened from disk, every reference resolves to a file
+        for ref in re.findall(r'(?:href|src)="((?:\.\./)?(?:static|img)/[^"]+)"', page.read_text(encoding="utf-8")):
+            assert (page.parent / ref).resolve().is_file(), (page, ref)
+
+
+def test_no_page_in_any_language_is_root_relative_or_from_a_cdn(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for page in out.rglob("*.html"):
+        h = page.read_text(encoding="utf-8")
+        assert not re.search(r'(?:href|src)="/', h), page
+        assert not re.search(r'(?:src|href)="https?://[^"]*\.(?:js|css|woff2?)"', h), page
+
+def test_the_switcher_links_each_page_to_itself_in_every_language(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nx", "02-b.md": "# B\n\ny"}, {})
+    out = tmp_path / "o"; site.build(out)
+    link = r'<a href="([^"]+)" lang="(\w+)" hreflang="\2" data-lang="\2"( aria-current="true")?>([^<]+)</a>'
+    en = (out / "b.html").read_text(encoding="utf-8")
+    nav = en[en.index('<nav class="langs"'):]; nav = nav[:nav.index("</nav>")]
+    assert re.findall(link, nav) == [("b.html", "en", ' aria-current="true"', "English"), ("fr/b.html", "fr", "", "Français"),
+                                     ("es/b.html", "es", "", "Español"), ("pt/b.html", "pt", "", "Português"), ("sw/b.html", "sw", "", "Kiswahili")]
+    fr = (out / "fr" / "b.html").read_text(encoding="utf-8")
+    nav = fr[fr.index('<nav class="langs"'):]; nav = nav[:nav.index("</nav>")]
+    assert [(h, c, bool(cur)) for h, c, cur, _ in re.findall(link, nav)] == \
+        [("../b.html?lang=en", "en", False), ("b.html", "fr", True), ("../es/b.html", "es", False), ("../pt/b.html", "pt", False), ("../sw/b.html", "sw", False)]
+    assert re.findall(r'<link rel="alternate" hreflang="(\w+)" href="([^"]+)">', fr) == \
+        [("en", "../b.html"), ("fr", "b.html"), ("es", "../es/b.html"), ("pt", "../pt/b.html"), ("sw", "../sw/b.html")]
+    for page in out.rglob("*.html"):   # every switcher link leads to a page
+        h = page.read_text(encoding="utf-8")
+        for href in re.findall(r'<a href="([^"]+)" lang="\w+" hreflang', h):
+            assert (page.parent / href.split("?")[0]).resolve().is_file(), (page, href)
+
+
+def test_an_unreviewed_language_shows_the_machine_translated_note_and_a_reviewed_one_does_not(site, tmp_path, monkeypatch):
+    langs = [{"code": "en", "name": "English", "reviewed": True}, {"code": "fr", "name": "Français", "reviewed": False},
+             {"code": "es", "name": "Español", "reviewed": True}]
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nx", "02-b.md": "# B\n\ny"}, {}, langs=langs)
+    out = tmp_path / "o"; site.build(out)
+    fr = (out / "fr" / "b.html").read_text(encoding="utf-8")
+    m = re.search(r'<p class="note machine">(.*?)</p>', fr, re.S)
+    before, after = site.words("fr")["machine_translated"].split("{{english}}")
+    assert m and before.strip() in m.group(1) and after.strip() in m.group(1)
+    assert re.search(r'<a href="\.\./b\.html\?lang=en"[^>]*data-lang="en"[^>]*>' + re.escape(site.words("fr")["english_page"]) + "</a>", m.group(1))
+    assert fr.index('class="note machine"') < fr.index("<h1>")
+    for page in ("b.html", "es/b.html"):
+        assert 'class="note machine"' not in (out / page).read_text(encoding="utf-8"), page
+
+
+def test_each_page_loads_the_language_script_and_names_the_languages(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    assert (out / "static" / "lang.js").is_file()
+    assert re.search(r'<html lang="en" data-langs="en fr es pt sw">', (out / "index.html").read_text(encoding="utf-8"))
+    assert '<script src="static/lang.js"></script>' in (out / "index.html").read_text(encoding="utf-8")
+    assert '<script src="../static/lang.js"></script>' in (out / "sw" / "index.html").read_text(encoding="utf-8")
+
+
+def test_the_language_script_guards_storage_and_only_leaves_an_english_page():
+    js = (ROOT / "web" / "site" / "lang.js").read_text()
+    assert js.count("try") >= 2 and js.count("catch") >= 2, "reading and writing the choice can each throw"
+    assert "location.replace" in js and "location.href =" not in js, "no entry is left in the history to bounce back to"
+    assert re.search(r"lang\s*!==?\s*'en'|lang\s*===?\s*'en'", js), "only an English page sends the reader on, so there is no loop"
+
+EN = "# A\n\nRun `SMART_<date>.bak.zip` at `example.pamdas.org`.\n\n1. one\n2. two\n\n**Stop.**\n{: .important }\n\n[b](02-b.md)"
+
+@pytest.mark.parametrize("fr, says", [
+    ("# A\n\n`SMART_<date>.bak.zip` `example.pamdas.org`\n\n1. un\n\n**Stop.**\n{: .important }\n\n[b](02-b.md)", "steps"),
+    ("# A\n\n`SMART_<date>.bak.zip` `example.pamdas.org`\n\n1. un\n2. deux\n\n[b](02-b.md)", "notes"),
+    ("# A\n\n`SMART_<date>.bak.zip`\n\n1. un\n2. deux\n\n**Stop.**\n{: .important }\n\n[b](02-b.md)", r"example\.pamdas\.org"),
+    ("# A\n\n`SMART_<date>.bak.zip` `example.pamdas.org`\n\n1. un\n2. deux\n\n**Stop.**\n{: .important }", "links"),
+])
+def test_a_translation_that_lost_something_fails_the_build(site, tmp_path, monkeypatch, fr, says):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": EN, "02-b.md": "# B\n\nx", "fr/01-a.md": fr}, {})
+    with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*" + says):
+        site.build(tmp_path / "o")
+
+
+def test_a_faithful_translation_builds(site, tmp_path, monkeypatch):
+    fr = "# A fr\n\nLancez `SMART_<date>.bak.zip` sur `example.pamdas.org`.\n\n1. un\n2. deux\n\n**Arrêtez.**\n{: .important }\n\n[b](02-b.md)"
+    tree(tmp_path, monkeypatch, site, {"01-a.md": EN, "02-b.md": "# B\n\nx", "fr/01-a.md": fr}, {})
+    site.build(tmp_path / "o")
+
+
+def test_a_translation_with_no_english_page_or_an_unknown_language_folder_fails(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nx", "fr/09-extra.md": "# Extra\n\nx"}, {})
+    with pytest.raises(site.BuildError, match=r"09-extra\.md.*English"):
+        site.build(tmp_path / "o")
+    tree(tmp_path / "second", monkeypatch, site, {"01-a.md": "# A\n\nx", "de/01-a.md": "# A\n\nx"}, {})
+    with pytest.raises(site.BuildError, match=r"de\b.*language"):
+        site.build(tmp_path / "o2")
+
+
+def test_a_translation_with_fewer_tabs_or_a_missing_picture_fails_the_build(site, tmp_path, monkeypatch):
+    en = "# A\n\n### One {: .tab }\n\nx\n\n### Two {: .tab }\n\ny\n\n### Three {: .tab }\n\nz"
+    tree(tmp_path, monkeypatch, site, {"01-a.md": en, "fr/01-a.md": "# A\n\n### Un {: .tab }\n\nx\n\n### Deux {: .tab }\n\ny"}, {})
+    with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*tabs"):
+        site.build(tmp_path / "o")
+    tree(tmp_path / "second", monkeypatch, site, {"01-a.md": "# A\n\n![shot](img/s.png)", "fr/01-a.md": "# A\n\npas d'image"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "s.png").write_bytes(PNG)
+    with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*pictures.*s\.png"):
+        site.build(tmp_path / "o2")
+
+
+# ---- the translations
+def test_the_guide_is_translated_into_every_language(site, tmp_path):
+    for l in site.languages()[1:]:
+        ps = {p.slug: p for p in site.pages(l.code)}
+        for slug in ("index", "get-your-inputs", "your-first-migration"):
+            assert ps[slug].translated, (l.code, slug)
+            assert ps[slug].title != {p.slug: p for p in site.pages("en")}[slug].title or l.code == "en", (l.code, slug)
+
+
+def test_no_page_in_any_language_names_a_real_site_or_a_token(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for page in out.rglob("*.html"):
+        h = page.read_text(encoding="utf-8")
+        assert set(re.findall(r"[a-z0-9-]+\.pamdas\.org", h)) <= {"example.pamdas.org"}, page
+        assert not re.search(r"\b[0-9a-f]{32,}\b", h), page
+
+
+def test_translated_smart_steps_give_the_english_menu_name_beside_the_translated_one(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = (out / code / "get-your-inputs.html").read_text(encoding="utf-8")
+        assert "Export Conservation Area..." in h and "Backup System" in h, code   # the picture shows these words
+        assert h.count('<section class="tab-panel">') == 3, code
+
+
+def test_the_reference_is_translated_into_every_language_and_the_app_still_serves_english(site, tmp_path, monkeypatch):
+    for l in site.languages()[1:]:
+        ps = {p.slug: p for p in site.pages(l.code)}
+        for slug in ("overview", "sites", "loading", "statuses", "stops"):
+            assert ps[slug].translated, (l.code, slug)
+    monkeypatch.syspath_prepend(str(ROOT / "web"))
+    import help_pages
+    titles = [s["title"] for s in help_pages.sections()]
+    assert "Statuses" in titles and len(titles) == len(list((ROOT / "web" / "help").glob("*.md"))) + 1, "five pages and the quirks reference, in English only"
+
+
+def test_status_values_survive_translation(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = (out / code / "statuses.html").read_text(encoding="utf-8")
+        for v in ("planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"):
+            assert f"<code>{v}</code>" in h, (code, v)
+
+
+def test_the_deploy_notes_say_how_to_correct_and_review_a_translation():
+    d = (ROOT / "web" / "DEPLOY.md").read_text()
+    assert "languages.json" in d and '"reviewed": true' in d and "translation-glossary.md" in d
+    assert "web/guide/<code>/" in d
+
+
+# ---- review fixes (languages)
+def test_a_link_that_chooses_english_says_so_and_the_alternates_do_not(site, tmp_path, monkeypatch):
+    """An English page sends a reader on to their own language, so a link that chooses English carries
+    the choice: it holds when nothing can be remembered."""
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nx"}, {})
+    out = tmp_path / "o"; site.build(out)
+    fr = (out / "fr" / "index.html").read_text(encoding="utf-8")
+    assert 'href="../index.html?lang=en" lang="en"' in fr and '<link rel="alternate" hreflang="en" href="../index.html">' in fr
+    assert "?lang=" not in (out / "index.html").read_text(encoding="utf-8"), "from English, a link to English is the page itself"
+
+
+@pytest.mark.parametrize("rows, says", [
+    ([{"code": "en", "name": "English"}, {"code": "..", "name": "Up"}], "language code"),
+    ([{"code": "en", "name": "English"}, {"code": "static", "name": "S"}], "language code"),
+    ([{"code": "en", "name": "English"}, {"code": "pt-BR", "name": "P"}], "language code"),
+    ([{"code": "en", "name": "English"}, {"code": "fr", "name": "F"}, {"code": "fr", "name": "F"}], "twice"),
+    ([{"code": "en", "name": "English"}, {"code": "fr"}], "name"),
+    ([{"code": "fr", "name": "F"}], "first"),
+])
+def test_the_registry_refuses_a_code_that_is_not_a_plain_language_code(site, tmp_path, monkeypatch, rows, says):
+    (tmp_path / "languages.json").write_text(json.dumps(rows))
+    monkeypatch.setattr(site, "LOCALES_DIR", tmp_path)
+    with pytest.raises(site.BuildError, match=says):
+        site.languages()
+
+
+def test_a_language_has_no_pictures_of_its_own(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\nx", "fr/01-a.md": "# A\n\nx"}, {})
+    (site.GUIDE_DIR / "fr" / "img").mkdir()
+    with pytest.raises(site.BuildError, match=r"fr.img.*share"):
+        site.build(tmp_path / "o")
+
+
+def test_a_link_to_a_place_that_is_not_in_the_page_fails_in_any_language(site, tmp_path, monkeypatch):
+    en = {"01-a.md": "# A\n\n[b](02-b.md#there)", "02-b.md": "# B\n\n## There {#there}\n\nx"}
+    tree(tmp_path, monkeypatch, site, {**en, "fr/02-b.md": "# B\n\n## Là\n\nx"}, {})
+    with pytest.raises(site.BuildError, match=r"#there.*fr.02-b\.md"):
+        site.build(tmp_path / "o")
+    tree(tmp_path / "second", monkeypatch, site, {**en, "fr/02-b.md": "# B\n\n## Là {#there}\n\nx"}, {})
+    site.build(tmp_path / "o2")
+
+
+def test_a_translation_keeps_code_blocks_and_every_showing_of_a_picture(site, tmp_path, monkeypatch):
+    en = "# A\n\n```\ncurl https://example.pamdas.org/api\n```\n"
+    tree(tmp_path, monkeypatch, site, {"01-a.md": en, "fr/01-a.md": "# A\n\n```\ncurl https://autre.example/api\n```\n"}, {})
+    with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*code blocks"):
+        site.build(tmp_path / "o")
+    two = "# A\n\n![one](img/s.png)\n\n![again](img/s.png)"
+    tree(tmp_path / "second", monkeypatch, site, {"01-a.md": two, "fr/01-a.md": "# A\n\n![une](../img/s.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "s.png").write_bytes(PNG)
+    with pytest.raises(site.BuildError, match=r"fr.01-a\.md.*pictures"):
+        site.build(tmp_path / "o2")
+
+
+def test_a_translation_may_point_an_outside_link_at_the_page_in_its_language(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n[doc](https://example.org/en/doc)", "fr/01-a.md": "# A\n\n[doc](https://example.org/fr/doc)"}, {})
+    site.build(tmp_path / "o")
+
+
+def test_an_untranslated_pages_title_is_marked_english_in_the_navigation(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# Alpha\n\nx", "02-b.md": "# Beta\n\ny", "fr/01-a.md": "# Alpha fr\n\nx"}, {})
+    out = tmp_path / "o"; site.build(out)
+    fr = (out / "fr" / "index.html").read_text(encoding="utf-8")
+    assert '<a href="b.html" lang="en">Beta</a>' in fr and '<span lang="en">Beta</span></a>' in fr
+    assert '<a href="index.html" aria-current="page">Alpha fr</a>' in fr, "a translated title carries no mark"
+
+
+def test_the_switcher_takes_none_of_the_page_navigations_rules():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    rule = re.search(r"header \.langs\s*\{([^}]*)\}", css).group(1)
+    assert "align-self: center" in rule and "border: 0" in rule and "position: static" in rule

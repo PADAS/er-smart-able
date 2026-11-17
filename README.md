@@ -187,7 +187,8 @@ way it will look in the system it is moving to.
 ## Documentation
 
 - [Getting started](https://padas.github.io/er-smart-able/): the guide for
-  support people migrating a site with the hosted app, built from
+  people migrating a site with the hosted app, in English, French, Spanish,
+  Portuguese and Swahili, built from
   `web/guide/` and the app's help in `web/help/` (see
   [web/DEPLOY.md](web/DEPLOY.md#the-getting-started-site)).
 - [RUNBOOK.md](RUNBOOK.md): prerequisites, running each stage, checking the
