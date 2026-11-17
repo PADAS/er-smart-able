@@ -79,3 +79,21 @@ test('an error with odd values does not throw, and values are plain text', () =>
   assert.equal(P.errorMessage(409, 'Conflict', { detail: 'd', code: 'dataset_status', values: { status: '<b>x</b>' } }), 'STATUT <b>x</b>');
   assert.equal(P.errorMessage(401, '', undefined), '401');
 });
+const LANGS = JSON.parse(read('static/locales/languages.json')).map(l => l.code).filter(c => c !== 'en');
+for (const code of LANGS) {
+  test(code + ' has every English message, with the same placeholders', () => {
+    const L = Object.fromEntries(flat(JSON.parse(read('static/locales/' + code + '.json'))));
+    const ph = s => (s.match(/\{\{\w+\}\}/g) || []).sort().join(' ');
+    for (const [k, v] of Object.entries(EN)) {
+      assert.ok(k in L && L[k].trim(), code + ' lacks ' + k);
+      assert.equal(ph(L[k]), ph(v), code + ' ' + k);
+      assert.doesNotMatch(L[k], /<[a-z/]/i, code + ' ' + k);
+    }
+    for (const k of Object.keys(L)) assert.ok(k in EN || /_(zero|one|two|few|many|other)$/.test(k) && k.replace(/_\w+$/, '_other') in EN, code + ' has an unknown key ' + k);
+  });
+  test(code + ' names no host but the example and holds no token', () => {
+    const s = read('static/locales/' + code + '.json');
+    assert.deepEqual([...new Set(s.match(/[a-z0-9-]+\.pamdas\.org/g) || [])].filter(h => !['example.pamdas.org', 'site.pamdas.org'].includes(h)), []);
+    assert.doesNotMatch(s, /\b[0-9a-f]{32,}\b/);
+  });
+}
