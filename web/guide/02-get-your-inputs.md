@@ -4,7 +4,7 @@ You need two things before you open the app: a file from SMART, and access to th
 
 ## From SMART: a backup or an export
 
-The app accepts any one of these, as a single `.zip` file:
+You need one file, not all three. The app accepts any one of these, as a single `.zip` file:
 
 - **A Conservation Area export.** It holds one conservation area. SMART names it `SMART_<area identifier>_<date>.bak.zip`.
 - **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It holds every conservation area in that copy of SMART; you choose which to load later.
@@ -12,9 +12,11 @@ The app accepts any one of these, as a single `.zip` file:
 
 Upload the `.zip` as it is. Do not unzip it, and do not upload a file from inside it.
 
-The steps and pictures for the export and the backup are from SMART Desktop 7.5.6 on Windows. Other versions may differ.
+The person who runs SMART at the site is usually the one to make the file. A backup holds ranger names and patrol locations, so ask them to send it by a private channel, not a public link.
 
-### Make a Conservation Area export
+Choose the one you will make, and follow its steps. The steps and pictures for the export and the backup are from SMART Desktop 7.5.6 on Windows. Other versions may differ.
+
+### Conservation Area export {: .tab }
 
 1. Open SMART Desktop. On the sign-in screen, choose the conservation area, enter the username and password of an administrator of that area, and select **Login**.
 
@@ -36,9 +38,9 @@ The steps and pictures for the export and the backup are from SMART Desktop 7.5.
 
     ![File Explorer listing one file, SMART_EXAMPLE_20261117.bak.zip, of type Compressed (zipped) Folder, 291 KB](img/smart-export-5-file.png)
 
-### Make a system backup
+### System backup {: .tab }
 
-1. Sign in to any conservation area as an administrator, as in step 1 above.
+1. Open SMART Desktop. On the sign-in screen, choose any conservation area, enter the username and password of an administrator of that area, and select **Login**.
 2. Choose **File → Backup System**.
 
     ![The SMART window with the File menu open and its second item, Backup System, highlighted](img/smart-backup-1-menu.png)
@@ -57,10 +59,7 @@ The steps and pictures for the export and the backup are from SMART Desktop 7.5.
 
 A backup with photos can be large, because it holds the photos of every conservation area.
 
-### Zip the SMART Desktop folder
-
-These steps are not yet verified against SMART Desktop.
-{: .unverified }
+### Zipped SMART folder {: .tab }
 
 1. Close SMART Desktop if it is open.
 2. In File Explorer, find the folder SMART Desktop runs from. It is the folder that holds `SMART.exe` and a folder named `data`. SMART has no fixed place on the disk: it runs from wherever its folder was put when it was set up.
@@ -72,8 +71,6 @@ These steps are not yet verified against SMART Desktop.
     ![A folder named SMART 7.5.6 right-clicked in File Explorer, with the Send to menu open and Compressed (zipped) folder highlighted](img/smart-installzip-2-zip.png)
 
 4. Windows writes a `.zip` beside the folder. This can take several minutes and several gigabytes of free disk space.
-
-The person who runs SMART at the site is usually the one to make the file. A backup holds ranger names and patrol locations, so ask them to send it by a private channel, not a public link.
 
 ## From EarthRanger: the site and a token
 

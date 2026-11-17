@@ -33,6 +33,7 @@ _LOCAL = re.compile(r'href="(?!https?://|#|/|[a-z]+:)([^"#]+)(#[^"]*)?"')
 _OUTSIDE = re.compile(r'<a\b([^>]*?)href="(https?://)')
 _IMG = re.compile(r'<img\b[^>]*>')
 _ATTR = re.compile(r'\b(src|alt)="([^"]*)"')
+_TAB = re.compile(r'<h3 class="tab">(.*?)</h3>(.*?)(?=<h[1-3]\b|\Z)', re.S)   # a tab's section ends at the next heading
 
 
 class BuildError(Exception):
@@ -104,6 +105,29 @@ def _images(body: str, src: Path) -> tuple[str, dict]:
     return _IMG.sub(one, body), found
 
 
+def _tabs(body: str, src: Path) -> str:
+    """Headings marked as tabs ('### Name {: .tab }'), one after another, are alternatives: the reader
+    picks one and sees only its section, which runs to the next heading. The tabs are radio buttons
+    and their labels, so they work from the keyboard and without a script; site.css shows the panel
+    of the checked one. Each panel keeps its heading for a reader with no stylesheet, or on paper."""
+    found = list(_TAB.finditer(body))
+    out, at, n = [], 0, 0
+    while found:
+        group = [found.pop(0)]
+        while found and found[0].start() == group[-1].end():
+            group.append(found.pop(0))
+        if len(group) < 2:
+            raise BuildError(f"{src}: the tab '{group[0].group(1)}' stands alone; tabs are a choice of two or more")
+        n += 1
+        picks = "".join(
+            f'<input type="radio" name="tabs-{n}" id="tabs-{n}-{i}"{" checked" if i == 1 else ""}>'
+            f'<label for="tabs-{n}-{i}">{m.group(1)}</label>\n' for i, m in enumerate(group, 1))
+        panels = "".join(f'<section class="tab-panel">\n<h3>{m.group(1)}</h3>{m.group(2)}</section>\n' for m in group)
+        out.append(body[at:group[0].start()] + f'<div class="tabs">\n{picks}{panels}</div>\n')
+        at = group[-1].end()
+    return "".join(out) + body[at:]
+
+
 def pages() -> list[Page]:
     sources = _sources()
     slugs = {f.resolve(): slug for f, slug, _ in sources}
@@ -114,7 +138,7 @@ def pages() -> list[Page]:
         if not m:
             raise BuildError(f"{f}: no title; a page starts with a '# ' heading")
         body = help_pages.build_quirks.convert(text[m.end():], help_pages.EXTENSIONS)[0]
-        body, images = _images(_links(body, f, slugs), f)
+        body, images = _images(_links(_tabs(body, f), f, slugs), f)
         out.append(Page(f, slug, m.group(1), group, body, images))
     names = {}
     for p in out:   # one folder of pictures for the whole site: a name means one file
