@@ -29,9 +29,10 @@ test('changing language forgets the loaded help and drops a pending fetch', () =
 });
 // Functions in pages.js that build plain text for a caller that escapes it (or passes it to t() or textContent):
 // fmtBytes and fmtDur are wrapped in esc() or handed to a message as a value; loadScope and loadName are wrapped in
-// esc() (or passed as a breadcrumb label, which renderBreadcrumb escapes); renderLoadTitle's facts list goes
-// through facts.map(esc); renderStages passes its one t() to pill(), which escapes its label.
-const PLAIN_TEXT_FUNCTIONS = ['fmtBytes', 'fmtDur', 'loadScope', 'loadName', 'renderLoadTitle', 'renderStages'];
+// esc() (or passed as a breadcrumb label, which renderBreadcrumb escapes); loadFacts returns the facts under a
+// load's title, which the title block escapes with facts.map(esc); stageLabel returns the words handed to pill(),
+// which escapes its label.
+const PLAIN_TEXT_FUNCTIONS = ['fmtBytes', 'fmtDur', 'loadScope', 'loadName', 'loadFacts', 'stageLabel'];
 test('t() is used only where plain text is wanted; markup is built with T()', () => {
   const src = read('static/app.js') + read('static/pages.js');
   // dialog( and prompt( write or show their first argument as text; renderBreadcrumb escapes each label

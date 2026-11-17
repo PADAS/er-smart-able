@@ -241,12 +241,17 @@ function notStarted(l) { return ['queued', 'planning'].includes(l.status); }   /
 function loadName(l) { return t('load.name', { area: l.ca_id, site: l.site ? l.site.name : t('dataset.removedSite') }); }
 
 // the heading with its status, what the load was asked to do and by whom, and the actions it offers now
+// the facts under a load's title, as plain text: the title block escapes each one (facts.map(esc))
+function loadFacts(l) {
+  const o = l.options || {};
+  return [l.site ? l.site.url : '', o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
+    o.configurable_model ? t('load.configurableModel', { value: o.configurable_model }) : '',
+    l.owner_email ? (l.created_at ? t('load.startedByWhen', { who: l.owner_email, when: fmtWhen(l.created_at) }) : t('load.startedBy', { who: l.owner_email })) : ''].filter(Boolean);
+}
 function renderLoadTitle(l) {
   const active = !!l.held, stale = !active && ACTIVE.includes(l.status), o = l.options || {};
   const blocking = (l.findings || []).filter(f => f.severity === 'blocking').length;
-  const facts = [l.site ? l.site.url : '', o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
-    o.configurable_model ? t('load.configurableModel', { value: o.configurable_model }) : '',
-    l.owner_email ? (l.created_at ? t('load.startedByWhen', { who: l.owner_email, when: fmtWhen(l.created_at) }) : t('load.startedBy', { who: l.owner_email })) : ''].filter(Boolean);
+  const facts = loadFacts(l);
   let actions = '';
   const busy = l.dataset_extracting ? ' disabled title="' + T('load.extractingTitle') + '"' : '';   // the server refuses a run or a plan meanwhile
   if (!active && l.site) {
@@ -377,6 +382,8 @@ function importSummary(l, live) {
   return s;
 }
 
+// the words for a stage that was never reached, as plain text for pill(), which escapes its label
+function stageLabel(status, active) { return status === 'pending' && !active ? t('status.notReached') : undefined; }
 function renderStages(l, active) {
   const rows = stageRows(l);
   let html = '<table class="stagetable"><thead><tr><th>' + T('stages.colStage') + '</th><th>' + T('stages.colStatus') + '</th><th>' + T('stages.colTook') + '</th><th>' + T('stages.colWhat') + '</th></tr></thead><tbody>';
@@ -386,7 +393,7 @@ function renderStages(l, active) {
     const took = r && r.started_at && r.finished_at ? fmtDur((Date.parse(r.finished_at) - Date.parse(r.started_at)) / 1000) : running && r.started_at ? fmtDur(secondsSince(r.started_at)) + '…' : '';
     const shown = running ? 'running' : status === 'running' ? 'interrupted' : status;
     html += '<tr class="' + esc(status) + '"><td>' + T('stages.' + s) + '</td><td>' +
-      pill(shown, shown === 'pending' && !active ? t('status.notReached') : undefined) + '</td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + (r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
+      pill(shown, stageLabel(shown, active)) + '</td><td class="tiny">' + esc(took) + '</td><td class="tiny">' + (r ? stageSummary(s, r, l, active) : '') + '</td></tr>';
   }
   html += '</tbody></table>';
   if (active) html += notStarted(l) ? '<p class="tiny heartbeat">' + T('stages.waiting', { dur: fmtDur(secondsSince(l.claimed_at)) }) + '</p>'
