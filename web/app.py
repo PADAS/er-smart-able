@@ -28,6 +28,7 @@ Routes:
 """
 from datetime import date
 import hashlib
+import json
 import logging
 import os
 import re
@@ -57,7 +58,12 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "i18n.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
+# the language menu and the message files: the registry is read once, and one hash over every message
+# file keeps a browser from holding last deploy's messages
+LOCALES = HERE / "static" / "locales"
+LANGUAGES = json.loads((LOCALES / "languages.json").read_text(encoding="utf-8"))
+LOCALES_V = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(LOCALES.glob("*.json")))).hexdigest()[:12]
 
 app = FastAPI(title="smart-able")
 
@@ -104,7 +110,8 @@ def _load(id: str, user: dict, owner: bool = False) -> dict:
 # ---------------------------------------------------------------- pages
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION, "assets": ASSETS})
+    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION, "assets": ASSETS,
+                                                                  "languages": LANGUAGES, "locales_v": LOCALES_V})
 
 
 @app.get("/api/config")

@@ -104,10 +104,49 @@ document.addEventListener('click', e => {
   else navigate(parseRoute(a.getAttribute('href')));
 });
 
+// ---- language: the shell's fixed phrases carry data-i18n marks; English stays in the template as the first paint
+const LANGS = JSON.parse($('#languages').textContent);
+const loadedLangs = new Set();
+async function loadMessages(lang) {
+  const v = $('meta[name="locales-v"]').content;
+  for (const l of lang === 'en' ? ['en'] : ['en', lang]) {
+    if (loadedLangs.has(l)) continue;
+    try {
+      const r = await fetch('/static/locales/' + l + '.json?v=' + v);
+      if (!r.ok) continue;   // no file: that language reads as English
+      setMessages(l, await r.json()); loadedLangs.add(l);
+    } catch (e) { /* offline or bad file: English stays */ }
+  }
+}
+function applyShell() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.setAttribute('title', t(el.dataset.i18nTitle)));
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+}
+async function useLang(lang, remember) {
+  await loadMessages(lang);
+  setLang(lang);
+  document.documentElement.lang = lang;
+  $('#lang').value = lang;
+  applyShell();
+  const entry = LANGS.find(l => l.code === lang);
+  $('#langNote').hidden = !entry || entry.reviewed !== false;
+  HELP = null;   // the help text is per language: fetched again on the next open
+  if (remember) { try { localStorage.lang = lang; } catch (e) { /* storage blocked: the choice lasts this page */ } }
+}
+
 async function boot() {
   let theme = 'system';
   try { theme = localStorage.theme || 'system'; } catch (e) { /* storage blocked */ }
   setTheme(theme);   // before the first fetch, so the page never flashes the other theme
+  let stored = null;
+  try { stored = localStorage.lang; } catch (e) { /* storage blocked */ }
+  await useLang(pickLang(stored, navigator.languages, LANGS.map(l => l.code)), false);
+  $('#lang').onchange = async () => {
+    await useLang($('#lang').value, true);
+    closeLayers();   // a dialog or the drawer holds the old language
+    if (ME) renderRoute(parseRoute(location.hash)); else showSignIn();
+  };
   CONFIG = await (await fetch('/api/config')).json();
   if (!CONFIG.authDisabled) {
     firebase.initializeApp({ apiKey: CONFIG.apiKey, authDomain: CONFIG.authDomain, projectId: CONFIG.projectId });

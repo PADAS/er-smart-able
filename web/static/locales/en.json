@@ -1,1 +1,16 @@
-{}
+{
+  "shell": {
+    "appName": "SMART migration",
+    "home": "Back to the dataset list",
+    "help": "Help",
+    "sites": "EarthRanger sites",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "signOut": "Sign out",
+    "close": "Close",
+    "language": "Language",
+    "machineTranslated": "This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English."
+  }
+}
