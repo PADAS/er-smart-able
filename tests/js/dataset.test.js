@@ -91,3 +91,9 @@ test('a ready dataset that lists no areas still has its way into the viewer', ()
   assert.match(h, /None listed[\s\S]*href="\/d\/a1\/"/);
   assert.doesNotMatch(P.renderDatasetPage({ ...d, status: 'failed', export: [], cas: [] }, 'overview', {}), /href="\/d\/a1\/"/);
 });
+test('the Browse link says the data browser is in English when the language is not', () => {
+  const { load: ld } = require('./shim');
+  const d = { id: 'a1', name: 'R5', status: 'ready', export: [{ ca_id: '1', name: 'A', dir: 'x' }] };
+  assert.doesNotMatch(ld().renderOverview(d), /in English/);
+  assert.match(ld({ lang: 'xx', messages: { dataset: { browseInEnglish: 'EN' } } }).renderOverview(d), />Browse<\/a> <span class="tiny">EN<\/span>/);
+});

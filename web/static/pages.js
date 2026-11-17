@@ -3,15 +3,18 @@
 // test shim can reach them. Loads before app.js.
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(0) + ' MB' : n >= 1e3 ? (n / 1e3).toFixed(0) + ' kB' : n + ' B'; }
+function fmtBytes(n) {
+  return n >= 1e9 ? t('units.gb', { n: (n / 1e9).toFixed(1) }) : n >= 1e6 ? t('units.mb', { n: (n / 1e6).toFixed(0) })
+    : n >= 1e3 ? t('units.kb', { n: (n / 1e3).toFixed(0) }) : t('units.b', { n: n });
+}
 
-// what a load writes, in words: empty for the data model and every patrol (the default)
+// what a load writes, in words (plain text: the caller escapes it): empty for the data model and every patrol (the default)
 function loadScope(l) {
   var o = l.options || {};
-  if (o.scope === 'datamodel') return 'Data model only';
-  if (o.since && o.until) return 'Patrols from ' + o.since + ' to ' + o.until;
-  if (o.since) return 'Patrols from ' + o.since;
-  if (o.until) return 'Patrols up to ' + o.until;
+  if (o.scope === 'datamodel') return t('dataset.scopeDatamodel');
+  if (o.since && o.until) return t('dataset.scopeRange', { since: o.since, until: o.until });
+  if (o.since) return t('dataset.scopeSince', { since: o.since });
+  if (o.until) return t('dataset.scopeUntil', { until: o.until });
   return '';
 }
 
@@ -48,9 +51,10 @@ var STATUS_CLASS = {
   interrupted: 'interrupted',
 };
 function statusClass(status) { return Object.prototype.hasOwnProperty.call(STATUS_CLASS, status) ? STATUS_CLASS[status] : 'pending'; }
-// a pill is text plus colour, never colour alone; the label defaults to the status in words
+// a pill is text plus colour, never colour alone; the label defaults to the status in words (translated when the language has them)
 function pill(status, label) {
-  return '<span class="pill st-' + statusClass(status) + '">' + esc(label != null ? label : String(status).replace(/_/g, ' ')) + '</span>';
+  var words = label != null ? label : hasMessage('status.' + status) ? t('status.' + status) : String(status).replace(/_/g, ' ');
+  return '<span class="pill st-' + statusClass(status) + '">' + esc(words) + '</span>';
 }
 
 // ---- the frame: a breadcrumb under the header, the last part where the reader is
@@ -61,24 +65,24 @@ function renderBreadcrumb(parts) {
 }
 
 // ---- sign-in: the band without Help or the account menu, and one centred panel
-// The allow-list (whole addresses and @domain suffixes) as a phrase: "your @earthranger.com Google account",
-// "a Google account at @earthranger.com or @partner.org", or "your Google account" when anyone may sign in.
+// The allow-list (whole addresses and @domain suffixes) as a phrase, in the language's own word order:
+// "your @earthranger.com Google account", "a Google account at @a.org or @b.org", or "your Google account"
+// when anyone may sign in. Returns HTML (the addresses are escaped).
 function allowedPhrase(allowed) {
   const list = Array.isArray(allowed) ? allowed.filter(Boolean) : typeof allowed === 'string' && allowed ? [allowed] : [];
-  if (!list.length) return 'your Google account';
-  if (list.length === 1) return 'your ' + esc(list[0]) + ' Google account';
-  const names = list.map(esc);
-  return 'a Google account at ' + names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1];
+  if (!list.length) return T('signin.yourAccount');
+  if (list.length === 1) return T('signin.yourDomainAccount', { domain: list[0] });
+  return T('signin.accountAt', { list: list.slice(0, -1).join(', '), last: list[list.length - 1] });
 }
 
 function renderSignIn(config) {
   return '<section class="panel signin">' +
     '<img class="signin-lockup light-only" src="/static/img/er-lockup-h.svg" alt="EarthRanger">' +
     '<img class="signin-lockup dark-only" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger">' +
-    '<h1>SMART migration</h1>' +
-    '<p>Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.</p>' +
-    '<p class="muted">Sign in with ' + allowedPhrase((config || {}).allowed) + '.</p>' +
-    '<button id="signInBtn" class="btn primary"><span class="mi" aria-hidden="true">login</span>Sign in with Google</button>' +
+    '<h1>' + T('shell.appName') + '</h1>' +
+    '<p>' + T('signin.intro') + '</p>' +
+    '<p class="muted">' + T('signin.prompt', null, { who: allowedPhrase((config || {}).allowed) }) + '</p>' +
+    '<button id="signInBtn" class="btn primary"><span class="mi" aria-hidden="true">login</span>' + T('signin.button') + '</button>' +
     '<p id="signInError" class="tiny"></p>' +
     '</section>';
 }
@@ -87,24 +91,24 @@ function renderSignIn(config) {
 function renderDatasetCard(d) {
   var areas = (d.cas || []).map(c => esc(c.n || c.id) + ' <small>' + esc(c.id) + '</small>').join(', ');
   var counts = d.counts && d.counts.patrols != null
-    ? '<div>' + Number(d.counts.patrols).toLocaleString('en-US') + ' patrols</div><div>' + Number(d.counts.waypoints || 0).toLocaleString('en-US') + ' waypoints</div>' : '';
+    ? '<div>' + tn('units.patrols', Number(d.counts.patrols)) + '</div><div>' + tn('units.waypoints', Number(d.counts.waypoints || 0)) + '</div>' : '';
   return '<a class="card dataset-card" href="#/datasets/' + esc(d.id) + '">' +
     '<div class="card-main">' +
       '<div class="card-title"><b>' + esc(d.name) + '</b> <span class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + '</span></div>' +
       '<div class="card-meta">' + pill(d.status) + (areas ? ' <span class="areas">' + areas + '</span>' : '') +
         (d.error ? ' <span class="card-error tiny">' + esc(d.error) + '</span>' : '') + '</div>' +
     '</div>' +
-    '<div class="card-side tiny">' + counts + '<div>' + (d.mine ? 'you' : esc(d.owner_email)) + '</div>' +
-      ((d.shared_with || []).length ? '<div class="shared-mark">shared</div>' : '') + '</div>' +
+    '<div class="card-side tiny">' + counts + '<div>' + (d.mine ? T('home.you') : esc(d.owner_email)) + '</div>' +
+      ((d.shared_with || []).length ? '<div class="shared-mark">' + T('home.shared') + '</div>' : '') + '</div>' +
     '</a>';
 }
 function renderCardList(datasets) {
   var list = (datasets || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  return list.length ? list.map(renderDatasetCard).join('') : '<p class="empty">No datasets yet. Upload a backup or export to begin.</p>';
+  return list.length ? list.map(renderDatasetCard).join('') : '<p class="empty">' + T('home.empty') + '</p>';
 }
 function renderHome(datasets) {
-  return '<div class="page-head"><h1>Datasets</h1>' +
-    '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>Upload a backup or export</button></div>' +
+  return '<div class="page-head"><h1>' + T('home.title') + '</h1>' +
+    '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>' + T('home.upload') + '</button></div>' +
     '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
 }
 
@@ -115,20 +119,22 @@ function renderRangersSection(l, open) {
   var rows = l.rangers || [], total = l.rangers_total || rows.length;
   var dmOnly = !!(l.options && l.options.scope === 'datamodel');   // imports no patrols: one count is enough
   if (!rows.length) return '';
-  return '<details' + (open ? ' open' : '') + '><summary><h3 style="display:inline">Rangers</h3> <span class="tiny">' + plural(total, 'person', 'people') + (total > rows.length ? ' (the first ' + rows.length + ' here; rangers.json has all)' : '') + ' · for their EarthRanger accounts</span> ' +
-    '<button class="help" data-help="rangers-accounts" title="How to give rangers accounts"><span class="mi" aria-hidden="true">help</span></button></summary>' +
-    '<p class="tiny">Create each ranger\'s user with this name and pick their subject in the user form\'s <b>linked subject</b> field, so tracks and reports from EarthRanger Mobile land on the subject that holds their patrol history. ' +
-    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>Download CSV</button></p>' +
-    '<table class="rangers"><thead><tr><th>Name</th><th>SMART id</th><th>Active in SMART</th>' + (dmOnly ? '<th title="In the whole dataset; this load imports no patrols">Patrols (all)</th>' : '<th title="On patrols this load imports / in the whole dataset">Patrols (this load / all)</th>') + '<th>Subject</th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">(employee record deleted in SMART)</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? 'no' : r.active ? 'yes' : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : 'not created yet') + '</td></tr>').join('') +
+  return '<details' + (open ? ' open' : '') + '><summary><h3 style="display:inline">' + T('rangers.title') + '</h3> <span class="tiny">' + tn('rangers.people', total) +
+    (total > rows.length ? ' ' + T('rangers.firstOnly', { shown: rows.length, file: 'rangers.json' }) : '') + ' · ' + T('rangers.forAccounts') + '</span> ' +
+    '<button class="help" data-help="rangers-accounts" title="' + T('rangers.helpTitle') + '"><span class="mi" aria-hidden="true">help</span></button></summary>' +
+    '<p class="tiny">' + T('rangers.createUser', null, { field: '<b>' + T('rangers.linkedSubject') + '</b>' }) + ' ' +
+    '<button class="ghost" data-csv><span class="mi" aria-hidden="true">download</span>' + T('rangers.downloadCsv') + '</button></p>' +
+    '<table class="rangers"><thead><tr><th>' + T('rangers.colName') + '</th><th>' + T('rangers.colSmartId') + '</th><th>' + T('rangers.colActive') + '</th>' +
+    (dmOnly ? '<th title="' + T('rangers.colPatrolsAllTitle') + '">' + T('rangers.colPatrolsAll') + '</th>' : '<th title="' + T('rangers.colPatrolsTitle') + '">' + T('rangers.colPatrols') + '</th>') + '<th>' + T('rangers.colSubject') + '</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.name) + (r.deleted ? ' <span class="tiny">' + T('rangers.deleted') + '</span>' : '') + '</td><td class="tiny">' + esc(r.smart_employee_id || '') + '</td><td class="tiny">' + (r.active === false ? T('rangers.no') : r.active ? T('rangers.yes') : '') + '</td><td>' + (dmOnly ? esc(r.patrols_total != null ? r.patrols_total : '') : esc(r.patrols) + (r.patrols_total != null && r.patrols_total !== r.patrols ? ' <span class="tiny">/ ' + esc(r.patrols_total) + '</span>' : '')) + '</td><td class="tiny">' + (r.subject_id ? esc(r.subject_id) : T('rangers.notCreated')) + '</td></tr>').join('') +
     '</tbody></table></details>';
 }
 
 // ---- the dataset page
 // what: 'dataset' (the default) or 'load'; a load is shared through its dataset
 function renderNotFound(what) {
-  return '<div class="panel"><h1>Not found or not shared with you</h1><p class="muted">' + (what === 'load' ? 'This load does not exist, or its dataset\'s owner has not shared the dataset with you.' : 'This dataset does not exist, or its owner has not shared it with you.') + '</p>' +
-    '<a class="btn primary" href="#/"><span class="mi" aria-hidden="true">arrow_back</span>Back to datasets</a></div>';
+  return '<div class="panel"><h1>' + T('dataset.notFoundTitle') + '</h1><p class="muted">' + T(what === 'load' ? 'dataset.notFoundLoad' : 'dataset.notFoundDataset') + '</p>' +
+    '<a class="btn primary" href="#/"><span class="mi" aria-hidden="true">arrow_back</span>' + T('dataset.backToDatasets') + '</a></div>';
 }
 function fmtDate(s) { return String(s || '').slice(0, 10); }
 function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; }
@@ -142,73 +148,79 @@ function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); r
 function renderSites(sites) {
   var rows = (sites || []).map(s => '<tr>' +
     '<td><b>' + esc(s.name) + '</b><div class="tiny">' + esc(s.url) + '</div></td>' +
-    '<td class="tiny">…' + esc(s.token_hint) + ' as ' + esc(s.checked_as) + '</td>' +
-    '<td>' + (s.mine ? 'you' : esc(s.owner_email)) + '</td>' +
+    '<td class="tiny">' + T('sites.tokenAs', { hint: s.token_hint, user: s.checked_as }) + '</td>' +
+    '<td>' + (s.mine ? T('sites.you') : esc(s.owner_email)) + '</td>' +
     '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
     '<td class="actions">' + (s.mine ?
-      '<button data-act="siteShare" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">share</span>Share</button>' +
-      '<button data-act="siteDelete" data-id="' + esc(s.id) + '" class="danger" title="Remove this site and its token"><span class="mi" aria-hidden="true">delete</span>Remove</button>' : '') + '</td></tr>').join('');
-  return '<div class="page-head"><h1>EarthRanger sites</h1>' +
-    '<button id="addSiteBtn" class="btn primary"><span class="mi" aria-hidden="true">add</span>Add a site</button></div>' +
-    ((sites || []).length ? '<div class="panel"><table><thead><tr><th>Site</th><th>Token</th><th>Owner</th><th>Shared with</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      : '<p class="empty">No sites yet. Add the EarthRanger site you will load into.</p>');
+      '<button data-act="siteShare" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">share</span>' + T('sites.share') + '</button>' +
+      '<button data-act="siteDelete" data-id="' + esc(s.id) + '" class="danger" title="' + T('sites.removeTitle') + '"><span class="mi" aria-hidden="true">delete</span>' + T('sites.remove') + '</button>' : '') + '</td></tr>').join('');
+  return '<div class="page-head"><h1>' + T('shell.sites') + '</h1>' +
+    '<button id="addSiteBtn" class="btn primary"><span class="mi" aria-hidden="true">add</span>' + T('sites.add') + '</button></div>' +
+    ((sites || []).length ? '<div class="panel"><table><thead><tr><th>' + T('sites.colSite') + '</th><th>' + T('sites.colToken') + '</th><th>' + T('sites.colOwner') + '</th><th>' + T('sites.colShared') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="empty">' + T('sites.empty') + '</p>');
 }
 function renderTabs(d, tab) {
   var ready = hasLoadTabs(d);
-  return '<nav class="tabs">' + [['overview', 'Overview', ''], ['loads', 'Loads', '/loads'], ['rangers', 'Rangers', '/rangers']].map(t => {
+  return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers']].map(t => {
     var off = t[0] !== 'overview' && !ready;
     return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
   }).join('') + '</nav>';
 }
 
+// the link into the data browser, which is not translated: another language is told so beside it
+function browseLink(d) {
+  return '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>' + T('dataset.browse') + '</a>' +
+    (currentLang() !== 'en' ? ' <span class="tiny">' + T('dataset.browseInEnglish') + '</span>' : '');
+}
+
 function renderOverview(d) {
   var running = !!d.extract_held;   // queued or running, and its job still holding
   var lapsed = ['queued', 'running'].includes(d.status) && !running;   // the job was killed outright and never reported
-  var times = (d.started_at ? 'Started ' + esc(fmtWhen(d.started_at)) : '') + (d.finished_at ? (d.started_at ? ' · ' : '') + 'Finished ' + esc(fmtWhen(d.finished_at)) : '');
+  var times = (d.started_at ? T('dataset.started', { when: fmtWhen(d.started_at) }) : '') + (d.finished_at ? (d.started_at ? ' · ' : '') + T('dataset.finished', { when: fmtWhen(d.finished_at) }) : '');
   // datasets extracted before the bundle existed have no export entries: list their areas from cas, browsable but not loadable
   var areaRows = (d.export || []).length ? d.export : (d.status === 'ready' ? (d.cas || []).map(c => ({ ca_id: c.id, name: c.n })) : []);
   var rows = areaRows.map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
-    '<td class="tiny">' + (e.patrols != null ? plural(e.patrols, 'patrol') : '') + (e.waypoints != null ? ' · ' + plural(e.waypoints, 'waypoint') : '') + '</td>' +
-    '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a>' : '') +   // the viewer answers 409 unless ready
-    (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : ' <span class="tiny">re-extract to enable loading</span>') + '</div></td></tr>').join('');
-  return '<div class="panel"><h2>Extraction</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
+    '<td class="tiny">' + (e.patrols != null ? tn('units.patrols', e.patrols) : '') + (e.waypoints != null ? ' · ' + tn('units.waypoints', e.waypoints) : '') + '</td>' +
+    '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? browseLink(d) : '') +   // the viewer answers 409 unless ready
+    (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : ' <span class="tiny">' + T('dataset.reExtractToLoad') + '</span>') + '</div></td></tr>').join('');
+  return '<div class="panel"><h2>' + T('dataset.extraction') + '</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
-    (lapsed ? '<p class="tiny">The extraction stopped without reporting.' + (d.mine ? ' Run it again with Re-extract.' : '') + '</p>' : '') +
-    (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">Log' + (running ? ' (live)' : ' tail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
-    (!rows && d.status === 'ready' ? '<div class="panel"><h2>Conservation areas</h2><p class="tiny">None listed for this dataset.</p><a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>Browse</a></div>' : '') +
-    (rows ? '<div class="panel"><h2>Conservation areas</h2><table><thead><tr><th>Name</th><th>SMART id</th><th>Version</th><th>Contents</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
+    (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', { action: t('dataset.reExtract') }) : '') + '</p>' : '') +
+    (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">' + T(running ? 'dataset.logLive' : 'dataset.logTail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
+    (!rows && d.status === 'ready' ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><p class="tiny">' + T('dataset.noAreas') + '</p>' + browseLink(d) + '</div>' : '') +
+    (rows ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><table><thead><tr><th>' + T('dataset.colName') + '</th><th>' + T('dataset.colSmartId') + '</th><th>' + T('dataset.colVersion') + '</th><th>' + T('dataset.colContents') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
 }
 
 function renderLoadsTab(d, loads) {
   var list = (loads || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   var canLoad = !d.extract_held && (d.export || []).some(hasBundle);   // an extraction rewrites the bundle a load reads
-  var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>Load into EarthRanger</button>' : '';
-  if (!list.length) return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><p class="empty">No loads yet.</p>';
-  return '<div class="page-head"><h2>Loads</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>Area and site</th><th>Status</th><th>Progress</th><th>Started</th><th>By</th></tr></thead><tbody>' +
+  var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : '';
+  if (!list.length) return '<div class="page-head"><h2>' + T('dataset.tabLoads') + '</h2>' + btn + '</div><p class="empty">' + T('dataset.noLoads') + '</p>';
+  return '<div class="page-head"><h2>' + T('dataset.tabLoads') + '</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>' + T('dataset.colAreaSite') + '</th><th>' + T('dataset.colStatus') + '</th><th>' + T('dataset.colProgress') + '</th><th>' + T('dataset.colStarted') + '</th><th>' + T('dataset.colBy') + '</th></tr></thead><tbody>' +
     list.map(l => {
-      var p = l.progress, prog = p && p.patrols_total ? Number(p.done || 0).toLocaleString('en-US') + ' of ' + plural(p.patrols_total, 'patrol') : '';
-      return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + esc(l.site ? l.site.name : 'removed site') + '</a></td>' +
-        '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">held</span>' : '') + (loadScope(l) ? '<div class="tiny">' + esc(loadScope(l)) + '</div>' : '') + '</td><td class="tiny">' + esc(prog) + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
+      var p = l.progress, prog = p && p.patrols_total ? T('dataset.progress', { done: fmtNum(p.done || 0) }, { total: tn('units.patrols', p.patrols_total) }) : '';
+      return '<tr data-load="' + esc(l.id) + '"><td><a href="#/datasets/' + esc(d.id) + '/loads/' + esc(l.id) + '"><b>' + esc(areaName(d, l.ca_id)) + '</b> → ' + esc(l.site ? l.site.name : t('dataset.removedSite')) + '</a></td>' +
+        '<td>' + pill(l.status) + (l.held ? ' <span class="tiny">' + T('dataset.held') + '</span>' : '') + (loadScope(l) ? '<div class="tiny">' + esc(loadScope(l)) + '</div>' : '') + '</td><td class="tiny">' + prog + '</td><td class="tiny">' + esc(fmtDate(l.created_at)) + '</td><td class="tiny">' + esc(l.owner_email || '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 }
 
 function renderRangersTab(load) {
   var rows = load && load.rangers || [];
-  if (!rows.length) return '<p class="empty">No rangers listed yet: a load that reaches patrol setup fills this; the viewer\'s Rangers tab lists the people in the dataset meanwhile.</p>';
-  return '<p class="tiny">From the load of ' + esc(load.ca_id) + ' into ' + esc(load.site ? load.site.name : 'a removed site') + ', ' + esc(fmtDate(load.created_at)) + '</p><div class="panel">' + renderRangersSection(load, true) + '</div>';
+  if (!rows.length) return '<p class="empty">' + T('rangers.empty') + '</p>';
+  return '<p class="tiny">' + T('rangers.fromLoad', { area: load.ca_id, site: load.site ? load.site.name : t('rangers.removedSite'), date: fmtDate(load.created_at) }) + '</p><div class="panel">' + renderRangersSection(load, true) + '</div>';
 }
 
 function renderDatasetPage(d, tab, extra) {
   extra = extra || {};
   var dis = d.extract_held ? ' disabled' : '';
   var actions = d.mine ? '<div class="actions row">' +
-    '<button id="shareBtn"><span class="mi" aria-hidden="true">share</span>Share</button>' +
-    '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>Re-extract</button>' +
-    '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>Delete</button></div>' : '';
-  var shared = (d.shared_with || []).length ? ' · shared with ' + d.shared_with.map(esc).join(', ') : '';
+    '<button id="shareBtn"><span class="mi" aria-hidden="true">share</span>' + T('dataset.share') + '</button>' +
+    '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>' + T('dataset.reExtract') + '</button>' +
+    '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>' + T('dataset.delete') + '</button></div>' : '';
+  var shared = (d.shared_with || []).length ? ' · ' + T('dataset.sharedWith', { list: d.shared_with.join(', ') }) : '';
   var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load) : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
-    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · uploaded ' + esc(fmtDate(d.created_at)) + ' · ' + (d.mine ? 'owned by you' : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
+    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + fmtBytes(d.source_size) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
     renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
 }
 

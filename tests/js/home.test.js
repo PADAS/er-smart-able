@@ -16,3 +16,12 @@ test('home orders newest first and has an empty state', () => {
   assert.match(P.renderHome([]), /No datasets yet\. Upload a backup or export to begin\./);
   assert.match(h, /id="uploadBtn"/);
 });
+test('the home page follows the language', () => {
+  const P = load({ lang: 'xx', messages: { home: { title: 'TITRE', upload: 'ENVOYER' }, status: { ready: 'PRÊT' } } });
+  const h = P.renderHome([{ id: 'a1', name: 'R5', status: 'ready', mine: true }]);
+  assert.match(h, /<h1>TITRE<\/h1>/); assert.match(h, />ENVOYER<\/button>/); assert.match(h, /<span class="pill st-success">PRÊT<\/span>/);
+});
+test('the sign-in sentence is the language\'s own, with the domain as data', () => {
+  const P = load({ lang: 'xx', messages: { signin: { yourDomainAccount: 'COMPTE {{domain}}' } } });
+  assert.match(P.renderSignIn({ allowed: ['@a<b>.org'] }), /COMPTE @a&lt;b&gt;\.org/);
+});
