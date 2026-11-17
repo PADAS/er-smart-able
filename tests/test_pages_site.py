@@ -551,3 +551,22 @@ def test_translated_smart_steps_give_the_english_menu_name_beside_the_translated
         h = (out / code / "get-your-inputs.html").read_text(encoding="utf-8")
         assert "Export Conservation Area..." in h and "Backup System" in h, code   # the picture shows these words
         assert h.count('<section class="tab-panel">') == 3, code
+
+
+def test_the_reference_is_translated_into_every_language_and_the_app_still_serves_english(site, tmp_path, monkeypatch):
+    for l in site.languages()[1:]:
+        ps = {p.slug: p for p in site.pages(l.code)}
+        for slug in ("overview", "sites", "loading", "statuses", "stops"):
+            assert ps[slug].translated, (l.code, slug)
+    monkeypatch.syspath_prepend(str(ROOT / "web"))
+    import help_pages
+    titles = [s["title"] for s in help_pages.sections()]
+    assert "Statuses" in titles and len(titles) == len(list((ROOT / "web" / "help").glob("*.md"))) + 1, "five pages and the quirks reference, in English only"
+
+
+def test_status_values_survive_translation(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = (out / code / "statuses.html").read_text(encoding="utf-8")
+        for v in ("planning", "planned", "queued", "running", "continuing", "needs_attention", "done", "failed"):
+            assert f"<code>{v}</code>" in h, (code, v)
