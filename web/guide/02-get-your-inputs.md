@@ -6,22 +6,72 @@ You need two things before you open the app: a file from SMART, and access to th
 
 The app accepts any one of these, as a single `.zip` file:
 
-- **A Conservation Area export.** It holds one conservation area.
-- **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It can hold several conservation areas; you choose which to load later.
-- **A zipped SMART Desktop install folder.** Zip the whole folder SMART Desktop is installed in. Use this when you cannot run SMART to make an export or a backup.
+- **A Conservation Area export.** It holds one conservation area. SMART names it `SMART_<area identifier>_<date>.bak.zip`.
+- **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It holds every conservation area in that copy of SMART; you choose which to load later.
+- **A zipped SMART Desktop folder.** Zip the whole folder SMART Desktop runs from. Use this when you cannot run SMART to make an export or a backup.
 
 Upload the `.zip` as it is. Do not unzip it, and do not upload a file from inside it.
+
+The steps and pictures for the export and the backup are from SMART Desktop 7.5.6 on Windows. Other versions may differ.
+
+### Make a Conservation Area export
+
+1. Open SMART Desktop. On the sign-in screen, choose the conservation area, enter the username and password of an administrator of that area, and select **Login**.
+
+    ![SMART's sign-in screen, with a conservation area chosen in the Conservation Area list, a username and password entered, and the Login button at the bottom right](img/smart-export-1-signin.png)
+
+2. Choose **File → Export Conservation Area...**. It is the first item in the File menu.
+
+    ![The SMART window with the File menu open and its first item, Export Conservation Area, highlighted; Backup System is the item below it](img/smart-export-2-menu.png)
+
+3. In the **Export Conservation Area** window, check the **File** box. It says where the export will be saved and what it will be called. SMART suggests a folder named `backup` inside its own folder; select **Browse...** to save somewhere else. Then select **Export**.
+
+    ![The Export Conservation Area window, with one File box holding the path and name of the export, a Browse button beside it, and Export and Cancel buttons at the bottom](img/smart-export-3-dialog.png)
+
+4. Wait for the message "Conservation Area exported successfully." and select **OK**. A small area takes a few seconds; an area with years of patrols takes longer.
+
+    ![A message window titled Export Conservation Area that reads: Conservation Area exported successfully](img/smart-export-4-done.png)
+
+5. Find the file in the folder you chose. Its name ends in `.bak.zip`, and Windows lists it as a compressed (zipped) folder. This is the file to upload.
+
+    ![File Explorer listing one file, SMART_EXAMPLE_20261117.bak.zip, of type Compressed (zipped) Folder, 291 KB](img/smart-export-5-file.png)
+
+### Make a system backup
+
+1. Sign in to any conservation area as an administrator, as in step 1 above.
+2. Choose **File → Backup System**.
+
+    ![The SMART window with the File menu open and its second item, Backup System, highlighted](img/smart-backup-1-menu.png)
+
+3. In the **Backup SMART System** window, check the **File** box, or select **Browse...** to save somewhere else. Leave **Exclude filestore from backup** unticked: the filestore holds the photos attached to patrols, and a backup without it loads without them. Then select **Backup**.
+
+    ![The Backup SMART System window, with a File box holding the path and name of the backup, a Browse button, an unticked box labelled Exclude filestore from backup, and Backup and Cancel buttons at the bottom](img/smart-backup-2-dialog.png)
+
+4. Wait for the **Backup Complete** message, which names the file, and select **OK**.
+
+    ![A message window titled Backup Complete that reads: System backed up successfully to file, followed by the file's path, C:\SMART-exports\SMART_20261117.bak.zip](img/smart-backup-3-done.png)
+
+5. Find the file in the folder you chose. It is named `SMART_<date>.bak.zip`, with the date as year, month and day.
+
+    ![File Explorer listing one file, SMART_20261117.bak.zip, of type Compressed (zipped) Folder](img/smart-backup-4-file.png)
+
+A backup with photos can be large, because it holds the photos of every conservation area.
+
+### Zip the SMART Desktop folder
 
 These steps are not yet verified against SMART Desktop.
 {: .unverified }
 
-To make a Conservation Area export:
+1. Close SMART Desktop if it is open.
+2. In File Explorer, find the folder SMART Desktop runs from. It is the folder that holds `SMART.exe` and a folder named `data`. SMART has no fixed place on the disk: it runs from wherever its folder was put when it was set up.
 
-1. Open SMART Desktop and sign in to the conservation area as an administrator.
-2. Choose **File → Export Conservation Area**.
-3. Save the export. It is a `.zip` file.
+    ![File Explorer showing the inside of a SMART Desktop folder: folders named configuration, data, features, GPSBabel, jre, p2, plugins, readme, updatesite and workspace, and files including SMART.exe and SMART.ini](img/smart-installzip-1-folder.png)
 
-To make a system backup, use SMART Desktop's backup command while signed in as an administrator, and keep the `SMART_<date>.bak.zip` file it writes.
+3. Go up one level, right-click that folder, and choose **Send to → Compressed (zipped) folder**. On Windows 11, choose **Compress to ZIP file**.
+
+    ![A folder named SMART 7.5.6 right-clicked in File Explorer, with the Send to menu open and Compressed (zipped) folder highlighted](img/smart-installzip-2-zip.png)
+
+4. Windows writes a `.zip` beside the folder. This can take several minutes and several gigabytes of free disk space.
 
 The person who runs SMART at the site is usually the one to make the file. A backup holds ranger names and patrol locations, so ask them to send it by a private channel, not a public link.
 
