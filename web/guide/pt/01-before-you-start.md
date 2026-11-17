@@ -1,6 +1,6 @@
 # Antes de começar
 
-Este guia é para quem recebeu a tarefa de transferir os dados do SMART de um site para o EarthRanger. Ele leva você de um backup do SMART até uma primeira migração concluída, usando o aplicativo hospedado de migração do SMART. Você não precisa da linha de comando.
+Este guia é para quem recebeu a tarefa de transferir para o EarthRanger os dados do SMART de uma área. Ele leva você de um backup do SMART até uma primeira migração concluída, usando o aplicativo hospedado de migração do SMART. Você não precisa da linha de comando.
 
 ## O que o aplicativo faz
 

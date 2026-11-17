@@ -24,7 +24,7 @@ O aplicativo mostra os status em inglês; aqui eles são dados como aparecem.
 | done (concluída) | Concluída, com quanto tempo levou e o que fez. |
 | stopped (parada) | A regra de parada encerrou a execução aqui: uma constatação bloqueante depois desta etapa. |
 | failed (falhou) | Um erro nesta etapa encerrou a execução. |
-| interrupted (interrompida) | O trabalho foi encerrado à força antes de poder informar; a reserva dele expirou e **Continue** está disponível. |
+| interrupted (interrompida) | O trabalho foi encerrado à força antes de poder informar; o bloqueio dele expirou e **Continue** está disponível. |
 | not reached (não alcançada) | Uma etapa posterior de uma execução que parou ou falhou antes. |
 
 ## O sinal de atividade

@@ -105,7 +105,7 @@ it uses EarthRanger's word.
 | patrol type | type de patrouille | tipo de patrullaje | tipo de patrulha | aina ya doria | EarthRanger |
 | event | événement | evento | evento | tukio (matukio) | EarthRanger |
 | event type | type d'événement | tipo de evento | tipo de evento | aina ya tukio | EarthRanger |
-| event category | catégorie d'événements | categoría de eventos | categoria de eventos | kundi la matukio | not from a product |
+| event category | catégorie d'événements | categoría de eventos | categoria de eventos | kategoria ya matukio | not from a product |
 | subject | sujet | sujeto | sujeito | mhusika (wahusika) | see note 4 |
 | subject group | groupe de sujets | grupo de sujetos | grupo de sujeitos | kundi la wahusika | not from a product |
 | user | utilisateur | usuario | usuário | mtumiaji | EarthRanger |
@@ -143,6 +143,11 @@ admin shows them, in English.
 | blocking finding | constat bloquant | hallazgo bloqueante | constatação bloqueante | tokeo linalozuia | not from a product |
 | warning | avertissement | advertencia | aviso | onyo | not from a product (Swahili: EarthRanger) |
 | stage | étape | etapa | etapa | hatua | not from a product |
+| Patrol setup (a stage) | configuration des patrouilles | configuración de patrullas | preparação de patrulhas | maandalizi ya doria | not from a product |
+| patrol configuration (in EarthRanger) | configuration des patrouilles | configuración de patrullas | configuração de patrulhas | usanidi wa doria | not from a product |
+| field (of a form) | champ | campo | campo | sehemu ya kujaza | not from a product |
+| active, inactive | actif, inactif | activo, inactivo | ativo, inativo | amilifu, si amilifu | not from a product |
+| hold (on a load) | réservation | reserva | bloqueio | kufuli (hold) | not from a product |
 | run | exécution | ejecución | execução | utekelezaji | not from a product |
 | continuation | reprise | continuación | continuação | mwendelezo | not from a product |
 | ranger | écogarde | guardaparque | guarda-parque | askari wa uhifadhi | not from a product |
@@ -166,6 +171,30 @@ for a stage of a load. The pages say *étape de patrouille* for the first.
 
 Windows has no widely used Swahili interface, so the Swahili steps give
 these names in English.
+
+## Doubts for a reviewer
+
+A second machine read-through compared every page with its English page
+and its corrections are in. It left these open, most of them in Swahili:
+
+- **finding** (Swahili *tokeo*, *matokeo*): *matokeo* is also the everyday
+  word for "results". The pages say *matokeo ya ukaguzi (findings)* at
+  first mention. *Hoja*, or *jambo lililobainika*, may be clearer.
+- **export and migration** (Swahili): SMART's word for Export is
+  *Hamisha*, and the pages call migration *uhamishaji*. Where a page says
+  to export again it adds *(export)*. Another word for migration may be
+  better.
+- **extract** (Swahili *toa data*): *kutoa* can also mean "remove". The
+  pages add *(extract)*. *Dondoa* may be the usual software word.
+- **subject** (all four): see note 4 above.
+- **hold** (Swahili *kufuli*, French *réservation*, Spanish *reserva*):
+  the time a running job keeps a load to itself.
+- **run** (Swahili *utekelezaji*) and **load** (*uingizaji*, also used for
+  "import"): understood, but not established terms.
+- **ranger** (all four): *écogarde*, *guardaparque*, *guarda-parque*,
+  *askari wa uhifadhi*. Usage differs by country.
+- **Spanish** follows Latin American usage (*haga clic en*, *reportes*).
+- **SMART's sign-in button**: see note 1 above.
 
 ## Checked by a fluent speaker
 

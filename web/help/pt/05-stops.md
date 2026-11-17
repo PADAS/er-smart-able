@@ -6,7 +6,7 @@ Os nomes dos menus da administração do EarthRanger são dados em inglês, como
 
 Depois de corrigir o site, pressione **Continue** (continuar). A execução repete as primeiras etapas, o que é rápido, e segue em frente.
 
-## Configuração de patrulhas (Patrol setup)
+## Preparação de patrulhas (Patrol setup)
 
 ### Criar uma equipe de patrulha {#finding-team}
 
@@ -22,7 +22,7 @@ O grupo da lista de guarda-parques existe, mas o usuário do site não pode alte
 
 ### Ativar o recurso patrol_schemas {#finding-enable_patrol_schemas}
 
-O site está com o recurso em prévia `patrol_schemas` desativado, então não tem pernas de patrulha, campos universais de patrulha, equipes nem listas para onde importar. Na administração do Django, abra **Preview features › patrol_schemas** e ative-o para este locatário (tenant). Consulte o EarthRanger Core se a página não estiver disponível. Depois Continue; os campos universais de patrulha são gravados na passagem seguinte.
+O site está com o recurso em prévia `patrol_schemas` desativado, então não tem pernas de patrulha, campos universais de patrulha, equipes nem listas de guarda-parques para onde importar. Na administração do Django, abra **Preview features › patrol_schemas** e ative-o para este locatário (tenant). Consulte o EarthRanger Core se a página não estiver disponível. Depois Continue; os campos universais de patrulha são gravados na passagem seguinte.
 
 ### Conceder permissão: tipos de patrulha {#finding-permission_patrol_types}
 
@@ -38,7 +38,7 @@ O usuário do site não pode ver, adicionar nem alterar sujeitos, então os suje
 
 ### Conceder permissão: configuração de patrulhas {#finding-permission_patrol_config}
 
-O usuário do site não pode ler a configuração de patrulhas, com a qual as equipes e as listas são conferidas. Adicione `activity | patrol | Can view patrol`. Depois Continue.
+O usuário do site não pode ler a configuração de patrulhas, com a qual as equipes e as listas de guarda-parques são conferidas. Adicione `activity | patrol | Can view patrol`. Depois Continue.
 
 ### Escolher um ícone para cada tipo de patrulha {#finding-patrol_type_icons}
 
@@ -72,27 +72,27 @@ A mesma situação de *Ativar o recurso patrol_schemas* acima, vista pela verifi
 
 ### O usuário do site não tem as permissões {#finding-permissions}
 
-A constatação lista cada permissão de que a importação precisa e que o usuário não tem. Conceda-as em **Django admin › Users › the user**, aplicativo `activity`. Criar eventos em uma categoria exige a permissão de criação dessa categoria, normalmente concedida por um conjunto de permissões. Depois Continue.
+A constatação lista cada permissão de que a importação precisa e que o usuário não tem. Conceda-as em **Django admin › Users › the user**, app `activity`. Criar eventos em uma categoria exige a permissão de criação dessa categoria, normalmente concedida por um conjunto de permissões. Depois Continue.
 
 ### Faltam tipos de patrulha ou eles estão inativos {#finding-patrol_types}
 
-A configuração de patrulhas cria os tipos de que as pernas precisam, então em uma execução isso normalmente significa que um tipo foi desativado depois. Ative-o em **EarthRanger admin › Patrol types**, ou faça Continue para deixar a configuração de patrulhas recriá-lo. Em um plano isso é esperado: o plano não grava nada, e a constatação é marcada como algo que a execução vai criar.
+A preparação de patrulhas cria os tipos de que as pernas precisam, então em uma execução isso normalmente significa que um tipo foi desativado depois. Ative-o em **EarthRanger admin › Patrol types**, ou faça Continue para deixar a preparação de patrulhas recriá-lo. Em um plano isso é esperado: o plano não grava nada, e a constatação é marcada como algo que a execução vai criar.
 
 ### Faltam campos universais de patrulha ou eles estão obsoletos {#finding-segment_schema}
 
-A configuração de patrulhas grava esses campos. Se um administrador tornou um deles obsoleto de propósito, restaure-o no construtor de formulários de patrulha; caso contrário, Continue. Em um plano isso é esperado.
+A preparação de patrulhas grava esses campos. Se um administrador tornou um deles obsoleto de propósito, restaure-o no construtor de formulários de patrulha; caso contrário, Continue. Em um plano isso é esperado.
 
 ### Faltam opções que as patrulhas usam ou elas estão inativas {#finding-choices}
 
-Um aviso. Algumas opções de lista que as patrulhas usam não estão no site ou foram desativadas, então esses campos seriam guardados sem uma entrada correspondente. A configuração de patrulhas as cria; uma opção que um administrador desativou pode ser reativada em **Django admin › Choices**.
+Um aviso. Algumas opções de lista que as patrulhas usam não estão no site ou foram desativadas, então esses campos seriam guardados sem uma entrada correspondente. A preparação de patrulhas as cria; uma opção que um administrador desativou pode ser reativada em **Django admin › Choices**.
 
 ### Há membros de patrulha que não podem ser colocados em um segmento {#finding-subjects}
 
-Os sujeitos guarda-parques desses membros não existem, ou não estão em um grupo listado em **Patrol configuration › members**. A configuração de patrulhas os cria e, se um grupo foi informado para a lista de guarda-parques, os adiciona a ele. Caso contrário, adicione-os a um grupo assim em **Django admin › Subject groups**. Em um plano isso é esperado.
+Os sujeitos guarda-parques desses membros não existem, ou não estão em um grupo listado em **Patrol configuration › members**. A preparação de patrulhas os cria e, se um grupo foi informado para a lista de guarda-parques, os adiciona a ele. Caso contrário, adicione-os a um grupo assim em **Django admin › Subject groups**. Em um plano isso é esperado.
 
-### Há membros de patrulha aposentados {#finding-inactive_members}
+### Há membros de patrulha inativos {#finding-inactive_members}
 
-Um aviso, nada a fazer. O EarthRanger só aceita membros ativos em um segmento, então a importação reativa esses sujeitos para a execução e os aposenta de novo quando ela termina. O livro de registro anota isso.
+Um aviso, nada a fazer. O EarthRanger só aceita membros ativos em um segmento, então a importação reativa esses sujeitos para a execução e os desativa de novo quando ela termina. O livro de registro anota isso.
 
 ### Faltam equipes de patrulha ou elas estão inativas {#finding-teams}
 
@@ -104,7 +104,7 @@ As categorias do SMART observadas precisam de um tipo de evento ativo no site. A
 
 - **No active event type** (nenhum tipo de evento ativo): o modelo de dados não foi enviado sob a categoria de eventos que esta carga usa. Em um plano isso é esperado e é marcado como algo que a execução vai criar. Em uma execução, confira a categoria de eventos: se um envio anterior usou outro identificador, planeje a carga de novo com ele.
 - **Match more than one event type** (corresponde a mais de um tipo de evento): o site tem vários envios de modelo de dados, sob categorias diferentes, com os mesmos nomes de tipo. Planeje a carga de novo com a categoria de eventos do envio contra o qual importar.
-- **Map to an inactive event type** (corresponde a um tipo de evento inativo): um aviso. A categoria é uma categoria-mãe do SMART ou foi aposentada; os eventos dela são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em **EarthRanger admin › Event types** se os guarda-parques devem continuar a usá-lo.
+- **Map to an inactive event type** (corresponde a um tipo de evento inativo): um aviso. A categoria é uma categoria-mãe do SMART ou foi desativada; os eventos dela são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em **EarthRanger admin › Event types** se os guarda-parques devem continuar a usá-lo.
 - **Exist only as configurable model variants** (existem só como variantes do modelo configurável): essas categorias têm um tipo de evento por formulário, e a importação ainda não sabe a qual variante uma observação pertence. Essas patrulhas ainda não podem ser importadas; é preciso um mapeamento de variantes, que está pendente no er-smart-sync.
 
 ### Não há tipo de evento de agrupamento {#finding-collection_type}

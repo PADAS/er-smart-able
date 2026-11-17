@@ -4,13 +4,13 @@ Unahitaji vitu viwili kabla ya kufungua programu: faili kutoka SMART, na ufikiaj
 
 ## Kutoka SMART: chelezo au faili iliyohamishwa
 
-Unahitaji faili moja tu, si zote tatu. Programu inakubali mojawapo ya hizi, ikiwa faili moja ya `.zip`:
+Unahitaji faili moja tu, si zote tatu. Programu inakubali mojawapo ya hizi, kama faili moja ya `.zip`:
 
 - **Eneo la hifadhi lililohamishwa (export).** Lina eneo moja la hifadhi. SMART inaliita `SMART_<area identifier>_<date>.bak.zip` (kitambulisho cha eneo, kisha tarehe).
 - **Chelezo ya mfumo wa SMART.** SMART inaiita `SMART_<date>.bak.zip`. Ina kila eneo la hifadhi lililomo kwenye nakala hiyo ya SMART; utachagua baadaye lipi la kuingiza.
 - **Folda ya SMART Desktop iliyobanwa (zip).** Bana folda nzima ambayo SMART Desktop inaendeshwa kutoka kwake, SMART Desktop ikiwa imefungwa. Tumia njia hii usipoweza kuendesha SMART ili kuhamisha eneo au kutengeneza chelezo.
 
-Pakia `.zip` jinsi ilivyo. Usiifungue, na usipakie faili iliyo ndani yake.
+Pakia `.zip` jinsi ilivyo. Usiibanue (unzip), na usipakie faili iliyo ndani yake.
 
 Kwa kawaida mtu anayeendesha SMART kwenye eneo ndiye anayetengeneza faili. Chelezo ina majina ya askari na maeneo ya doria, kwa hiyo mwombe aitume kwa njia ya faragha, si kwa kiungo cha wazi.
 
@@ -79,10 +79,10 @@ Chelezo yenye picha inaweza kuwa kubwa, kwa sababu ina picha za kila eneo la hif
 
 Programu inaandika kwenye EarthRanger kama mtumiaji mmoja wa EarthRanger, kupitia tokeni ya API ya mtumiaji huyo. Unahitaji:
 
-- **Anwani ya seva (host) ya tovuti**, kwa mfano `example.pamdas.org`. Toa anwani ya seva pekee, bila `https://` wala njia.
+- **Anwani ya seva (host) ya tovuti**, kwa mfano `example.pamdas.org`. Andika anwani ya seva pekee, bila `https://` wala njia.
 - **Tokeni ya API** ya mtumiaji wa tovuti hiyo. Mwombe msimamizi wa EarthRanger wa tovuti akupe.
 
-Mtumiaji mwenye tokeni lazima aweze kusimamia aina za doria, wahusika, makundi ya wahusika, mpangilio wa doria na sehemu za doria, na kuunda matukio. Mtumiaji mkuu (superuser) ndilo chaguo rahisi. Kwa mtumiaji mwenye ruhusa chache zaidi, uingizaji unakuambia kila ruhusa inayokosekana.
+Mtumiaji mwenye tokeni lazima aweze kusimamia aina za doria, wahusika, makundi ya wahusika, usanidi wa doria na sehemu za kujaza za doria, na kuunda matukio. Mtumiaji mkuu (superuser) ndilo chaguo rahisi. Kwa mtumiaji mwenye ruhusa chache zaidi, uingizaji unakuambia kila ruhusa inayokosekana.
 
 Programu inahakiki tokeni kwenye tovuti kabla ya kuihifadhi, na baadaye inaonyesha herufi zake za mwisho tu. [Tovuti na tokeni](../../help/sw/02-sites.md) inaeleza tokeni inahifadhiwa wapi na nani anaweza kuitumia.
 
