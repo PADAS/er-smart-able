@@ -76,8 +76,18 @@ def languages() -> list[Lang]:
         rows = json.loads(f.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise BuildError(f"{f}: the list of languages cannot be read ({e})")
-    if not rows or rows[0].get("code") != SOURCE:
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict) or rows[0].get("code") != SOURCE:
         raise BuildError(f"{f}: the first language must be {SOURCE}, the one the pages are written in")
+    seen = set()
+    for r in rows:   # a code becomes a folder name and an attribute value, so it is a plain language code and nothing else
+        code = r.get("code") if isinstance(r, dict) else None
+        if not isinstance(code, str) or not re.fullmatch(r"[a-z]{2,3}", code):
+            raise BuildError(f"{f}: {code!r} is not a language code; use two or three lower-case letters, such as fr")
+        if code in seen:
+            raise BuildError(f"{f}: {code} is listed twice")
+        seen.add(code)
+        if not str(r.get("name") or "").strip():
+            raise BuildError(f"{f}: {code} has no name; give it as the language writes it, such as Français")
     return [Lang(r["code"], r["name"], bool(r.get("reviewed"))) for r in rows]
 
 
@@ -113,6 +123,8 @@ def _check_translations(codes: list):
         for d in sorted(p for p in folder.iterdir() if p.is_dir() and p.name != "img" and p.name[0] not in "._"):
             if d.name == SOURCE or d.name not in codes:
                 raise BuildError(f"{d}: {d.name} is not a language in {LOCALES_DIR / 'languages.json'}")
+            if (d / "img").exists():   # out/img is one folder for every language: a second s.png would replace the first
+                raise BuildError(f"{d / 'img'}: a language has no pictures of its own; the pages share {folder / 'img'}")
             for f in sorted(d.glob("*.md")):
                 if not (folder / f.name).is_file():
                     raise BuildError(f"{f}: no English page of the same name ({folder / f.name})")
@@ -221,8 +233,8 @@ class _Shape(HTMLParser):
 
     def __init__(self):
         super().__init__()
-        self.lists, self.steps, self.notes, self.code, self.links = [], 0, 0, set(), []
-        self._pre, self._code = 0, None
+        self.lists, self.steps, self.notes, self.code, self.links, self.blocks, self.images = [], 0, 0, set(), [], [], []
+        self._pre, self._code, self._block = 0, None, None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -232,9 +244,12 @@ class _Shape(HTMLParser):
             self.steps += 1
         elif tag == "pre":
             self._pre += 1
+            self._block = ""
         elif tag == "code" and not self._pre:
             self._code = ""
-        elif tag == "a" and a.get("href"):
+        elif tag == "img":
+            self.images.append((a.get("src") or "").rsplit("/", 1)[-1])
+        elif tag == "a" and a.get("href") and not re.match(r"[a-z]+:", a["href"]):   # pages of this site; an outside link may be the translator's
             self.links.append(a["href"].split("#")[0])
         if {"important", "unverified"} & set((a.get("class") or "").split()):
             self.notes += 1
@@ -244,32 +259,40 @@ class _Shape(HTMLParser):
             self.lists.pop()
         elif tag == "pre" and self._pre:
             self._pre -= 1
+            if not self._pre:
+                self.blocks.append(" ".join(self._block.split()))
+                self._block = None
         elif tag == "code" and self._code is not None:
-            self.code.add(self._code.strip())
+            self.code.add(" ".join(self._code.split()))
             self._code = None
 
     def handle_data(self, data):
         if self._code is not None:
             self._code += data
+        if self._block is not None:
+            self._block += data
 
 
-def _shape(body: str, images: dict = None) -> dict:
+def _shape(body: str) -> dict:
     """The parts of a page a translation carries over unchanged: its tabs, pictures, numbered steps,
-    set-apart notes, the text in code (file names, hosts, values) and where its links lead."""
+    set-apart notes, the text in code (file names, hosts, values), its code blocks, and where its
+    links to other pages lead."""
     p = _Shape()
     p.feed(body)
-    return {"tabs": body.count('<section class="tab-panel">'), "images": sorted(images or {}), "steps": p.steps,
-            "notes": p.notes, "code": p.code, "links": sorted(h for h in p.links if h)}
+    return {"tabs": body.count('<section class="tab-panel">'), "images": sorted(p.images), "steps": p.steps,
+            "notes": p.notes, "code": p.code, "blocks": p.blocks, "links": sorted(h for h in p.links if h)}
 
 
 def _same_shape(page: "Page", en: "Page"):
     """A translation that lost something its English page has fails the build, naming what."""
-    mine, theirs = _shape(page.html, page.images), _shape(en.html, en.images)
+    mine, theirs = _shape(page.html), _shape(en.html)
     for key, name in (("tabs", "tabs"), ("steps", "numbered steps"), ("notes", "set-apart notes")):
         if mine[key] != theirs[key]:
             raise BuildError(f"{page.src}: {mine[key]} {name}, where the English page ({en.src.name}) has {theirs[key]}")
     if mine["images"] != theirs["images"]:
         raise BuildError(f"{page.src}: its pictures are {', '.join(mine['images']) or 'none'}, where the English page has {', '.join(theirs['images']) or 'none'}")
+    if mine["blocks"] != theirs["blocks"]:
+        raise BuildError(f"{page.src}: its code blocks differ from the English page's; a command or a sample is carried over as it is")
     lost = sorted(theirs["code"] - mine["code"])
     if lost:
         raise BuildError(f"{page.src}: the English page has `{lost[0]}` in code and the translation does not; names, hosts and code are carried over as they are")
@@ -298,22 +321,43 @@ def _render(code: str) -> list[Page]:
     return out
 
 
+_ANCHOR = re.compile(r'<a\b[^>]*?href="([\w-]+)\.html#([^"]+)"')
+
+
+def _check_anchors(all_pages: list[Page]):
+    """A link to a place in another page ('loading.html#rangers-accounts') must find that place: in a
+    translation the heading's words change, so the place is one the heading names itself ('{#name}')."""
+    by_slug = {p.slug: p for p in all_pages}
+    for p in all_pages:
+        for slug, frag in _ANCHOR.findall(p.html):
+            target = by_slug.get(slug)
+            if target is not None and f'id="{frag}"' not in target.html:
+                raise BuildError(f"{p.src}: the link to #{frag} finds no such place in {target.src}; give the heading there '{{#{frag}}}'")
+
+
 def pages(code: str = SOURCE) -> list[Page]:
     """The site's pages in one language, in order. Every English page is there: translated where the
     language has the file, and the English page otherwise."""
     _check_translations([l.code for l in languages()])
     en = _render(SOURCE)
+    _check_anchors(en)
     if code == SOURCE:
         return en
     out = _render(code)
     for p, e in zip(out, en):
         if p.translated:
             _same_shape(p, e)
+    _check_anchors(out)
     return out
 
 
 def _text(s: str) -> str:
     return html.escape(s, quote=False)
+
+
+def _said(p: Page) -> str:
+    """The attribute that marks a page's title as English where the page has no translation yet."""
+    return "" if p.translated else f' lang="{SOURCE}"'
 
 
 def _nav(all_pages: list[Page], current: Page, w: dict) -> str:
@@ -325,7 +369,7 @@ def _nav(all_pages: list[Page], current: Page, w: dict) -> str:
             group = p.group
             parts.append(f"      <h2>{_text(w[group])}</h2>\n      <ul>")
         here = ' aria-current="page"' if p is current else ""
-        parts.append(f'        <li><a href="{p.slug}.html"{here}>{html.escape(p.title)}</a></li>')
+        parts.append(f'        <li><a href="{p.slug}.html"{_said(p)}{here}>{html.escape(p.title)}</a></li>')
     if group is not None:
         parts.append("      </ul>")
     return "\n".join(parts)
@@ -335,24 +379,26 @@ def _prev_next(all_pages: list[Page], i: int, w: dict) -> str:
     out = ""
     if i > 0:
         p = all_pages[i - 1]
-        out += f'<a class="prev" href="{p.slug}.html"><small>{_text(w["previous"])}</small>{html.escape(p.title)}</a>'
+        out += f'<a class="prev" href="{p.slug}.html"><small>{_text(w["previous"])}</small><span{_said(p)}>{html.escape(p.title)}</span></a>'
     if i < len(all_pages) - 1:
         p = all_pages[i + 1]
-        out += f'<a class="next" href="{p.slug}.html"><small>{_text(w["next"])}</small>{html.escape(p.title)}</a>'
+        out += f'<a class="next" href="{p.slug}.html"><small>{_text(w["next"])}</small><span{_said(p)}>{html.escape(p.title)}</span></a>'
     return out
 
 
-def _across(here: str, there: str, slug: str) -> str:
-    """The relative address of a page in another language: English is at the top, the others one folder down."""
+def _across(here: str, there: str, slug: str, chosen: bool = False) -> str:
+    """The relative address of a page in another language: English is at the top, the others one folder down.
+    chosen: the reader follows this link to pick the language. An English page would send them on to
+    their browser's language, so a link to one says English was asked for (lang.js reads '?lang=en')."""
     if here == there:
         return f"{slug}.html"
     up = "" if here == SOURCE else "../"
-    return f"{up}{slug}.html" if there == SOURCE else f"{up}{there}/{slug}.html"
+    return f"{up}{slug}.html" + ("?lang=" + SOURCE if chosen else "") if there == SOURCE else f"{up}{there}/{slug}.html"
 
 
 def _switcher(langs: list[Lang], here: str, slug: str) -> str:
     return "".join(
-        f'<a href="{_across(here, l.code, slug)}" lang="{l.code}" hreflang="{l.code}" data-lang="{l.code}"'
+        f'<a href="{_across(here, l.code, slug, chosen=True)}" lang="{l.code}" hreflang="{l.code}" data-lang="{l.code}"'
         f'{" aria-current=" + chr(34) + "true" + chr(34) if l.code == here else ""}>{_text(l.name)}</a>' for l in langs)
 
 
@@ -365,7 +411,7 @@ def _machine_note(lang: Lang, slug: str, w: dict) -> str:
     if lang.reviewed:
         return ""
     before, after = w["machine_translated"].split("{{english}}")
-    link = f'<a href="{_across(lang.code, SOURCE, slug)}" hreflang="{SOURCE}">{_text(w["english_page"])}</a>'
+    link = f'<a href="{_across(lang.code, SOURCE, slug, chosen=True)}" hreflang="{SOURCE}" data-lang="{SOURCE}">{_text(w["english_page"])}</a>'
     return f'<p class="note machine">{_text(before)}{link}{_text(after)}</p>'
 
 
@@ -416,7 +462,8 @@ def build(out: Path) -> list[Path]:
                 body = f'<p class="note">{_text(w["not_translated"])}</p>\n<div lang="{SOURCE}">\n{body}\n</div>'
             fill = {
                 "lang": lang.code, "langs": " ".join(l.code for l in langs), "root": "" if lang.code == SOURCE else "../",
-                "title": html.escape(p.title), "site_name": _text(w["site_name"]), "subtitle": _text(w["subtitle"]),
+                "title": html.escape(p.title), "heading": f'<span{_said(p)}>{html.escape(p.title)}</span>' if not p.translated else html.escape(p.title),
+                "site_name": _text(w["site_name"]), "subtitle": _text(w["subtitle"]),
                 "pages_label": html.escape(w["pages_label"]), "language_label": html.escape(w["language_label"]),
                 "nav": _nav(all_pages, p, w), "alternates": _alternates(langs, lang.code, p.slug),
                 "switcher": _switcher(langs, lang.code, p.slug), "note": _machine_note(lang, p.slug, w),

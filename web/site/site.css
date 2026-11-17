@@ -19,7 +19,8 @@ header { display: flex; align-items: center; justify-content: space-between; fle
 .brand img { height: 26px; display: block; flex: none; }
 .brand .sub { font-weight: 400; opacity: 0.85; }
 /* the language switcher: each language by its own name; the current one is underlined */
-header .langs { position: static; display: flex; flex-wrap: wrap; gap: 2px; font-size: 13px; }
+/* it is a nav, so the page navigation's rules reach it: its place, its alignment and its rule are set back here */
+header .langs { position: static; align-self: center; border: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px; font-size: 13px; }
 header .langs a { display: block; padding: 4px 8px; border-radius: 6px; color: inherit; text-decoration: none; opacity: 0.85; }
 header .langs a:hover { background: none; opacity: 1; text-decoration: underline; }
 header .langs a[aria-current="true"] { opacity: 1; font-weight: 500; box-shadow: inset 0 -2px currentColor; border-radius: 0; }

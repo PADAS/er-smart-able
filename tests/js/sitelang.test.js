@@ -21,3 +21,13 @@ test('a remembered language the site no longer has is ignored', () => {
   assert.equal(pick('ne', ['en-US'], S), null);
   assert.equal(pick('ne', ['es'], S), 'es');
 });
+
+test('asked reads the language a link chose, if the site has it', () => {
+  const { asked } = require('../../web/site/lang.js');
+  assert.equal(asked('?lang=en', S), 'en');
+  assert.equal(asked('?x=1&lang=fr', S), 'fr');
+  assert.equal(asked('?lang=de', S), null);
+  assert.equal(asked('?language=en', S), null);
+  assert.equal(asked('', S), null);
+  assert.equal(asked(undefined, S), null);
+});
