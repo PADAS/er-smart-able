@@ -596,7 +596,7 @@ function paintLoad(l, refresh, up) {
   const box = document.createElement('div'); box.innerHTML = renderLoadPage(l, active);
   const page = box.firstElementChild;
   page.dataset.load = l.id;
-  const rows = l.rangers || [], key = rows.length ? l.id + ':' + (l.rangers_total || rows.length) + ':' + JSON.stringify(rows) : '';
+  const key = rangersKey(l);
   let newRangers = true;
   const oldPre = old && $('#loadProgress pre.log', old);
   const atBottom = !oldPre || oldPre.scrollHeight - oldPre.scrollTop - oldPre.clientHeight < 12, scrollTop = oldPre ? oldPre.scrollTop : 0;

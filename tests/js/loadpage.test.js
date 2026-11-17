@@ -68,3 +68,16 @@ test('durations use the language\'s units', () => {
   const P = load({ lang: 'xx', messages: { units: { hoursMinutes: '{{h}} HEURES {{m}} MINUTES' } } });
   assert.equal(P.fmtDur(3 * 3600 + 5 * 60), '3 HEURES 5 MINUTES');
 });
+
+test('the kept rangers table is rebuilt when the language changes, and only then', () => {
+  const l = { id: 'l1', rangers_total: 2, rangers: [{ name: 'A B', active: true }, { name: 'C D', active: false }] };
+  const en = load(), fr = load({ lang: 'fr', messages: {} });
+  assert.equal(en.rangersKey(l), en.rangersKey({ ...l, rangers: l.rangers.map(r => ({ ...r })) }), 'the same rows in the same language keep the table');
+  assert.notEqual(en.rangersKey(l), fr.rangersKey(l), 'another language does not reuse the table');
+  assert.notEqual(en.rangersKey(l), en.rangersKey({ ...l, rangers: l.rangers.slice(1) }));
+  assert.equal(en.rangersKey({ id: 'l1' }), '', 'no rows: nothing to keep');
+});
+test('the load page takes its rangers key from rangersKey', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
+  assert.match(src, /const key = rangersKey\(l\);/);
+});

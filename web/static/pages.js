@@ -124,6 +124,15 @@ function renderHome(datasets) {
     '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
 }
 
+// The load page keeps its rangers table across refreshes while this key is unchanged (so a sort or a
+// scroll survives a poll). The table's words are part of what is kept, so the key names the language:
+// a change of language builds the table again.
+function rangersKey(l) {
+  var rows = l.rangers || [];
+  return rows.length ? currentLang() + ':' + l.id + ':' + (l.rangers_total || rows.length) + ':' + JSON.stringify(rows) : '';
+}
+
+
 // ---- rangers: the people behind the subjects, for whoever creates their accounts. The table, summary,
 // CSV button and help button, shared by the dataset page's tab (open) and the load page (closed).
 function renderRangersSection(l, open) {
