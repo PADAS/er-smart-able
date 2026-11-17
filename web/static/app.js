@@ -436,7 +436,7 @@ function siteDialog(onCreated, onCancel) {
   dialog(t('siteDialog.title'),
     '<p class="muted tiny">' + T('siteDialog.hint') + '</p>' +
     '<form id="siteForm" class="col" autocomplete="off">' +
-    '<label class="field"><span>' + T('siteDialog.name') + '</span><input type="text" id="siteName" required placeholder="phinney"></label>' +
+    '<label class="field"><span>' + T('siteDialog.name') + '</span><input type="text" id="siteName" required placeholder="example"></label>' +
     '<label class="field"><span>' + T('siteDialog.host') + '</span><input type="text" id="siteUrl" required placeholder="example.pamdas.org"></label>' +
     '<label class="field"><span>' + T('siteDialog.token') + '</span><input type="password" id="siteToken" autocomplete="off" required></label>' +
     '<p class="tiny" id="siteError" role="alert"></p>' +
