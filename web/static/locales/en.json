@@ -163,7 +163,7 @@
     "continue": "Continue",
     "planAgain": "Plan again",
     "delete": "Delete this load",
-    "stopsAt_one": "The run will write what the plan lists, then stop at the blocking finding below until they are fixed.",
+    "stopsAt_one": "The run will write what the plan lists, then stop at the blocking finding below until it is fixed.",
     "stopsAt_other": "The run will write what the plan lists, then stop at the {{count}} blocking findings below until they are fixed.",
     "extractingTitle": "The dataset is being extracted",
     "extractingNote": "The dataset is being extracted; the load can go on when that finishes.",

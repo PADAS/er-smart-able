@@ -80,6 +80,14 @@ header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
   #account summary::before { content: 'account_circle'; font-family: 'Material Symbols Outlined'; font-size: 24px; font-weight: normal; line-height: 1; vertical-align: -6px; }
   .menu-email { display: block; }
 }
+/* the narrowest phones: the language menu takes its own row; lockup, Help and the account icon keep the first */
+@media (max-width: 379.98px) {
+  header { flex-wrap: wrap; height: auto; min-height: 48px; padding: 8px; row-gap: 6px; }
+  .header-right { display: contents; }
+  #helpBtn, #account { margin-left: auto; }
+  #helpBtn:not([hidden]) + #account { margin-left: 0; }
+  .lang-select { order: 1; flex-basis: 100%; max-width: none; }
+}
 
 /* ---- controls */
 button, .btn { font: 600 14px/20px var(--sans); border-radius: 8px; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
