@@ -58,3 +58,13 @@ test('run and plan-again are disabled, with the reason, while the dataset is bei
   assert.doesNotMatch(h, /data-del[^>]*disabled/);
   assert.doesNotMatch(P.renderLoadTitle(base), /disabled|being extracted/);
 });
+test('a finding\'s frame is translated and its own words are shown as stored', () => {
+  const P = load({ lang: 'xx', messages: { findings: { title: 'CONSTATS', fix: 'CORRIGER', severity: { blocking: 'BLOQUANT' } }, stages: { patrol_datamodel: 'ÉTAPE2' } } });
+  const h = P.renderFindings([{ stage: 'patrol_datamodel', code: 'team', severity: 'blocking', title: 'Create a patrol team <x>', fix: 'Add it', values: [] }], 'needs_attention');
+  assert.match(h, /<h3>CONSTATS<\/h3>/); assert.match(h, /BLOQUANT · ÉTAPE2/); assert.match(h, /<b>CORRIGER<\/b> Add it/);
+  assert.match(h, /Create a patrol team &lt;x&gt;/);
+});
+test('durations use the language\'s units', () => {
+  const P = load({ lang: 'xx', messages: { units: { hoursMinutes: '{{h}} HEURES {{m}} MINUTES' } } });
+  assert.equal(P.fmtDur(3 * 3600 + 5 * 60), '3 HEURES 5 MINUTES');
+});

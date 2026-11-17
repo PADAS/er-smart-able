@@ -46,3 +46,12 @@ test('a made-up language code does not throw and uses English rules', () => {
   const P = load(); P.setMessages('en', EN); P.setLang('xx');
   assert.equal(P.tn('patrol', 1), '1 patrol'); assert.equal(P.fmtNum(1234), '1,234');
 });
+test('a null or undefined value shows nothing, in t, T and tn', () => {
+  const P = ctx('en');
+  assert.equal(P.t('greet', { name: null }), 'Hello ');
+  assert.equal(P.t('greet', { name: undefined }), 'Hello ');
+  assert.equal(P.T('greet', { name: null }), 'Hello ');
+  assert.equal(P.T('greet', { name: undefined }), 'Hello ');
+  assert.equal(P.T('greet', { name: 0 }), 'Hello 0');
+  assert.equal(P.tn('patrol', 2, { name: null }), '2 patrols');
+});

@@ -29,12 +29,13 @@ function _find(key) {
 
 function hasMessage(key) { return _find(key) !== undefined; }
 
+function _val(v) { return v == null ? '' : String(v); }   // a missing value shows nothing, as esc() always did
 function _has(o, k) { return o != null && Object.prototype.hasOwnProperty.call(o, k); }
 
 function t(key, values) {
   var m = _find(key);
   if (m === undefined) return key;
-  return m.replace(/\{\{(\w+)\}\}/g, function (all, name) { return _has(values, name) ? String(values[name]) : all; });
+  return m.replace(/\{\{(\w+)\}\}/g, function (all, name) { return _has(values, name) ? _val(values[name]) : all; });
 }
 
 function T(key, values, html) {
@@ -42,7 +43,7 @@ function T(key, values, html) {
   if (m === undefined) return _escText(key);
   return _escText(m).replace(/\{\{(\w+)\}\}/g, function (all, name) {
     if (_has(html, name)) return html[name];
-    if (_has(values, name)) return _escText(values[name]);
+    if (_has(values, name)) return _escText(_val(values[name]));
     return all;
   });
 }
