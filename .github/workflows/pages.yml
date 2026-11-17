@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "web/guide/**"
+      - "web/guide/**"   # the pages and their screenshots (web/guide/img)
       - "web/help/**"
       - "web/site/**"
       - "web/static/**"

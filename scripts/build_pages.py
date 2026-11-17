@@ -31,6 +31,8 @@ import help_pages  # noqa: E402  the app's renderer and Markdown configuration; 
 _TITLE = re.compile(r"\s*#[ \t]+(\S.*?)[ \t]*(?:\n|$)")   # one line: a bare "#" does not take the next line
 _LOCAL = re.compile(r'href="(?!https?://|#|/|[a-z]+:)([^"#]+)(#[^"]*)?"')
 _OUTSIDE = re.compile(r'<a\b([^>]*?)href="(https?://)')
+_IMG = re.compile(r'<img\b[^>]*>')
+_ATTR = re.compile(r'\b(src|alt)="([^"]*)"')
 
 
 class BuildError(Exception):
@@ -44,6 +46,7 @@ class Page:
     title: str
     group: str
     html: str
+    images: dict   # published name -> source file, for every picture the page shows
 
 
 def _sources() -> list[tuple[Path, str, str]]:
@@ -81,6 +84,26 @@ def _links(body: str, src: Path, slugs: dict) -> str:
     return _OUTSIDE.sub(r'<a target="_blank" rel="noopener"\1href="\2', body)
 
 
+def _images(body: str, src: Path) -> tuple[str, dict]:
+    """A picture beside its page's source (a screenshot under img/) is published as img/<name>: the
+    file must exist, and must say what it shows (alt text), for a reader who cannot see it."""
+    found = {}
+
+    def one(m):
+        attrs = dict(_ATTR.findall(m.group(0)))
+        ref = attrs.get("src", "")
+        if re.match(r"https?://|data:|/", ref):
+            raise BuildError(f"{src}: the image {ref} is not a file beside the page; the site loads nothing from elsewhere")
+        target = (src.parent / ref).resolve()
+        if not target.is_file():
+            raise BuildError(f"{src}: the image {ref} does not exist")
+        if not attrs.get("alt", "").strip():
+            raise BuildError(f"{src}: the image {ref} has no alt text; write what it shows in the square brackets")
+        found[target.name] = target
+        return m.group(0).replace(f'src="{ref}"', f'src="img/{target.name}"')
+    return _IMG.sub(one, body), found
+
+
 def pages() -> list[Page]:
     sources = _sources()
     slugs = {f.resolve(): slug for f, slug, _ in sources}
@@ -91,7 +114,13 @@ def pages() -> list[Page]:
         if not m:
             raise BuildError(f"{f}: no title; a page starts with a '# ' heading")
         body = help_pages.build_quirks.convert(text[m.end():], help_pages.EXTENSIONS)[0]
-        out.append(Page(f, slug, m.group(1), group, _links(body, f, slugs)))
+        body, images = _images(_links(body, f, slugs), f)
+        out.append(Page(f, slug, m.group(1), group, body, images))
+    names = {}
+    for p in out:   # one folder of pictures for the whole site: a name means one file
+        for name, target in p.images.items():
+            if names.setdefault(name, target) != target:
+                raise BuildError(f"{target} and {names[name]} would both be img/{name}; rename one")
     return out
 
 
@@ -149,6 +178,10 @@ def build(out: Path) -> list[Path]:
     shutil.copy(SITE_DIR / "site.css", static)
     shutil.copytree(STATIC_DIR / "fonts", static / "fonts")
     shutil.copytree(STATIC_DIR / "img", static / "img")
+    for p in all_pages:
+        for name, target in p.images.items():
+            (out / "img").mkdir(exist_ok=True)
+            shutil.copy(target, out / "img" / name)
     written = []
     for i, p in enumerate(all_pages):
         fill = {"title": html.escape(p.title), "nav": _nav(all_pages, p), "body": p.html, "prev_next": _prev_next(all_pages, i)}

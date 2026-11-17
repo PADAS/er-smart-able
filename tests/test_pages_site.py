@@ -251,3 +251,42 @@ def test_the_header_fits_a_320px_phone():
     phone = css[css.index("@media (max-width: 700px)"):]
     assert re.search(r"\.brand\s*\{[^}]*flex-wrap:\s*wrap", phone), "the lockup and the name wrap instead of overflowing"
     assert re.search(r"\.brand img\s*\{[^}]*max-width:\s*100%", phone), "the lockup shrinks to the band"
+
+
+# ---- images (screenshots in the guide)
+PNG = bytes.fromhex("89504e470d0a1a0a")
+
+
+def test_an_image_is_copied_and_its_src_points_at_the_copy(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![The export menu](img/smart-export-1.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "smart-export-1.png").write_bytes(PNG)
+    out = tmp_path / "o"; site.build(out)
+    a = (out / "index.html").read_text()
+    assert 'src="img/smart-export-1.png"' in a and 'alt="The export menu"' in a
+    assert (out / "img" / "smart-export-1.png").read_bytes() == PNG
+
+
+def test_a_missing_image_fails_the_build_naming_file_and_image(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![x](img/nope.png)"}, {})
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*nope\.png"):
+        site.build(tmp_path / "o")
+
+
+def test_an_image_needs_alt_text(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![](img/p.png)"}, {})
+    (site.GUIDE_DIR / "img").mkdir(); (site.GUIDE_DIR / "img" / "p.png").write_bytes(PNG)
+    with pytest.raises(site.BuildError, match=r"01-a\.md.*p\.png.*alt"):
+        site.build(tmp_path / "o")
+
+
+def test_two_different_images_with_one_name_fail_the_build(site, tmp_path, monkeypatch):
+    tree(tmp_path, monkeypatch, site, {"01-a.md": "# A\n\n![g](img/p.png)"}, {"01-h.md": "# H\n\n![h](img/p.png)"})
+    for d, data in ((site.GUIDE_DIR, PNG), (site.HELP_DIR, PNG + b"x")):
+        (d / "img").mkdir(); (d / "img" / "p.png").write_bytes(data)
+    with pytest.raises(site.BuildError, match=r"p\.png"):
+        site.build(tmp_path / "o")
+
+
+def test_images_fit_the_page():
+    css = (ROOT / "web" / "site" / "site.css").read_text()
+    assert re.search(r"main img\s*\{[^}]*max-width:\s*100%[^}]*height:\s*auto", css)
