@@ -4,7 +4,7 @@ Il vous faut deux choses avant d'ouvrir l'application : un fichier provenant de 
 
 ## De SMART : une sauvegarde ou un export
 
-Il vous faut un seul fichier, pas les trois. L'application accepte l'un ou l'autre de ceux-ci, sous la forme d'un seul fichier `.zip` :
+Il vous faut un seul fichier, pas les trois. L'application accepte n'importe lequel de ceux-ci, sous la forme d'un seul fichier `.zip` :
 
 - **Un export de zone de conservation.** Il contient une seule zone de conservation. SMART le nomme `SMART_<area identifier>_<date>.bak.zip` (identifiant de la zone, puis date).
 - **Une sauvegarde du système SMART.** SMART la nomme `SMART_<date>.bak.zip`. Elle contient toutes les zones de conservation de cette copie de SMART ; vous choisirez plus tard laquelle charger.
@@ -26,9 +26,9 @@ Choisissez celui que vous allez produire et suivez ses étapes. Les étapes et l
 
     ![Le coin supérieur gauche de la fenêtre SMART, avec le menu File ouvert et son premier élément, Export Conservation Area, en surbrillance ; Backup System est l'élément suivant](../img/smart-export-2-menu.png)
 
-3. Dans la fenêtre **Exporter la zone de conservation** (Export Conservation Area), vérifiez la case **Fichier** (File). Elle indique où l'export sera enregistré et comment il s'appellera. SMART propose un dossier nommé `backup` dans son propre dossier ; sélectionnez **Parcourir...** (Browse...) pour enregistrer ailleurs. Sélectionnez ensuite **Exporter** (Export).
+3. Dans la fenêtre **Exporter la zone de conservation** (Export Conservation Area), vérifiez le champ **Fichier** (File). Il indique où l'export sera enregistré et comment il s'appellera. SMART propose un dossier nommé `backup` dans son propre dossier ; sélectionnez **Parcourir...** (Browse...) pour enregistrer ailleurs. Sélectionnez ensuite **Exporter** (Export).
 
-    ![La fenêtre Export Conservation Area, avec une case File contenant le chemin et le nom de l'export, un bouton Browse à côté, et les boutons Export et Cancel en bas](../img/smart-export-3-dialog.png)
+    ![La fenêtre Export Conservation Area, avec un champ File contenant le chemin et le nom de l'export, un bouton Browse à côté, et les boutons Export et Cancel en bas](../img/smart-export-3-dialog.png)
 
 4. Attendez le message « La zone de conservation a été exportée avec succès. » (Conservation Area exported successfully.) et sélectionnez **OK**. Une petite zone prend quelques secondes ; une zone avec des années de patrouilles prend plus longtemps.
 
@@ -45,9 +45,9 @@ Choisissez celui que vous allez produire et suivez ses étapes. Les étapes et l
 
     ![Le coin supérieur gauche de la fenêtre SMART, avec le menu File ouvert et son deuxième élément, Backup System, en surbrillance](../img/smart-backup-1-menu.png)
 
-3. Dans la fenêtre **Système de sauvegarde SMART** (Backup SMART System), vérifiez la case **Fichier** (File), ou sélectionnez **Parcourir...** (Browse...) pour enregistrer ailleurs. Laissez **Exclure le stockage de fichiers de la sauvegarde** (Exclude filestore from backup) décoché : le stockage de fichiers contient les photos jointes aux patrouilles, et une sauvegarde qui ne l'inclut pas se charge sans elles. Sélectionnez ensuite **Sauvegarde** (Backup).
+3. Dans la fenêtre **Système de sauvegarde SMART** (Backup SMART System), vérifiez le champ **Fichier** (File), ou sélectionnez **Parcourir...** (Browse...) pour enregistrer ailleurs. Laissez la case **Exclure le stockage de fichiers de la sauvegarde** (Exclude filestore from backup) décochée : le stockage de fichiers contient les photos jointes aux patrouilles, et une sauvegarde qui ne l'inclut pas se charge sans elles. Sélectionnez ensuite **Sauvegarde** (Backup).
 
-    ![La fenêtre Backup SMART System, avec une case File contenant le chemin et le nom de la sauvegarde, un bouton Browse, une case non cochée intitulée Exclude filestore from backup, et les boutons Backup et Cancel en bas](../img/smart-backup-2-dialog.png)
+    ![La fenêtre Backup SMART System, avec un champ File contenant le chemin et le nom de la sauvegarde, un bouton Browse, une case non cochée intitulée Exclude filestore from backup, et les boutons Backup et Cancel en bas](../img/smart-backup-2-dialog.png)
 
 4. Attendez le message **Sauvegarde terminée.** (Backup Complete), qui nomme le fichier, et sélectionnez **OK**.
 

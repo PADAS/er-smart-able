@@ -11,9 +11,9 @@ La aplicación muestra los estados en inglés; aquí se dan tal como aparecen.
 | <code>queued</code> | Confirmada; se ha pedido la ejecución y está a punto de empezar. |
 | <code>running</code> | La ejecución está recorriendo sus etapas. La página se actualiza sola cada pocos segundos. |
 | <code>continuing</code> | La ejecución llegó al límite de 22 horas y pasó el relevo a una nueva ejecución de sí misma. Consulte *Ejecuciones largas y continuación*. |
-| <code>needs_attention</code> | La ejecución se detuvo en un hallazgo bloqueante, o terminó con patrullas que fallaron. Lea los hallazgos, corrija el sitio y pulse **Continue** (continuar). |
+| <code>needs_attention</code> | La ejecución se detuvo en un hallazgo bloqueante, o terminó con patrullas que fallaron. Lea los hallazgos, corrija el sitio y haga clic en **Continue** (continuar). |
 | <code>done</code> | Todas las patrullas están en el sitio. |
-| <code>failed</code> | El trabajo encontró un error del que no pudo recuperarse. El error y el registro están en la página. Después de corregir la causa, pulse **Plan again** (planificar de nuevo); el nuevo plan muestra lo que falta y ofrece Confirm. (Continue es solo para una carga que se detuvo por hallazgos o cuyo trabajo fue interrumpido.) |
+| <code>failed</code> | El trabajo encontró un error del que no pudo recuperarse. El error y el registro de actividad están en la página. Después de corregir la causa, haga clic en **Plan again** (planificar de nuevo); el nuevo plan muestra lo que falta y ofrece Confirm. (Continue es solo para una carga que se detuvo por hallazgos o cuyo trabajo fue interrumpido.) |
 
 ## Una etapa
 

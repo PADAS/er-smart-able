@@ -69,7 +69,7 @@ Una copia de seguridad con fotos puede ser grande, porque contiene las fotos de 
 
     ![El Explorador de archivos mostrando el interior de una carpeta de SMART Desktop: carpetas llamadas configuration, data, features, GPSBabel, jre, p2, plugins, readme, updatesite y workspace, y archivos como SMART.exe y SMART.ini](../img/smart-installzip-1-folder.png)
 
-3. Suba un nivel, haga clic con el botón derecho en esa carpeta y elija **Enviar a → Carpeta comprimida (en zip)** (Send to → Compressed (zipped) folder). En Windows 11, elija **Comprimir en archivo ZIP** (Compress to ZIP file).
+3. Vaya un nivel hacia arriba, haga clic con el botón derecho en esa carpeta y elija **Enviar a → Carpeta comprimida (en zip)** (Send to → Compressed (zipped) folder). En Windows 11, elija **Comprimir en archivo ZIP** (Compress to ZIP file).
 
     ![Una carpeta llamada SMART 7.5.6 sobre la que se ha hecho clic con el botón derecho en el Explorador de archivos, con el menú Send to abierto y Compressed (zipped) folder resaltado](../img/smart-installzip-2-zip.png)
 

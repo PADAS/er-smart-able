@@ -22,7 +22,7 @@ Le groupe de la liste des écogardes existe, mais l'utilisateur du site ne peut 
 
 ### Activer la fonctionnalité patrol_schemas {#finding-enable_patrol_schemas}
 
-La fonctionnalité en préversion `patrol_schemas` est désactivée sur le site ; il n'a donc ni étapes de patrouille, ni champs de patrouille universels, ni équipes, ni listes dans lesquels importer. Dans l'administration Django, ouvrez **Preview features › patrol_schemas** et activez-la pour ce locataire (tenant). Adressez-vous à EarthRanger Core si la page n'est pas disponible. Puis Continue ; les champs de patrouille universels sont écrits au passage suivant.
+La fonctionnalité en préversion `patrol_schemas` est désactivée sur le site ; il n'a donc ni étapes de patrouille, ni champs de patrouille universels, ni équipes, ni listes d'écogardes dans lesquels importer. Dans l'administration Django, ouvrez **Preview features › patrol_schemas** et activez-la pour ce locataire (tenant). Adressez-vous à EarthRanger Core si la page n'est pas disponible. Puis Continue ; les champs de patrouille universels sont écrits au passage suivant.
 
 ### Accorder l'autorisation : types de patrouille {#finding-permission_patrol_types}
 
@@ -38,7 +38,7 @@ L'utilisateur du site ne peut pas voir, ajouter ni modifier les sujets ; les suj
 
 ### Accorder l'autorisation : configuration des patrouilles {#finding-permission_patrol_config}
 
-L'utilisateur du site ne peut pas lire la configuration des patrouilles, par rapport à laquelle les équipes et les listes sont vérifiées. Ajoutez `activity | patrol | Can view patrol`. Puis Continue.
+L'utilisateur du site ne peut pas lire la configuration des patrouilles, par rapport à laquelle les équipes et les listes d'écogardes sont vérifiées. Ajoutez `activity | patrol | Can view patrol`. Puis Continue.
 
 ### Choisir une icône pour chaque type de patrouille {#finding-patrol_type_icons}
 
@@ -90,9 +90,9 @@ Un avertissement. Certaines options de liste que les patrouilles utilisent ne so
 
 Les sujets écogardes de ces membres n'existent pas, ou ne sont pas dans un groupe listé sous **Patrol configuration › members**. La configuration des patrouilles les crée et, si un groupe a été nommé pour la liste des écogardes, les y ajoute. Sinon, ajoutez-les à un tel groupe dans **Django admin › Subject groups**. Dans un plan, c'est attendu.
 
-### Des membres de patrouille sont retirés {#finding-inactive_members}
+### Des membres de patrouille sont inactifs {#finding-inactive_members}
 
-Un avertissement, rien à faire. EarthRanger n'accepte que des membres actifs sur un segment ; l'import réactive donc ces sujets pour l'exécution et les retire de nouveau quand elle se termine. Le registre le consigne.
+Un avertissement, rien à faire. EarthRanger n'accepte que des membres actifs sur un segment ; l'import réactive donc ces sujets pour l'exécution et les désactive de nouveau quand elle se termine. Le registre le consigne.
 
 ### Des équipes de patrouille manquent ou sont inactives {#finding-teams}
 
@@ -104,7 +104,7 @@ Les catégories SMART observées ont besoin d'un type d'événement actif sur le
 
 - **No active event type** (aucun type d'événement actif) : le modèle de données n'a pas été envoyé sous la catégorie d'événements que ce chargement utilise. Dans un plan, c'est attendu et marqué comme quelque chose que l'exécution créera. Lors d'une exécution, vérifiez la catégorie d'événements : si un envoi antérieur a utilisé un autre identifiant, refaites le plan du chargement avec celui-ci.
 - **Match more than one event type** (correspond à plusieurs types d'événement) : le site a plusieurs envois de modèle de données, sous des catégories différentes, avec les mêmes noms de type. Refaites le plan du chargement avec la catégorie d'événements de l'envoi sur lequel importer.
-- **Map to an inactive event type** (correspond à un type d'événement inactif) : un avertissement. La catégorie est une catégorie parente de SMART ou a été retirée ; ses événements sont importés sur le type inactif, qu'EarthRanger ne propose pas pour de nouveaux rapports. Activez le type dans **EarthRanger admin › Event types** si les écogardes doivent continuer à l'utiliser.
+- **Map to an inactive event type** (correspond à un type d'événement inactif) : un avertissement. La catégorie est une catégorie parente de SMART ou a été désactivée ; ses événements sont importés sur le type inactif, qu'EarthRanger ne propose pas pour de nouveaux rapports. Activez le type dans **EarthRanger admin › Event types** si les écogardes doivent continuer à l'utiliser.
 - **Exist only as configurable model variants** (n'existent que comme variantes du modèle configurable) : ces catégories ont un type d'événement par formulaire, et l'import ne sait pas encore à quelle variante appartient une observation. Ces patrouilles ne peuvent pas encore être importées ; il faut une table de correspondance des variantes, qui reste à faire dans er-smart-sync.
 
 ### Pas de type d'événement de regroupement {#finding-collection_type}

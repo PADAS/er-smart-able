@@ -9,7 +9,7 @@ Les statuts sont affichés en anglais par l'application ; ils sont donnés ici t
 | <code>planning</code> | Le plan est en cours d'établissement. N'écrit rien. |
 | <code>planned</code> | Le plan est prêt à être lu et confirmé. |
 | <code>queued</code> | Confirmé ; l'exécution a été demandée et va démarrer. |
-| <code>running</code> | L'exécution parcourt ses étapes. La page se met à jour toutes les quelques secondes. |
+| <code>running</code> | L'exécution parcourt ses étapes. La page se met à jour à intervalles de quelques secondes. |
 | <code>continuing</code> | L'exécution a atteint la limite de 22 heures et a passé le relais à une nouvelle exécution d'elle-même. Voir *Longues exécutions et reprise*. |
 | <code>needs_attention</code> | L'exécution s'est arrêtée sur un constat bloquant, ou s'est terminée avec des patrouilles en échec. Lisez les constats, corrigez le site, appuyez sur **Continue** (continuer). |
 | <code>done</code> | Toutes les patrouilles sont sur le site. |

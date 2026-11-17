@@ -12,9 +12,9 @@ Ouvrez [l'application](https://smart-able-977100970772.us-central1.run.app/) et 
 
 1. Sur la page **Datasets** (jeux de données), appuyez sur **Upload a backup or export** (téléverser une sauvegarde ou un export).
 2. Donnez au jeu de données un nom que vous reconnaîtrez, par exemple la zone de conservation et la date, et choisissez votre fichier `.zip`.
-3. Appuyez sur **Upload** (téléverser). Une sauvegarde volumineuse met du temps à partir ; laissez la boîte de dialogue ouverte jusqu'à ce qu'elle se ferme.
+3. Appuyez sur **Upload** (téléverser). Une sauvegarde volumineuse met du temps à être envoyée ; laissez la boîte de dialogue ouverte jusqu'à ce qu'elle se ferme.
 
-Le nouveau jeu de données apparaît dans la liste comme **uploading** (téléversement en cours), puis **queued** (en attente), puis **running** (en cours), puis **ready** (prêt). Cela prend quelques minutes, et la page se met à jour d'elle-même. S'il se termine par **failed** (échec), ouvrez le jeu de données : la vue d'ensemble (Overview) montre l'erreur et la fin du journal. [Statuts](../../help/fr/04-statuses.md) explique chaque statut.
+Le nouveau jeu de données apparaît dans la liste comme **uploading** (téléversement en cours), puis **queued** (en file d'attente), puis **running** (en cours), puis **ready** (prêt). Cela prend quelques minutes, et la page se met à jour d'elle-même. S'il se termine par **failed** (échec), ouvrez le jeu de données : la vue d'ensemble (Overview) montre l'erreur et la fin du journal. [Statuts](../../help/fr/04-statuses.md) explique chaque statut.
 
 ## 3. Parcourir ce qui a été extrait
 
@@ -50,11 +50,11 @@ Appuyez sur **Confirm and load** (confirmer et charger). S'il y a des constats b
 Le statut devient **needs attention** (intervention nécessaire) et les constats indiquent ce qu'il faut faire. Rien de ce qui a déjà été écrit n'est annulé.
 
 1. Faites ce que dit le constat, ou demandez à l'administrateur du site de le faire. [Quand un chargement s'arrête](../../help/fr/05-stops.md) a une entrée pour chaque constat.
-2. Appuyez sur **Continue** (continuer). L'exécution reprend, passe ce qui existe déjà et poursuit.
+2. Appuyez sur **Continue** (continuer). L'exécution reprend, ignore ce qui existe déjà et poursuit.
 
 ## 8. Charger les patrouilles
 
-Lorsque le chargement du modèle de données est **done** (terminé), lancez un second chargement de la même zone de conservation dans le même site, avec **What to load** réglé sur **The data model and patrols** (le modèle de données et les patrouilles). Laissez les dates vides pour toutes les patrouilles, ou renseignez-les pour transférer d'abord quelques mois.
+Lorsque le chargement du modèle de données est **done** (terminé), lancez un second chargement de la même zone de conservation dans le même site, avec **What to load** réglé sur **The data model and patrols** (le modèle de données et les patrouilles). Laissez les dates vides pour charger toutes les patrouilles, ou renseignez-les pour transférer d'abord quelques mois.
 
 Un long chargement continue de s'exécuter tout seul. La page du chargement montre sa progression et le temps restant ; vous pouvez fermer la page et y revenir.
 

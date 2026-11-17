@@ -148,7 +148,7 @@ admin shows them, in English.
 | ranger | écogarde | guardaparque | guarda-parque | askari wa uhifadhi | not from a product |
 | roster | liste des écogardes | lista de guardaparques | lista de guarda-parques | orodha ya askari | not from a product |
 | status | statut | estado | status | hali | EarthRanger |
-| log | journal | registro | registro | kumbukumbu | not from a product |
+| log | journal | registro de actividad | registro | kumbukumbu | not from a product |
 | getting started | premiers pas | primeros pasos | primeiros passos | kuanza | not from a product |
 | reference | référence | referencia | referência | marejeo | not from a product |
 

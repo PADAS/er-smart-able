@@ -4,7 +4,7 @@ Una carga pone un área de conservación de un conjunto de datos en un sitio. In
 
 ## Primero el plan, después confirmar
 
-Toda carga empieza como un **plan**: un ensayo que consulta el sitio pero no escribe nada. Muestra lo que la ejecución real crearía, actualizaría o desactivaría, los hallazgos en los que se detendría y las patrullas que importaría. Léalo y después pulse **Confirm and load** (confirmar y cargar). Si el plan ya muestra hallazgos bloqueantes, el botón dice dónde se detendrá la ejecución; aun así la ejecución escribe todo lo anterior a ese punto, de modo que confirmar es la manera normal de avanzar.
+Toda carga empieza como un **plan**: un ensayo que consulta el sitio pero no escribe nada. Muestra lo que la ejecución real crearía, actualizaría o desactivaría, los hallazgos en los que se detendría y las patrullas que importaría. Léalo y después haga clic en **Confirm and load** (confirmar y cargar). Si el plan ya muestra hallazgos bloqueantes, el botón dice dónde se detendrá la ejecución; aun así la ejecución escribe todo lo anterior a ese punto, de modo que confirmar es la manera normal de avanzar.
 
 ## Las cuatro etapas
 
@@ -19,9 +19,9 @@ Una ejecución recorre las etapas en orden. Cada una es idempotente: una segunda
 
 ## La regla de detención
 
-Después de la configuración de patrullas y después de la comprobación previa, la ejecución se detiene si algún hallazgo es **bloqueante**. El estado de la carga pasa a `needs_attention` y los hallazgos dicen qué hacer. Nada de lo escrito hasta entonces se deshace. Corrija el sitio y después pulse **Continue** (continuar): la ejecución empieza de nuevo desde la primera etapa, lo cual es rápido porque todo está ya ahí, y llega a las patrullas.
+Después de la configuración de patrullas y después de la comprobación previa, la ejecución se detiene si algún hallazgo es **bloqueante**. El estado de la carga pasa a `needs_attention` y los hallazgos dicen qué hacer. Nada de lo escrito hasta entonces se deshace. Corrija el sitio y después haga clic en **Continue** (continuar): la ejecución empieza de nuevo desde la primera etapa, lo cual es rápido porque todo está ya ahí, y llega a las patrullas.
 
-Las **advertencias** nunca detienen una ejecución. Dejan constancia de algo que conviene saber, como una categoría retirada o una coordenada (waypoint) cuyos eventos no se pueden agrupar.
+Las **advertencias** nunca detienen una ejecución. Dejan constancia de algo que conviene saber, como una categoría desactivada o una coordenada (waypoint) cuyos eventos no se pueden agrupar.
 
 Las patrullas que fallan durante la importación no detienen a las demás. Al final se convierten en un único hallazgo bloqueante que enumera cada error; **Continue** reintenta solo esas patrullas.
 
@@ -44,13 +44,13 @@ Una ejecución importa primero cada patrulla con sus observaciones y sus fotos, 
 
 Lo que tarda una ejecución depende de la rapidez con que escribe el sitio de EarthRanger, no de smart-able. Cada observación tarda unos 0,8 segundos, y los puntos del trayecto añaden un poco, de modo que un área de conservación con 70 000 observaciones tarda alrededor de un día. Dos cargas en dos sitios distintos se ejecutan una junto a otra a toda velocidad; dos en el mismo sitio solo se frenarían entre sí.
 
-Un trabajo de Cloud Run puede ejecutarse como máximo 24 horas, así que a las 22 horas el trabajo deja de tomar patrullas nuevas, termina la que está en curso, guarda su libro de registro e inicia una nueva ejecución de sí mismo. El estado de la carga es `continuing` mientras eso ocurre, y la página nombra la continuación que está cronometrando. No se pierde nada y nada se importa dos veces. Una carga puede continuar hasta diez veces antes de marcarse como fallida; es mucho más de lo que necesita cualquier conjunto de datos.
+Un trabajo de Cloud Run puede ejecutarse como máximo 24 horas, así que, al cabo de 22 horas de ejecución, el trabajo deja de tomar patrullas nuevas, termina la que está en curso, guarda su libro de registro e inicia una nueva ejecución de sí mismo. El estado de la carga es `continuing` mientras eso ocurre, y la página nombra la continuación que está cronometrando. No se pierde nada y nada se importa dos veces. Una carga puede continuar hasta diez veces antes de marcarse como fallida; es mucho más de lo que necesita cualquier conjunto de datos.
 
 Si un trabajo es interrumpido de golpe, por una caída del servicio por ejemplo, no puede informar. La carga conserva su último estado hasta que caduca su reserva, unas 25 horas después de que empezó el trabajo, y entonces la página ofrece **Continue**, que reanuda a partir del libro de registro.
 
 ## Dar cuentas a los guardaparques {#rangers-accounts}
 
-La configuración de patrullas crea un sujeto por cada empleado de SMART que aparece en una patrulla o que sigue empleado, y la importación pone en él sus patrullas, sus trayectos y sus informes. Un guardaparque que después use EarthRanger Mobile necesita una cuenta de usuario **vinculada a ese sujeto**: los trayectos de un usuario van a su sujeto vinculado, y los eventos que reporta lo llevan como *reported by* (reportado por). Sin el vínculo, su primer inicio de sesión crea un segundo sujeto y el historial se divide.
+La configuración de patrullas crea un sujeto por cada empleado de SMART que aparece en una patrulla o que sigue empleado, y la importación pone en él sus patrullas, sus trayectos y sus reportes. Un guardaparque que después use EarthRanger Mobile necesita una cuenta de usuario **vinculada a ese sujeto**: los trayectos de un usuario van a su sujeto vinculado, y los eventos que reporta lo llevan como *reported by* (reportado por). Sin el vínculo, su primer inicio de sesión crea un segundo sujeto y el historial se divide.
 
 La sección **Rangers** (guardaparques) de la página de la carga, y la pestaña **Rangers** del conjunto de datos (que muestra la carga más reciente que llegó a la configuración de patrullas), enumeran a cada una de esas personas, con el nombre exactamente como está en el sitio, si la persona sigue activa en SMART y dos recuentos de patrullas: en las patrullas que importa esta carga (su intervalo de fechas, si se indicó uno) y en todo el conjunto de datos. Un guardaparque que sigue empleado y no tiene patrullas muestra 0, y una carga de solo el modelo de datos, que no importa patrullas, muestra solo el recuento de todo el conjunto de datos. El archivo CSV descargable tiene las mismas filas más una columna de correo vacía.
 

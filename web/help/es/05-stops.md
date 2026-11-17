@@ -4,7 +4,7 @@ Una ejecución se detiene donde el sitio necesita algo que la API no puede hacer
 
 Los nombres de los menús de la administración de EarthRanger se dan en inglés, tal como ella los muestra.
 
-Después de corregir el sitio, pulse **Continue** (continuar). La ejecución repite las primeras etapas, lo cual es rápido, y sigue adelante.
+Después de corregir el sitio, haga clic en **Continue** (continuar). La ejecución repite las primeras etapas, lo cual es rápido, y sigue adelante.
 
 ## Configuración de patrullas (Patrol setup)
 
@@ -22,7 +22,7 @@ El grupo de la lista de guardaparques existe, pero el usuario del sitio no puede
 
 ### Activar la función patrol_schemas {#finding-enable_patrol_schemas}
 
-El sitio tiene desactivada la función de vista previa `patrol_schemas`, así que no tiene tramos de patrulla, campos universales de patrulla, equipos ni listas en los que importar. En la administración de Django, abra **Preview features › patrol_schemas** y actívela para este inquilino (tenant). Consulte a EarthRanger Core si la página no está disponible. Después Continue; los campos universales de patrulla se escriben en la siguiente pasada.
+El sitio tiene desactivada la función de vista previa `patrol_schemas`, así que no tiene tramos de patrulla, campos universales de patrulla, equipos ni listas de guardaparques en los que importar. En la administración de Django, abra **Preview features › patrol_schemas** y actívela para este inquilino (tenant). Consulte a EarthRanger Core si la página no está disponible. Después Continue; los campos universales de patrulla se escriben en la siguiente pasada.
 
 ### Conceder permiso: tipos de patrullaje {#finding-permission_patrol_types}
 
@@ -38,7 +38,7 @@ El usuario del sitio no puede ver, añadir ni cambiar sujetos, así que los suje
 
 ### Conceder permiso: configuración de patrullas {#finding-permission_patrol_config}
 
-El usuario del sitio no puede leer la configuración de patrullas, contra la que se comprueban los equipos y las listas. Añada `activity | patrol | Can view patrol`. Después Continue.
+El usuario del sitio no puede leer la configuración de patrullas, contra la que se comprueban los equipos y las listas de guardaparques. Añada `activity | patrol | Can view patrol`. Después Continue.
 
 ### Elegir un icono para cada tipo de patrullaje {#finding-patrol_type_icons}
 
@@ -90,9 +90,9 @@ Una advertencia. Algunas opciones de lista que usan las patrullas no están en e
 
 Los sujetos guardaparques de esos miembros no existen, o no están en un grupo incluido en **Patrol configuration › members**. La configuración de patrullas los crea y, si se indicó un grupo para la lista de guardaparques, los añade a él. Si no, añádalos a un grupo así en **Django admin › Subject groups**. En un plan esto es de esperar.
 
-### Hay miembros de patrulla retirados {#finding-inactive_members}
+### Hay miembros de patrulla inactivos {#finding-inactive_members}
 
-Una advertencia, nada que hacer. EarthRanger solo acepta miembros activos en un segmento, así que la importación reactiva esos sujetos para la ejecución y los retira de nuevo cuando termina. El libro de registro lo anota.
+Una advertencia, nada que hacer. EarthRanger solo acepta miembros activos en un segmento, así que la importación reactiva esos sujetos para la ejecución y los desactiva de nuevo cuando termina. El libro de registro lo anota.
 
 ### Faltan equipos de patrulla o están inactivos {#finding-teams}
 
@@ -104,7 +104,7 @@ Las categorías de SMART observadas necesitan un tipo de evento activo en el sit
 
 - **No active event type** (ningún tipo de evento activo): el modelo de datos no se ha enviado bajo la categoría de eventos que usa esta carga. En un plan esto es de esperar y se marca como algo que la ejecución creará. En una ejecución, revise la categoría de eventos: si un envío anterior usó otro identificador, planifique de nuevo la carga con ese.
 - **Match more than one event type** (coincide con más de un tipo de evento): el sitio tiene varios envíos de modelo de datos, bajo categorías distintas, con los mismos nombres de tipo. Planifique de nuevo la carga con la categoría de eventos del envío contra el que importar.
-- **Map to an inactive event type** (corresponde a un tipo de evento inactivo): una advertencia. La categoría es una categoría superior de SMART o se retiró; sus eventos se importan contra el tipo inactivo, que EarthRanger no ofrece para informes nuevos. Active el tipo en **EarthRanger admin › Event types** si los guardaparques deben seguir usándolo.
+- **Map to an inactive event type** (corresponde a un tipo de evento inactivo): una advertencia. La categoría es una categoría superior de SMART o se desactivó; sus eventos se importan contra el tipo inactivo, que EarthRanger no ofrece para reportes nuevos. Active el tipo en **EarthRanger admin › Event types** si los guardaparques deben seguir usándolo.
 - **Exist only as configurable model variants** (existen solo como variantes del modelo configurable): esas categorías tienen un tipo de evento por formulario, y la importación todavía no sabe a qué variante pertenece una observación. Esas patrullas no se pueden importar aún; hace falta una correspondencia de variantes, que queda pendiente en er-smart-sync.
 
 ### No hay tipo de evento de agrupación {#finding-collection_type}
@@ -117,7 +117,7 @@ Una advertencia, nada que hacer. SMART guarda algunas fechas de tramo como una f
 
 ### Observaciones de las que no se puede decir quién las reportó {#finding-observers}
 
-Una advertencia. Cada evento importado nombra a quien lo reportó: el sujeto del observador de SMART o, cuando esa persona no tiene sujeto en el sitio, el líder del tramo, y si no, su primer miembro. Las observaciones enumeradas no tienen ninguno de ellos, así que sus eventos no llevan quien reporta. Nada que hacer a menos que importe: dé al observador un registro de empleado en SMART y exporte de nuevo. Un plan enumera solo las observaciones que los sujetos de la propia ejecución no permiten resolver.
+Una advertencia. Cada evento importado nombra a quien lo reportó: el sujeto del observador de SMART o, cuando esa persona no tiene sujeto en el sitio, el líder del tramo, y si no, su primer miembro. Las observaciones enumeradas no tienen ninguno de ellos, así que sus eventos no indican quién los reportó. Nada que hacer a menos que importe: dé al observador un registro de empleado en SMART y exporte de nuevo. Un plan enumera solo las observaciones que los sujetos de la propia ejecución no permiten resolver.
 
 ### La extracción registró advertencias {#finding-bundle_warnings}
 

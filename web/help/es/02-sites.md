@@ -4,7 +4,7 @@ Un sitio es un host de EarthRanger, por ejemplo `example.pamdas.org`, y un token
 
 **Registrar un sitio.** Escriba un nombre, el host y el token. smart-able llama a `/user/me` del sitio con el token antes de guardar nada, de modo que un host equivocado o un token que ya no es válido se rechaza en el momento. La fila del sitio en la página EarthRanger sites muestra los últimos caracteres del token y el usuario con el que actúa.
 
-**Dónde se guarda el token.** En Google Secret Manager, en un secreto con el nombre del sitio. Nunca se almacena en la base de datos, nunca se escribe en un registro y nunca lo devuelve la API. Si el token se renueva o se revoca, quite el sitio y regístrelo de nuevo; las cargas que hacían referencia al sitio anterior siguen siendo legibles, pero no se pueden continuar.
+**Dónde se guarda el token.** En Google Secret Manager, en un secreto con el nombre del sitio. Nunca se almacena en la base de datos, nunca se escribe en un registro de actividad y nunca lo devuelve la API. Si el token se renueva o se revoca, quite el sitio y regístrelo de nuevo; las cargas que hacían referencia al sitio anterior siguen siendo legibles, pero no se pueden continuar.
 
 **Qué usuario usar.** La importación necesita un usuario que pueda gestionar los tipos de patrullaje, los sujetos, los grupos de sujetos, la configuración de patrullas y los campos universales de patrulla, y que pueda crear eventos en la categoría bajo la que se envía el modelo de datos. Un superusuario es la opción sencilla. El hallazgo *Al usuario del sitio le faltan permisos* nombra cada permiso que falta cuando se usa un usuario más limitado.
 

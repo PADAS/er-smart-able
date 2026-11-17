@@ -54,7 +54,7 @@ O status passa a **needs attention** (precisa de atenção) e as constatações 
 
 ## 8. Carregar as patrulhas
 
-Quando a carga do modelo de dados estiver **done** (concluída), inicie uma segunda carga da mesma área de conservação no mesmo site, com **What to load** definido como **The data model and patrols** (o modelo de dados e as patrulhas). Deixe as datas vazias para todas as patrulhas, ou preencha-as para trazer primeiro alguns meses.
+Quando a carga do modelo de dados estiver **done** (concluída), inicie uma segunda carga da mesma área de conservação no mesmo site, com **What to load** definido como **The data model and patrols** (o modelo de dados e as patrulhas). Deixe as datas vazias para carregar todas as patrulhas, ou preencha-as para trazer primeiro alguns meses.
 
 Uma carga longa continua rodando sozinha. A página da carga mostra o progresso e o tempo restante; você pode fechar a página e voltar depois.
 
