@@ -146,9 +146,11 @@ async def me(user=Depends(current_user)):
 
 
 @app.get("/api/help")
-def help_sections(user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
+def help_sections(lang: str = "en", user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
     import help_pages
-    return {"sections": help_pages.sections()}
+    if lang not in {l["code"] for l in LANGUAGES}:   # checked before it names a folder; anything else is English
+        lang = "en"
+    return {"sections": help_pages.sections(lang)}
 
 
 # ---------------------------------------------------------------- datasets

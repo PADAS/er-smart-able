@@ -135,3 +135,26 @@ def test_a_malformed_bracketed_host_is_a_400_with_the_host_guidance(client, url)
         raised = str(e)
     r = client.post("/api/sites", json={"name": "x", "url": url, "token": "t"})
     assert r.status_code == 400 and r.json()["code"] == "site_host_missing" and r.json()["detail"] == raised
+
+
+def test_help_is_served_in_the_language_asked_for_with_the_quirks_in_english(client):
+    en = client.get("/api/help").json()["sections"]
+    fr = client.get("/api/help?lang=fr").json()["sections"]
+    assert [s["id"] for s in fr] == [s["id"] for s in en]
+    assert {s["id"]: s["lang"] for s in fr} == {"overview": "fr", "sites": "fr", "loading": "fr", "statuses": "fr", "stops": "fr", "quirks": "en"}
+    assert fr[0]["title"] != en[0]["title"] and all(s["lang"] == "en" for s in en)
+    assert 'id="finding-team"' in next(s for s in fr if s["id"] == "stops")["html"], "the anchors the app links to survive translation"
+    assert 'id="rangers-accounts"' in next(s for s in fr if s["id"] == "loading")["html"]
+
+
+def test_help_in_an_unknown_language_is_english(client):
+    assert client.get("/api/help?lang=../../etc").json() == client.get("/api/help").json()
+
+
+def test_a_help_page_with_no_translation_is_the_english_one(client, monkeypatch, tmp_path):
+    import help_pages
+    d = tmp_path / "help"; (d / "fr").mkdir(parents=True)
+    (d / "01-a.md").write_text("# A\n\nenglish"); (d / "02-b.md").write_text("# B\n\nenglish"); (d / "fr" / "01-a.md").write_text("# A fr\n\nfrançais")
+    monkeypatch.setattr(help_pages, "HELP_DIR", d); help_pages._cache.clear()
+    got = {s["id"]: (s["lang"], s["title"]) for s in help_pages.sections("fr")}
+    assert got["a"] == ("fr", "A fr") and got["b"] == ("en", "B")

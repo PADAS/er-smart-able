@@ -654,12 +654,12 @@ async function openHelp(anchor) {
   if (!HELP) {
     const from = location.hash, gen = helpGen;
     // one fetch, however many clicks arrive while it is pending; a failure alerts once and resolves null for all
-    helpLoading = helpLoading || api('/api/help').then(r => r.sections, e => { if (gen === helpGen) helpLoading = null; oops(e); return null; });
+    helpLoading = helpLoading || api('/api/help?lang=' + encodeURIComponent(currentLang())).then(r => r.sections, e => { if (gen === helpGen) helpLoading = null; oops(e); return null; });
     const sections = await helpLoading;
     if (!sections || gen !== helpGen || location.hash !== from || !ME) return;   // failed, or the reader left meanwhile
     if (!HELP) {
       HELP = sections;
-      body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
+      body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"' + (s.lang !== currentLang() ? ' lang="' + esc(s.lang) + '"' : '') + '><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
       $('#helpToc').innerHTML = HELP.map(s => '<button class="link" data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</button>').join('');
       $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
       body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
