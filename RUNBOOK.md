@@ -161,7 +161,8 @@ Writes `work/export/<ca_id>/`:
 | `bundle/manifest.json` | what this bundle is: conservation area, SMART version, timezone, label coverage per language, counts, how well leg days are timed, warnings |
 | `bundle/reference.json` | patrol types, transports, mandates, stations, custom patrol attributes, agencies, ranks, teams, employees |
 | `bundle/patrols.json` | patrols → legs → days, members, waypoints → observations with typed attribute values, attachments |
-| `bundle/tracks.json` | one line (or several parts) per leg day with per-point times |
+| `bundle/tracks.jsonl` | the tracks, one per line of the file and a patrol's lines together: a line (or several parts) per leg day with per-point times |
+| `bundle/tracks.index.json` | where each patrol's lines are in `tracks.jsonl` (byte offset and length) and how many tracks and points it has, so a load reads one patrol's tracks at a time |
 | `bundle/attachments/<wp_uuid>/` | waypoint photos |
 
 The bundle is what er-smart-sync's patrol migration reads; its contract is

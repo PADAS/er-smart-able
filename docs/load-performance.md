@@ -162,3 +162,45 @@ one; that path is designed for this and was exercised by Camarines Norte.
    measured rate and the time left.
 
 Decision as of 2026-10-23: build option 2 now; the team decides on option 1.
+
+## Memory: a bundle's tracks
+
+A load once held every track of the conservation area in memory: the
+bundle's `tracks.json` was read whole, parsed whole and checked whole. A plan
+for an area with an 801 MiB `tracks.json` was killed at the load job's 2 GiB
+limit (GUNDI-5944). Since bundle version 2 the tracks are one per line in
+`tracks.jsonl` with each patrol's byte range in `tracks.index.json`, and a
+load reads one patrol's tracks at a time.
+
+Measured on 2026-11-18 with `scripts/measure_load_memory.py`, which writes a
+made-up bundle and then loads it and reads every patrol's tracks in turn, as
+an import does, in a fresh process:
+
+| Track points | Patrols | Version 1: `tracks.json` | Version 1: peak memory | Version 2: `tracks.jsonl` | Version 2: peak memory |
+| --- | --- | --- | --- | --- | --- |
+| 1,200,000 | 1,500 | 57 MiB | 367 MiB | 32 MiB | 58 MiB |
+| 12,000,000 | 15,000 | 574 MiB | 2,573 MiB | 322 MiB | 67 MiB |
+
+Version 1 needs about 4.5 times its track file. Version 2's memory does not
+grow with the tracks: ten times the points cost 9 MiB more, which is the
+index. Its file is also a little over half the size, because it is written
+without indentation.
+
+Reading and checking all 12 million points took about three minutes either
+way; the check against the schema is most of it. Version 1 paid that once,
+when the bundle was loaded. Version 2 pays it a patrol at a time, and twice
+over a whole load, because a patrol's tracks are read in the events phase
+(for its leg times) and again in the tracks phase.
+
+These figures leave out two things a hosted load also holds: the parsed
+`patrols.json` (about 4.5 times its size, 58 MiB for the area above), and the
+copy of the export on the job's `/tmp`, which Cloud Run keeps in memory. The
+second is what step 2 of
+`docs/superpowers/specs/2026-11-18-tracks-by-patrol-design.md` removes.
+
+To reproduce, with a Python that has er-smart-sync installed and any small
+bundle as the template:
+
+```sh
+python scripts/measure_load_memory.py --template BUNDLE --points 12000000 --patrols 15000 --version 2
+```

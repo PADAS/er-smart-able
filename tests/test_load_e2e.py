@@ -55,8 +55,9 @@ class FakeER:
     _post = _patch = post_subject = post_event_file = post_event_category = post_event_type = patch_event_type = _fail
 
 
-def _plan(smart_parquet, tmp_path, monkeypatch, **options):
-    """Extract, export and plan a load of the synthetic dataset with these options."""
+def _plan(smart_parquet, tmp_path, monkeypatch, prepare=None, **options):
+    """Extract, export and plan a load of the synthetic dataset with these options.
+    prepare(export dir) may change the export before it is stored."""
     from export.__main__ import main as export_main
 
     work = smart_parquet.parent
@@ -64,6 +65,8 @@ def _plan(smart_parquet, tmp_path, monkeypatch, **options):
     site_data.mkdir(parents=True)
     (site_data / "timezones.json").write_text(json.dumps({"default": "Asia/Manila", "byCa": {"ALPHA": "Asia/Manila"}}))
     assert export_main(["--work", str(work), "--site-data", str(site_data), "--source-kind", "backup", "--source-file", "x.zip"]) == 0
+    if prepare:
+        prepare(work / "export")
     monkeypatch.setenv("BACKEND", "local")
     monkeypatch.setenv("LOCAL_DIR", str(tmp_path / "data"))
     monkeypatch.syspath_prepend(str(ROOT / "web"))
@@ -207,3 +210,111 @@ def test_a_plan_keeps_only_the_observers_setup_cannot_resolve(smart_parquet, tmp
     m.api.list_subjects = lambda: (_ for _ in ()).throw(RuntimeError("502 from ER"))
     (f,) = m._observers_after_setup()
     assert f["code"] == "check_failed" and "502 from ER" in f["message"]
+
+
+# ---- the bundle's tracks are read a patrol at a time (bundle version 2), never all at once
+@pytest.fixture
+def track_reads(monkeypatch):
+    """What the load asked the bundle's tracks for: ("patrol", uuid) for one patrol's, ("all",) for every track."""
+    from er_smart_sync.bundle import TrackStore
+
+    asked = []
+    for_patrol, iterate = TrackStore.for_patrol, TrackStore.__iter__
+    monkeypatch.setattr(TrackStore, "for_patrol", lambda self, u: asked.append(("patrol", u)) or for_patrol(self, u))
+    monkeypatch.setattr(TrackStore, "__iter__", lambda self: asked.append(("all",)) or iterate(self))
+    return asked
+
+
+def test_a_plan_never_reads_every_track(smart_parquet, tmp_path, monkeypatch, track_reads):
+    load = _plan(smart_parquet, tmp_path, monkeypatch)
+    assert load["plan"]["patrols"]["total"] == 2 and load["plan"]["patrols"]["track_points"] == 2
+    assert ("all",) not in track_reads
+
+
+def test_a_windowed_plan_reads_no_track_of_a_patrol_outside_it(smart_parquet, tmp_path, monkeypatch, track_reads):
+    load = _plan(smart_parquet, tmp_path, monkeypatch, since="2019-04-01")   # only the second patrol, which has no track
+    assert load["plan"]["patrols"]["total"] == 1 and load["plan"]["patrols"]["track_points"] == 0
+    assert track_reads == []   # a plan counts from the index and reads no track at all
+
+
+def test_a_windowed_plan_counts_its_patrols_points_from_the_index(smart_parquet, tmp_path, monkeypatch, track_reads):
+    load = _plan(smart_parquet, tmp_path, monkeypatch, until="2019-03-31")   # only the first patrol, whose track has two points
+    assert load["plan"]["patrols"]["total"] == 1 and load["plan"]["patrols"]["track_points"] == 2
+    assert ("all",) not in track_reads
+
+
+def _as_version_1(export_dir: Path):
+    """Rewrite the exported bundle the way smart-able wrote it before version 2."""
+    b = export_dir / "ALPHA" / "bundle"
+    tracks = [json.loads(l) for l in (b / "tracks.jsonl").read_text().splitlines()]
+    (b / "tracks.jsonl").unlink()
+    (b / "tracks.index.json").unlink()
+    (b / "tracks.json").write_text(json.dumps({"tracks": tracks}, indent=1))
+    m = json.loads((b / "manifest.json").read_text())
+    m["bundle_schema_version"] = 1
+    (b / "manifest.json").write_text(json.dumps(m, indent=1))
+
+
+@pytest.mark.parametrize("options", [{}, {"until": "2019-03-31"}, {"since": "2019-04-01"}])
+def test_a_dataset_extracted_before_version_2_still_plans_the_same(smart_parquet, tmp_path, monkeypatch, options):
+    import shutil
+
+    new = _plan(smart_parquet, tmp_path / "new", monkeypatch, **options)
+    shutil.rmtree(smart_parquet.parent / "export")
+    shutil.rmtree(smart_parquet.parent / "site")
+    old = _plan(smart_parquet, tmp_path / "old", monkeypatch, prepare=_as_version_1, **options)
+    assert old["plan"]["patrols"] == new["plan"]["patrols"]
+    assert [(f["stage"], f["code"]) for f in old["findings"]] == [(f["stage"], f["code"]) for f in new["findings"]]
+
+
+# ---- the contract between this repository's exporter and er-smart-sync's reader: the bytes one
+# writes are the bytes the other reads. Each side's own tests write the tracks with its own code.
+def test_what_the_exporter_writes_is_what_er_smart_sync_reads(tmp_path):
+    from er_smart_sync.bundle import load_bundle
+    from export.bundle import validate_bundle_dir, write_tracks
+
+    import er_smart_sync
+    fixture = Path(er_smart_sync.__file__).parents[2] / "tests" / "fixtures" / "smart_demo_bundle"
+    if not fixture.is_dir():
+        pytest.skip("er-smart-sync is installed without its tests (not an editable checkout)")
+    import shutil
+    b = tmp_path / "bundle"
+    shutil.copytree(fixture, b)
+    tracks = json.loads((b / "tracks.json").read_text())["tracks"]
+    assert len({t["patrol_uuid"] for t in tracks}) > 1
+    tracks[0]["note"] = "é—ñ \u2028 line\nbreak 🐘"   # bytes are not characters, and a line holds no raw newline
+    (b / "tracks.json").unlink()
+    m = json.loads((b / "manifest.json").read_text())
+    m["bundle_schema_version"] = 2
+    (b / "manifest.json").write_text(json.dumps(m))
+    index = write_tracks(tracks, b)["patrols"]
+    assert validate_bundle_dir(b) == []
+    got = load_bundle(b)
+    key = lambda t: t["uuid"]   # noqa: E731
+    for u in {t["patrol_uuid"] for t in tracks}:
+        mine = [t for t in tracks if t["patrol_uuid"] == u]
+        assert sorted(got.tracks.for_patrol(u), key=key) == sorted(mine, key=key)
+        assert got.tracks.points(u) == index[u]["points"] == sum(len(p["coordinates"]) for t in mine for p in t["parts"])
+    assert len(got.tracks) == len(tracks) == m["counts"]["tracks"]
+    write_tracks([], b)
+    assert validate_bundle_dir(b) == [] and list(load_bundle(b).tracks) == []
+
+
+def test_an_exported_bundle_imports_its_tracks(smart_parquet, tmp_path):
+    """The exporter's bundle through er-smart-sync's by-day lookup, as an import builds it for a patrol."""
+    from er_smart_sync.bundle import load_bundle
+    from er_smart_sync.patrol_times import tracks_by_day
+    from export.bundle import build_tracks, write_bundle
+    from export.smartdb import SmartDb, hyphenate
+    from tests.conftest import CA_A, DAY_1, PATROL_1
+    from zoneinfo import ZoneInfo
+
+    db = SmartDb(smart_parquet)
+    out = tmp_path / "bundle"
+    write_bundle(db, db.cas()[0], out, "Asia/Manila", "configured", None, {"kind": "backup", "file": "x.zip"})
+    b = load_bundle(out)
+    assert b.manifest.bundle_schema_version == 2
+    by_day = tracks_by_day(b.tracks.for_patrol(hyphenate(PATROL_1)))
+    assert by_day == {hyphenate(DAY_1): build_tracks(db, CA_A, ZoneInfo("Asia/Manila"), [])["tracks"]}
+    other = next(p["uuid"] for p in b.patrols if p["uuid"] != hyphenate(PATROL_1))
+    assert b.tracks.for_patrol(other) == [] and b.tracks.points(hyphenate(PATROL_1)) == 2
