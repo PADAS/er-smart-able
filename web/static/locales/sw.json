@@ -243,7 +243,177 @@
     "fix": "Marekebisho:",
     "howToFix": "Jinsi ya kurekebisha",
     "copy": "Nakili kwenye ubao wa kunakili",
-    "copyPrompt": "Nakili thamani hii:"
+    "copyPrompt": "Nakili thamani hii:",
+    "original": "Maandishi asili (Kiingereza)",
+    "createdByRun": "Kitaundwa na uingizaji huu: {{title}}",
+    "valueLabel": {
+      "team_name": "Jina la timu",
+      "subject_group": "Kundi la wahusika",
+      "station_name": "Jina la kituo",
+      "feature": "Kipengele",
+      "permission": "Ruhusa"
+    }
+  },
+  "findingText": {
+    "checklist": {
+      "team": {
+        "title": "Unda timu ya doria {{name}}",
+        "fix": "Kwenye usimamizi wa Django, fungua Patrol configuration › Teams na uongeze timu ambayo sehemu yake ya display ni jina hili, kama lilivyo hasa. Unda timu zote zilizoorodheshwa, kisha bonyeza Endelea."
+      },
+      "roster_group": {
+        "title": "Waweke askari kwenye kundi la wahusika la orodha ya askari",
+        "fix": "Hakuna kundi la askari lililotajwa kwa uingizaji huu, au lililotajwa halikupatikana, kwa hiyo wahusika askari hawamo kwenye kundi lolote ambamo askari wanachaguliwa. Panga uingizaji tena ukitaja kundi la askari, au kwenye usimamizi wa Django fungua Patrol configuration › member subject groups, chagua au unda kundi, kisha ongeza wahusika."
+      },
+      "permission_subject_group": {
+        "title": "Ongeza wahusika kwenye kundi la wahusika {{group}}",
+        "fix": "Mtumiaji wa tovuti hawezi kubadilisha uanachama wa makundi ya wahusika. Mpe mtumiaji ruhusa hiyo kisha bonyeza Endelea, au ongeza wahusika kwenye kundi wewe mwenyewe kwenye Django admin › Subject groups."
+      },
+      "enable_patrol_schemas": {
+        "title": "Washa kipengele cha patrol_schemas kwenye tovuti hii",
+        "fix": "Kwenye usimamizi wa Django, fungua Preview features › patrol_schemas na ukiwashe kwa mpangaji (tenant) huyu. Uliza EarthRanger Core kama ukurasa haupatikani. Kisha bonyeza Endelea."
+      },
+      "permission_patrol_types": {
+        "title": "Mpe mtumiaji ruhusa: aina za doria",
+        "fix": "Mtumiaji wa tovuti hawezi kuunda wala kubadilisha aina za doria. Kwenye usimamizi wa Django, fungua Users › mtumiaji husika na uongeze ruhusa iliyoonyeshwa. Kisha bonyeza Endelea."
+      },
+      "permission_segment_schema": {
+        "title": "Mpe mtumiaji ruhusa: sehemu za jumla za kujaza za doria",
+        "fix": "Mtumiaji wa tovuti hawezi kuandika sehemu za jumla za kujaza za doria. Ongeza ruhusa iliyoonyeshwa; kwa sasa hilo linahitaji mtumiaji mkuu (superuser). Kisha bonyeza Endelea."
+      },
+      "permission_subjects": {
+        "title": "Mpe mtumiaji ruhusa: wahusika",
+        "fix": "Mtumiaji wa tovuti hawezi kuona, kuongeza wala kubadilisha wahusika. Kwenye usimamizi wa Django, fungua Users › mtumiaji husika na uongeze ruhusa iliyoonyeshwa. Kisha bonyeza Endelea."
+      },
+      "permission_patrol_config": {
+        "title": "Mpe mtumiaji ruhusa: usanidi wa doria",
+        "fix": "Mtumiaji wa tovuti hawezi kusoma usanidi wa doria. Kwenye usimamizi wa Django, fungua Users › mtumiaji husika na uongeze ruhusa iliyoonyeshwa. Kisha bonyeza Endelea."
+      },
+      "patrol_type_icons": {
+        "title": "Chagua aikoni kwa kila aina ya doria",
+        "fix": "Hili halisimamishi uingizaji. API haiwezi kuweka aikoni, kwa hiyo chagua moja kwa kila aina mpya ya doria kwenye EarthRanger admin › Patrol types."
+      },
+      "station_names": {
+        "title": "Vipe majina vituo (stations) ambavyo SMART iliviacha bila majina",
+        "fix": "Hili halisimamishi uingizaji. Vituo hivi (stations) havina jina kwenye SMART, kwa hiyo viliundwa kwa jina la muda. Vipe majina kwenye SMART kisha hamisha tena kutoka SMART (export), au badilisha jina la chaguo kwenye Django admin › Choices."
+      }
+    },
+    "preflight": {
+      "timezone": {
+        "title": "Kanda ya saa {{zone}} ilikisiwa",
+        "fix": "SMART haikurekodi kanda ya saa ya eneo la hifadhi, kwa hiyo utoaji wa data uliikisia kutokana na mahali vielekezi (waypoints) vilipo. Kama si sahihi, weka SMART_ABLE_TIMEZONE kwa ajili ya utoaji wa data kisha endesha utoaji wa data (extract) wa seti hiyo upya."
+      },
+      "language": {
+        "title_one": "Kipengele {{count}} cha moduli data hakina lebo katika lugha iliyochaguliwa",
+        "title_other": "Vipengele {{count}} vya moduli data havina lebo katika lugha iliyochaguliwa",
+        "fix": "Vinatumia lugha ya chaguo-msingi ya kifurushi. Kama lebo ni muhimu, panga uingizaji tena kwa lugha iliyokamilika zaidi; kichupo cha Data Model cha seti ya data kinaonyesha jinsi kila lugha ilivyokamilika."
+      },
+      "time_coverage": {
+        "title_one": "Siku {{count}} ya kituo cha doria (leg) haina taarifa za saa",
+        "title_other": "Siku {{count}} za vituo vya doria (legs) hazina taarifa za saa",
+        "fix": "Hakuna la kufanya. Vipande vyake vinachukua siku nzima."
+      },
+      "feature_flag": {
+        "title": "Kipengele cha patrol_schemas kimezimwa kwenye tovuti hii",
+        "fix": "Kwenye usimamizi wa Django, fungua Preview features › patrol_schemas na ukiwashe kwa mpangaji (tenant) huyu. Kisha bonyeza Endelea."
+      },
+      "permissions": {
+        "title_one": "Mtumiaji wa tovuti hana ruhusa {{count}} ambayo uingizaji unahitaji",
+        "title_other": "Mtumiaji wa tovuti hana ruhusa {{count}} ambazo uingizaji unahitaji",
+        "fix": "Mpe mtumiaji kila ruhusa iliyoorodheshwa, kwenye Django admin › Users › mtumiaji husika. Kuunda matukio kwenye kategoria ya matukio kunahitaji ruhusa ya kuunda ya kategoria hiyo, ambayo kwa kawaida inatolewa kupitia seti ya ruhusa. Kisha bonyeza Endelea."
+      },
+      "patrol_types": {
+        "title_one": "Aina {{count}} ya doria inakosekana au si amilifu",
+        "title_other": "Aina {{count}} za doria zinakosekana au si amilifu",
+        "fix": "Ifanye aina hiyo kuwa amilifu kwenye EarthRanger admin › Patrol types, au bonyeza Endelea ili uingizaji uiunde upya."
+      },
+      "segment_schema": {
+        "title_one": "Sehemu {{count}} ya jumla ya kujaza ya doria inakosekana au imeondolewa matumizi",
+        "title_other": "Sehemu {{count}} za jumla za kujaza za doria zinakosekana au zimeondolewa matumizi",
+        "fix": "Kama msimamizi aliiondoa sehemu fulani matumizi kwa makusudi, irudishe kwenye kitengeneza fomu za doria. Vinginevyo bonyeza Endelea; uingizaji unaandika sehemu hizi."
+      },
+      "choices": {
+        "title_one": "Chaguo {{count}} linalotumiwa na doria linakosekana au si amilifu",
+        "title_other": "Machaguo {{count}} yanayotumiwa na doria yanakosekana au si amilifu",
+        "fix": "Hili halisimamishi uingizaji. Uingizaji unaunda machaguo yanayokosekana; chaguo ambalo msimamizi alilizima linaweza kuwashwa tena kwenye Django admin › Choices."
+      },
+      "subjects": {
+        "title_one": "Mwanachama {{count}} wa doria hawezi kuwekwa kwenye kipande",
+        "title_other": "Wanachama {{count}} wa doria hawawezi kuwekwa kwenye kipande",
+        "fix": "Wahusika askari wao hawapo, au hawamo kwenye kundi lolote lililoorodheshwa chini ya Patrol configuration › members. Uingizaji unawaunda na, kundi la askari likitajwa, unawaongeza humo. Vinginevyo waongeze kwenye kundi la namna hiyo kwenye Django admin › Subject groups."
+      },
+      "teams": {
+        "title_one": "Timu {{count}} ya doria inakosekana au si amilifu",
+        "title_other": "Timu {{count}} za doria zinakosekana au si amilifu",
+        "fix": "Kwenye usimamizi wa Django, fungua Patrol configuration › Teams na uongeze au uifanye amilifu timu ambayo sehemu yake ya display ni kila jina lililoonyeshwa, kama lilivyo hasa. Kisha bonyeza Endelea."
+      },
+      "collection_type": {
+        "title_one": "Kielekezi {{count}} kina vielelezo kadhaa, na tovuti haina aina ya tukio ya mkusanyiko",
+        "title_other": "Vielekezi {{count}} vina vielelezo kadhaa, na tovuti haina aina ya tukio ya mkusanyiko",
+        "fix": "Hili halisimamishi uingizaji; matukio yake yanaingizwa bila kuwekwa pamoja. Ili kuyaweka pamoja, ongeza au ifanye amilifu aina ya tukio ya incident_collection kwenye EarthRanger admin › Event types."
+      },
+      "observers": {
+        "title_one": "Kielelezo {{count}} hakina mtu anayeweza kutajwa kuwa aliyekiripoti",
+        "title_other": "Vielelezo {{count}} havina mtu anayeweza kutajwa kuwa aliyeviripoti",
+        "fix": "Hakuna la kufanya isipokuwa kama ni muhimu: matukio yake hayaonyeshi aliyeyaripoti. Ili kubadilisha hilo, mpe mtazamaji rekodi ya mfanyakazi kwenye SMART kisha hamisha tena kutoka SMART (export)."
+      },
+      "bundle_warnings": {
+        "title_one": "Utoaji wa data ulirekodi onyo {{count}}",
+        "title_other": "Utoaji wa data ulirekodi maonyo {{count}}",
+        "fix": "Yameorodheshwa hapa chini na kwenye faili ya maelezo (manifest) ya kifurushi. Sehemu ya SMART data quirks ya msaada inaeleza kila aina."
+      },
+      "leg_span": {
+        "title_one": "Kituo {{count}} cha doria (leg) kinaanza kwenye tarehe bandia ya 1970 ya SMART au kinachukua zaidi ya mwaka (siku {{days}} za vituo jinsi zilivyohifadhiwa)",
+        "title_other": "Vituo {{count}} vya doria (legs) vinaanza kwenye tarehe bandia ya 1970 ya SMART au vinachukua zaidi ya mwaka (siku {{days}} za vituo jinsi zilivyohifadhiwa)",
+        "fix": "Hakuna la kufanya. Uingizaji unabakiza tu siku za vituo zenye alama au kielekezi (waypoint). Ili kusahihisha tarehe, rekebisha kituo cha doria kwenye SMART kisha hamisha tena kutoka SMART (export)."
+      },
+      "inactive_members": {
+        "retired": {
+          "title_one": "Mwanachama {{count}} wa doria ni mhusika asiye amilifu",
+          "title_other": "Wanachama {{count}} wa doria ni wahusika wasio amilifu",
+          "fix": "Hakuna la kufanya. EarthRanger inakubali wanachama amilifu tu kwenye kipande, kwa hiyo uingizaji unawafanya wahusika hawa kuwa amilifu kwa muda wa utekelezaji, kisha unawafanya wasiwe amilifu tena unapomalizika."
+        },
+        "stranded": {
+          "title_one": "Mwanachama {{count}} wa doria asiye amilifu hayumo kwenye kundi lolote la wanachama",
+          "title_other": "Wanachama {{count}} wa doria wasio amilifu hawamo kwenye kundi lolote la wanachama",
+          "fix": "Kuwafanya amilifu bado kungewaacha nje ya orodha ya askari. Waongeze kwenye kundi lililoorodheshwa chini ya Patrol configuration › members, kwenye Django admin › Subject groups. Kisha bonyeza Endelea."
+        }
+      },
+      "event_types": {
+        "unmatched": {
+          "title_one": "Kategoria {{count}} ya SMART yenye vielelezo haina aina ya tukio iliyo amilifu kwenye tovuti",
+          "title_other": "Kategoria {{count}} za SMART zenye vielelezo hazina aina ya tukio iliyo amilifu kwenye tovuti",
+          "fix": "Moduli data haijatumwa chini ya kategoria ya matukio ambayo uingizaji huu unaitumia. Kama utumaji wa awali ulitumia kitambulisho tofauti, panga uingizaji tena kwa kategoria hiyo ya matukio."
+        },
+        "ambiguous": {
+          "title_one": "Kategoria {{count}} inalingana na aina zaidi ya moja ya tukio",
+          "title_other": "Kategoria {{count}} zinalingana na aina zaidi ya moja ya tukio",
+          "fix": "Tovuti ina utumaji kadhaa wa moduli data wenye majina yaleyale ya aina. Panga uingizaji tena kwa kategoria ya matukio ya utumaji unaotaka kuutumia."
+        },
+        "inactive": {
+          "title_one": "Kategoria {{count}} yenye vielelezo inaelekea kwenye aina ya tukio isiyo amilifu",
+          "title_other": "Kategoria {{count}} zenye vielelezo zinaelekea kwenye aina ya tukio isiyo amilifu",
+          "fix": "Hili halisimamishi uingizaji. Matukio yake yanaingizwa kwa kutumia aina isiyo amilifu, ambayo EarthRanger haiitoi kwa ripoti mpya. Ifanye aina hiyo kuwa amilifu kwenye EarthRanger admin › Event types kama askari wanapaswa kuendelea kuitumia."
+        },
+        "variants": {
+          "title_one": "Kategoria {{count}} yenye vielelezo ipo tu kama vibadala (variants) vya moduli inayosanidika",
+          "title_other": "Kategoria {{count}} zenye vielelezo zipo tu kama vibadala (variants) vya moduli inayosanidika",
+          "fix": "Uingizaji bado hauwezi kujua kielelezo ni cha kibadala kipi, kwa hiyo doria hizi bado haziwezi kuingizwa."
+        }
+      }
+    },
+    "import": {
+      "patrols_failed": {
+        "title_one": "Doria {{count}} ilishindwa kuingizwa",
+        "title_other": "Doria {{count}} zilishindwa kuingizwa",
+        "fix": "Soma kila hitilafu hapa chini. Kama inataja timu, mhusika au aina ya tukio inayokosekana, rekebisha hilo kwenye tovuti, kisha bonyeza Endelea. Ni doria hizi tu zinazojaribiwa tena."
+      }
+    },
+    "datamodel": {
+      "site_token_rejected": {
+        "title": "Tokeni ya tovuti haifanyi kazi tena",
+        "fix": "Hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya."
+      }
+    }
   },
   "progress": {
     "title": "Maendeleo",

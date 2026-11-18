@@ -680,3 +680,11 @@ def test_the_switcher_takes_none_of_the_page_navigations_rules():
     css = (ROOT / "web" / "site" / "site.css").read_text()
     rule = re.search(r"header \.langs\s*\{([^}]*)\}", css).group(1)
     assert "align-self: center" in rule and "border: 0" in rule and "position: static" in rule
+
+
+def test_the_translated_stops_page_names_the_event_type_findings_as_the_app_does(site, tmp_path):
+    out = tmp_path / "o"; site.build(out)
+    for code in ("fr", "es", "pt", "sw"):
+        h = html.unescape((out / code / "stops.html").read_text(encoding="utf-8"))
+        for english in ("No active event type", "Match more than one event type", "Map to an inactive event type", "Exist only as configurable model variants"):
+            assert english not in h, (code, english)

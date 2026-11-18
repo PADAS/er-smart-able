@@ -81,3 +81,43 @@ test('the load page takes its rangers key from rangersKey', () => {
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
   assert.match(src, /const key = rangersKey\(l\);/);
 });
+
+// ---- part 3: findings in the reader's language
+const TEAM = { stage: 'patrol_datamodel', code: 'team', severity: 'blocking', title: 'Create the patrol team Alpha <Team>', detail: '',
+  fix: 'Django admin > Patrol configuration > Teams > add a team with display `Alpha <Team>`.\nMembers (from SMART): A B, C D.\nReferenced by 12 patrols in the bundle.',
+  key: 'checklist.team', params: { name: 'Alpha <Team>' }, values: [{ label: 'Team name', value: 'Alpha <Team>', label_key: 'team_name' }], affected: { count: 0, patrols: [] } };
+const XX = { findingText: { checklist: { team: { title: 'ÉQUIPE {{name}}', fix: 'CRÉEZ-LA' } }, preflight: { patrol_types: { title_one: '{{count}} TYPE', title_other: '{{count}} TYPES', fix: 'CONTINUEZ' } } },
+  findings: { original: 'ORIGINAL', createdByRun: 'SERA CRÉÉ : {{title}}', valueLabel: { team_name: 'NOM' } } };
+
+test('a finding is shown in the reader\'s language, with the stored text under it', () => {
+  const h = load({ lang: 'xx', messages: XX }).renderFindings([TEAM], 'needs_attention');
+  assert.match(h, /<b>ÉQUIPE Alpha &lt;Team&gt;<\/b>/); assert.match(h, /CRÉEZ-LA/); assert.match(h, /<span class="tiny">NOM<\/span>/);
+  const orig = h.slice(h.indexOf('<details class="original" lang="en">'));
+  assert.match(orig, /<summary>ORIGINAL<\/summary>/); assert.match(orig, /Create the patrol team Alpha &lt;Team&gt;/);
+  assert.match(orig, /Members \(from SMART\): A B, C D\./); assert.match(orig, /Referenced by 12 patrols/);
+});
+test('an English reader sees the stored text, as before, and no second copy', () => {
+  const h = load().renderFindings([TEAM], 'needs_attention');
+  assert.match(h, /<b>Create the patrol team Alpha &lt;Team&gt;<\/b>/); assert.match(h, /Members \(from SMART\)/);
+  assert.doesNotMatch(h, /class="original"/); assert.match(h, /<span class="tiny">Team name<\/span>/);
+});
+test('a finding with no key, no message, or a missing value is shown as stored, whole', () => {
+  const P = load({ lang: 'xx', messages: XX });
+  for (const f of [{ ...TEAM, key: undefined }, { ...TEAM, key: 'checklist.unheard_of' }, { ...TEAM, params: {} }, { ...TEAM, key: null, params: undefined }]) {
+    const h = P.renderFindings([f], 'needs_attention');
+    assert.match(h, /<b>Create the patrol team Alpha &lt;Team&gt;<\/b>/); assert.doesNotMatch(h, /ÉQUIPE|\{\{|class="original"/);
+  }
+});
+test('a counted title follows the language\'s plural, and a plan marks what the run creates', () => {
+  const P = load({ lang: 'xx', messages: XX });
+  const f = n => ({ stage: 'preflight', code: 'patrol_types', severity: 'blocking', title: n + ' patrol type(s) the legs need are missing or inactive', fix: 'Run patrol-datamodel', key: 'preflight.patrol_types', params: { count: n }, values: [] });
+  assert.equal(P.findingText(f(1)).title, '1 TYPE'); assert.equal(P.findingText(f(3)).title, '3 TYPES'); assert.equal(P.findingText(f(3)).fix, 'CONTINUEZ');
+  const made = { ...f(2), severity: 'info', created_by_run: true, title: 'Will be created by this load: 2 patrol type(s) the legs need are missing or inactive' };
+  assert.equal(P.findingText(made).title, 'SERA CRÉÉ : 2 TYPES');
+  assert.equal(load().findingText(made).title, made.title);
+});
+
+test('the translated path is the one taken for a named finding in another language', () => {
+  const h = load({ lang: 'fr', messages: {} }).renderFindings([TEAM], 'needs_attention');   // the real French messages are not loaded here: English is the fallback text
+  assert.match(h, /class="original"/, 'a named finding with its message and values is shown from the message file');
+});

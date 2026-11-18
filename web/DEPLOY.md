@@ -263,10 +263,21 @@ under the header; setting it to `true` removes the note.
   shown as the server worded it, in English.
 - **The help drawer** asks `/api/help?lang=`, which serves the translated
   pages of `web/help/<code>/`, or the English page where there is none.
+- **A load's findings** are stored in English, most of them worded by
+  `er-smart-sync`. `web/findings.py` also stores which message each one is
+  (`key`) and the names and counts in its sentence (`params`); the browser
+  shows `findingText.<key>` in the reader's language, with the stored
+  English under it ("Original text"). A finding it does not recognise has
+  no key and is shown in English. To add one: its key in `web/findings.py`
+  (`FINDING_KEYS` and the rule that assigns it), the English title and fix
+  under `findingText`, then every language; the tests name what is missing.
+  In English the page shows the stored text, unchanged.
 
 What stays in English on purpose: the dataset browser, the live log, the
-quirks reference (it is marked `lang="en"` in the help), a finding's own
-title, detail and fix (to be translated in a later part), text a job stored
+quirks reference (it is marked `lang="en"` in the help), a finding's detail
+lines and copyable values and the findings listed in
+`docs/translation-glossary.md` ("Findings that still show in English"), text a
+job stored
 on a dataset or load (its `error`, the log tail), the EarthRanger admin menu
 names, and the column headers of the CSV downloads.
 

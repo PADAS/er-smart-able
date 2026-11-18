@@ -243,7 +243,177 @@
     "fix": "Correction :",
     "howToFix": "Comment corriger",
     "copy": "Copier dans le presse-papiers",
-    "copyPrompt": "Copiez cette valeur :"
+    "copyPrompt": "Copiez cette valeur :",
+    "original": "Texte d'origine (anglais)",
+    "createdByRun": "Sera créé par ce chargement : {{title}}",
+    "valueLabel": {
+      "team_name": "Nom de l'équipe",
+      "subject_group": "Groupe de sujets",
+      "station_name": "Nom de la station",
+      "feature": "Fonctionnalité",
+      "permission": "Autorisation"
+    }
+  },
+  "findingText": {
+    "checklist": {
+      "team": {
+        "title": "Créer l'équipe de patrouille {{name}}",
+        "fix": "Dans l'administration Django, ouvrez Patrol configuration › Teams et ajoutez une équipe dont le champ display est exactement ce nom. Créez toutes les équipes listées, puis appuyez sur Continuer."
+      },
+      "roster_group": {
+        "title": "Mettre les écogardes dans le groupe de sujets de la liste des écogardes",
+        "fix": "Aucun groupe des écogardes n'a été indiqué pour ce chargement, ou celui qui a été indiqué est introuvable ; les sujets écogardes ne sont donc dans aucun groupe où les écogardes sont choisis. Refaites le plan du chargement en indiquant un groupe des écogardes, ou, dans l'administration Django, ouvrez Patrol configuration › member subject groups, choisissez ou créez le groupe et ajoutez-y les sujets."
+      },
+      "permission_subject_group": {
+        "title": "Ajouter les sujets au groupe de sujets {{group}}",
+        "fix": "L'utilisateur du site ne peut pas modifier l'appartenance aux groupes de sujets. Accordez-lui cette autorisation et appuyez sur Continuer, ou ajoutez vous-même les sujets au groupe dans Django admin › Subject groups."
+      },
+      "enable_patrol_schemas": {
+        "title": "Activer la fonctionnalité patrol_schemas sur ce site",
+        "fix": "Dans l'administration Django, ouvrez Preview features › patrol_schemas et activez-la pour ce locataire (tenant). Adressez-vous à EarthRanger Core si la page n'est pas disponible. Appuyez ensuite sur Continuer."
+      },
+      "permission_patrol_types": {
+        "title": "Accorder l'autorisation : types de patrouille",
+        "fix": "L'utilisateur du site ne peut pas créer ni modifier les types de patrouille. Dans l'administration Django, ouvrez Users › l'utilisateur et ajoutez l'autorisation indiquée. Appuyez ensuite sur Continuer."
+      },
+      "permission_segment_schema": {
+        "title": "Accorder l'autorisation : champs de patrouille universels",
+        "fix": "L'utilisateur du site ne peut pas écrire les champs de patrouille universels. Ajoutez l'autorisation indiquée ; aujourd'hui, cela exige un superutilisateur. Appuyez ensuite sur Continuer."
+      },
+      "permission_subjects": {
+        "title": "Accorder l'autorisation : sujets",
+        "fix": "L'utilisateur du site ne peut pas voir, ajouter ni modifier les sujets. Dans l'administration Django, ouvrez Users › l'utilisateur et ajoutez l'autorisation indiquée. Appuyez ensuite sur Continuer."
+      },
+      "permission_patrol_config": {
+        "title": "Accorder l'autorisation : configuration des patrouilles",
+        "fix": "L'utilisateur du site ne peut pas lire la configuration des patrouilles. Dans l'administration Django, ouvrez Users › l'utilisateur et ajoutez l'autorisation indiquée. Appuyez ensuite sur Continuer."
+      },
+      "patrol_type_icons": {
+        "title": "Choisir une icône pour chaque type de patrouille",
+        "fix": "Cela n'arrête pas le chargement. L'API ne peut pas définir les icônes ; choisissez-en une pour chaque nouveau type de patrouille dans EarthRanger admin › Patrol types."
+      },
+      "station_names": {
+        "title": "Nommer les stations que SMART a laissées sans nom",
+        "fix": "Cela n'arrête pas le chargement. Ces stations n'ont pas de nom dans SMART ; elles ont donc été créées avec un nom provisoire. Nommez-les dans SMART et refaites l'export, ou renommez le choix dans Django admin › Choices."
+      }
+    },
+    "preflight": {
+      "timezone": {
+        "title": "Le fuseau horaire {{zone}} a été déduit",
+        "fix": "SMART n'a pas enregistré le fuseau horaire de la zone de conservation ; l'extraction l'a donc déduit de l'emplacement des waypoints. S'il est faux, définissez SMART_ABLE_TIMEZONE pour l'extraction et extrayez de nouveau le jeu de données."
+      },
+      "language": {
+        "title_one": "{{count}} élément du modèle de données n'a pas de libellé dans la langue choisie",
+        "title_other": "{{count}} éléments du modèle de données n'ont pas de libellé dans la langue choisie",
+        "fix": "Ils se rabattent sur la langue par défaut du paquet. Si les libellés comptent, refaites le plan du chargement avec la langue la mieux couverte ; l'onglet Data Model du jeu de données montre la couverture de chaque langue."
+      },
+      "time_coverage": {
+        "title_one": "{{count}} jour d'étape de patrouille n'a aucune information d'heure",
+        "title_other": "{{count}} jours d'étape de patrouille n'ont aucune information d'heure",
+        "fix": "Rien à faire. Leurs segments couvrent toute la journée."
+      },
+      "feature_flag": {
+        "title": "La fonctionnalité patrol_schemas est désactivée sur ce site",
+        "fix": "Dans l'administration Django, ouvrez Preview features › patrol_schemas et activez-la pour ce locataire (tenant). Appuyez ensuite sur Continuer."
+      },
+      "permissions": {
+        "title_one": "Il manque à l'utilisateur du site {{count}} autorisation nécessaire à l'import",
+        "title_other": "Il manque à l'utilisateur du site {{count}} autorisations nécessaires à l'import",
+        "fix": "Accordez chaque autorisation listée, dans Django admin › Users › l'utilisateur. Créer des événements dans une catégorie exige l'autorisation de création de cette catégorie, en général accordée par un jeu d'autorisations. Appuyez ensuite sur Continuer."
+      },
+      "patrol_types": {
+        "title_one": "{{count}} type de patrouille manque ou est inactif",
+        "title_other": "{{count}} types de patrouille manquent ou sont inactifs",
+        "fix": "Activez le type dans EarthRanger admin › Patrol types, ou appuyez sur Continuer pour laisser le chargement le recréer."
+      },
+      "segment_schema": {
+        "title_one": "{{count}} champ de patrouille universel manque ou est obsolète",
+        "title_other": "{{count}} champs de patrouille universels manquent ou sont obsolètes",
+        "fix": "Si un administrateur a volontairement rendu un champ obsolète, rétablissez-le dans le générateur de formulaires de patrouille. Sinon, appuyez sur Continuer ; le chargement écrit ces champs."
+      },
+      "choices": {
+        "title_one": "{{count}} option utilisée par les patrouilles manque ou est inactive",
+        "title_other": "{{count}} options utilisées par les patrouilles manquent ou sont inactives",
+        "fix": "Cela n'arrête pas le chargement. Le chargement crée les options manquantes ; une option qu'un administrateur a désactivée peut être réactivée dans Django admin › Choices."
+      },
+      "subjects": {
+        "title_one": "{{count}} membre de patrouille ne peut pas être placé sur un segment",
+        "title_other": "{{count}} membres de patrouille ne peuvent pas être placés sur un segment",
+        "fix": "Leurs sujets écogardes n'existent pas, ou ne sont dans aucun groupe listé sous Patrol configuration › members. Le chargement les crée et, si un groupe des écogardes est indiqué, les y ajoute. Sinon, ajoutez-les à un tel groupe dans Django admin › Subject groups."
+      },
+      "teams": {
+        "title_one": "{{count}} équipe de patrouille manque ou est inactive",
+        "title_other": "{{count}} équipes de patrouille manquent ou sont inactives",
+        "fix": "Dans l'administration Django, ouvrez Patrol configuration › Teams et ajoutez ou activez une équipe dont le champ display est exactement chaque nom affiché. Appuyez ensuite sur Continuer."
+      },
+      "collection_type": {
+        "title_one": "{{count}} waypoint contient plusieurs observations, et le site n'a pas de type d'événement de regroupement",
+        "title_other": "{{count}} waypoints contiennent plusieurs observations, et le site n'a pas de type d'événement de regroupement",
+        "fix": "Cela n'arrête pas le chargement ; leurs événements sont importés sans regroupement. Pour les regrouper, ajoutez ou activez le type d'événement incident_collection dans EarthRanger admin › Event types."
+      },
+      "observers": {
+        "title_one": "{{count}} observation n'a personne que l'on puisse nommer comme rapporteur",
+        "title_other": "{{count}} observations n'ont personne que l'on puisse nommer comme rapporteur",
+        "fix": "Rien à faire, sauf si cela compte : leurs événements ne portent pas de rapporteur. Pour changer cela, donnez à l'observateur une fiche d'employé dans SMART et refaites l'export."
+      },
+      "bundle_warnings": {
+        "title_one": "L'extraction a consigné {{count}} avertissement",
+        "title_other": "L'extraction a consigné {{count}} avertissements",
+        "fix": "Ils sont listés ci-dessous et dans le manifeste du paquet. La section SMART data quirks de l'aide explique chaque type."
+      },
+      "leg_span": {
+        "title_one": "{{count}} étape de patrouille commence à la date provisoire de 1970 de SMART ou couvre plus d'un an ({{days}} jours d'étape tels qu'enregistrés)",
+        "title_other": "{{count}} étapes de patrouille commencent à la date provisoire de 1970 de SMART ou couvrent plus d'un an ({{days}} jours d'étape tels qu'enregistrés)",
+        "fix": "Rien à faire. Le chargement ne garde que les jours d'étape qui ont un tracé ou un waypoint. Pour corriger les dates, corrigez l'étape dans SMART et refaites l'export."
+      },
+      "inactive_members": {
+        "retired": {
+          "title_one": "{{count}} membre de patrouille est un sujet inactif",
+          "title_other": "{{count}} membres de patrouille sont des sujets inactifs",
+          "fix": "Rien à faire. EarthRanger n'accepte que des membres actifs sur un segment ; le chargement active donc ces sujets pour l'exécution et les désactive de nouveau quand elle se termine."
+        },
+        "stranded": {
+          "title_one": "{{count}} membre de patrouille inactif n'est dans aucun groupe de membres",
+          "title_other": "{{count}} membres de patrouille inactifs ne sont dans aucun groupe de membres",
+          "fix": "Les activer les laisserait tout de même hors de la liste des écogardes. Ajoutez-les à un groupe listé sous Patrol configuration › members, dans Django admin › Subject groups. Appuyez ensuite sur Continuer."
+        }
+      },
+      "event_types": {
+        "unmatched": {
+          "title_one": "{{count}} catégorie SMART observée n'a aucun type d'événement actif sur le site",
+          "title_other": "{{count}} catégories SMART observées n'ont aucun type d'événement actif sur le site",
+          "fix": "Le modèle de données n'a pas été envoyé sous la catégorie d'événements que ce chargement utilise. Si un envoi antérieur a utilisé un autre identifiant, refaites le plan du chargement avec cette catégorie d'événements."
+        },
+        "ambiguous": {
+          "title_one": "{{count}} catégorie correspond à plusieurs types d'événement",
+          "title_other": "{{count}} catégories correspondent à plusieurs types d'événement",
+          "fix": "Le site a plusieurs envois de modèle de données avec les mêmes noms de type. Refaites le plan du chargement avec la catégorie d'événements de l'envoi sur lequel importer."
+        },
+        "inactive": {
+          "title_one": "{{count}} catégorie observée correspond à un type d'événement inactif",
+          "title_other": "{{count}} catégories observées correspondent à un type d'événement inactif",
+          "fix": "Cela n'arrête pas le chargement. Leurs événements sont importés sur le type inactif, qu'EarthRanger ne propose pas pour de nouveaux rapports. Activez le type dans EarthRanger admin › Event types si les écogardes doivent continuer à l'utiliser."
+        },
+        "variants": {
+          "title_one": "{{count}} catégorie observée n'existe que comme variantes du modèle configurable",
+          "title_other": "{{count}} catégories observées n'existent que comme variantes du modèle configurable",
+          "fix": "L'import ne sait pas encore à quelle variante appartient une observation ; ces patrouilles ne peuvent donc pas encore être importées."
+        }
+      }
+    },
+    "import": {
+      "patrols_failed": {
+        "title_one": "{{count}} patrouille n'a pas pu être importée",
+        "title_other": "{{count}} patrouilles n'ont pas pu être importées",
+        "fix": "Lisez chaque erreur ci-dessous. Si elle nomme une équipe, un sujet ou un type d'événement manquant, corrigez cela sur le site, puis appuyez sur Continuer. Seules ces patrouilles sont réessayées."
+      }
+    },
+    "datamodel": {
+      "site_token_rejected": {
+        "title": "Le jeton du site ne fonctionne plus",
+        "fix": "Rien n'a été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement."
+      }
+    }
   },
   "progress": {
     "title": "Progression",

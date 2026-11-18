@@ -54,6 +54,14 @@ const FINDINGS = [
   { stage: 'zzmystery_stage', code: 'odd', severity: 'zzcurious', title: 'Something unusual', affected: {} },
   { stage: 'import', code: 'note', severity: 'info', title: 'For your information' },
 ];
+// findings the server named (key, params): shown from the message file, with the stored English under them
+const KEYED = [
+  { stage: 'patrol_datamodel', code: 'team', severity: 'blocking', title: 'Create a patrol team', fix: 'Add it by hand', key: 'checklist.team', params: { name: 'Zzteam Seven' },
+    values: [{ label: 'Team id', value: 'team-77', label_key: 'team_name' }], affected: { count: 2 } },
+  { stage: 'preflight', code: 'patrol_types', severity: 'info', title: 'Pick some icons', fix: 'Add it by hand', key: 'preflight.patrol_types', params: { count: 3 }, created_by_run: true, values: [] },
+  { stage: 'preflight', code: 'leg_span', severity: 'warning', title: 'Something unusual', fix: 'Add it by hand', key: 'preflight.leg_span', params: { count: 1, days: 41 }, values: [] },
+  { stage: 'preflight', code: 'teams', severity: 'blocking', title: 'For your information', fix: 'Add it by hand', key: 'preflight.zzunheard', params: {}, values: [] },
+];
 const SITE = { name: 'Site One', url: 'one.example.org' };
 const LOAD = { id: 'ld1', ca_id: '050500', status: 'planned', held: false, site: SITE, options: { language: 'xx-lang', event_category: 'cat050500', scope: 'all', since: '2024-01-01', until: '2024-06-30', configurable_model: 'cm-uuid' },
   owner_email: 'ops@example.org', created_at: '2026-11-13T10:00:00+00:00', mode: 'plan', stages: {}, findings: [], plan: null, rangers: [], progress: null };
@@ -110,7 +118,7 @@ const CALLS = {
   renderRangersTab: [[{ ...LOAD, rangers: RANGERS }], [{ ...LOAD, site: null, rangers: RANGERS }], [null], [{ ...LOAD, rangers: [] }]],
   renderDatasetPage: [[ownDs, 'overview'], [ownDs, 'loads', { loads: LOADS }], [DATASETS[1], 'rangers', { load: { ...LOAD, rangers: RANGERS } }], [DATASETS[0], 'overview']],
   renderLoadTitle: LOADS.map(l => [l]).concat([[{ ...LOADS[0], findings: FINDINGS.slice(0, 2) }], [{ ...LOADS[0], held: true }], [{ ...LOADS[0], status: 'planned', findings: [] }]]),
-  renderFindings: [[FINDINGS, 'planned'], [[], 'done'], [[], 'running'], [undefined, 'planned']],
+  renderFindings: [[FINDINGS, 'planned'], [KEYED, 'needs_attention'], [[], 'done'], [[], 'running'], [undefined, 'planned']],
   renderProgress: LOADS.flatMap(l => [[l, true], [l, false]]),
   renderLoadPage: LOADS.flatMap(l => [[l, true], [l, false]]),
   renderStages: LOADS.flatMap(l => [[l, true], [l, false]]),

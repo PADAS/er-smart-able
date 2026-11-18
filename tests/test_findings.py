@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -23,7 +24,8 @@ def test_checklist_items_become_findings_with_their_severity(findings):
         {"code": "patrol_type_icons", "title": "Pick icons", "steps": ["Admin > Patrol types."]}])
     assert out[0] == {"stage": "patrol_datamodel", "code": "team", "severity": "blocking",
                       "title": "Create the patrol team Alpha", "detail": "",
-                      "fix": "Django admin > Teams.\nRe-run.", "affected": {"count": 0, "patrols": []}, "values": []}
+                      "fix": "Django admin > Teams.\nRe-run.", "affected": {"count": 0, "patrols": []}, "values": [],
+                      "key": "checklist.team", "params": {"name": "Alpha"}}
     assert out[1]["severity"] == "warning"
     assert findings.has_blocking(out) and not findings.has_blocking(out[1:])
 
@@ -150,14 +152,14 @@ def test_checklist_findings_carry_the_exact_values_to_type(findings):
          "steps": ["The operator cannot change subject-group membership; an admin adds the subjects in Django admin > Subject groups."]},
         {"code": "team", "title": "Create the patrol team K9--Unit <North>",
          "steps": ["Django admin > Patrol configuration > Teams > add a team with display `K9--Unit <North>`."]}])
-    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}]
+    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461", "label_key": "team_name"}]
     assert out[1]["values"] == []   # `Rangers` there is an example, not the name to use
-    assert out[2]["values"] == [{"label": "Permission", "value": "observations | subject | Can view/add/change subject"}]
-    assert out[3]["values"] == [{"label": "Station name", "value": "Unnamed station 0a1b2c3d"},
-                                {"label": "Station name", "value": "Unnamed station 4e5f6a7b"}]
+    assert out[2]["values"] == [{"label": "Permission", "value": "observations | subject | Can view/add/change subject", "label_key": "permission"}]
+    assert out[3]["values"] == [{"label": "Station name", "value": "Unnamed station 0a1b2c3d", "label_key": "station_name"},
+                                {"label": "Station name", "value": "Unnamed station 4e5f6a7b", "label_key": "station_name"}]
     assert out[4]["values"] == []
-    assert out[5]["values"] == [{"label": "Subject group", "value": "Rangers"}]
-    assert out[6]["values"] == [{"label": "Team name", "value": "K9--Unit <North>"}]   # odd characters are still a name
+    assert out[5]["values"] == [{"label": "Subject group", "value": "Rangers", "label_key": "subject_group"}]
+    assert out[6]["values"] == [{"label": "Team name", "value": "K9--Unit <North>", "label_key": "team_name"}]   # odd characters are still a name
 
 
 def test_preflight_team_findings_name_each_team(findings):
@@ -166,5 +168,101 @@ def test_preflight_team_findings_name_each_team(findings):
          "examples": ["SMART team 7097b461 (missing, 52 patrols)", "Night shift (inactive, 3 patrols)"], "affected_patrols": []},
         {"code": "event_types", "level": "blocking", "message": "m", "fix": "f", "count": 1, "examples": ["x"], "affected_patrols": []}],
         "warnings": []})
-    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461"}, {"label": "Team name", "value": "Night shift"}]
+    assert out[0]["values"] == [{"label": "Team name", "value": "SMART team 7097b461", "label_key": "team_name"}, {"label": "Team name", "value": "Night shift", "label_key": "team_name"}]
     assert out[1]["values"] == []
+
+
+# ---- part 3: each finding names its message
+PRE = lambda code, level, message, **kw: {"code": code, "level": level, "message": message, "fix": "x", "count": kw.pop("count", 2),
+                                          "examples": kw.pop("examples", ["a", "b"]), "affected_patrols": [], **kw}
+
+
+def test_every_finding_names_its_message_and_the_values_it_uses(findings):
+    cl = findings.from_checklist([
+        {"code": "team", "title": "Create the patrol team Alpha Team", "steps": ["add a team with display `Alpha Team`."]},
+        {"code": "permission_subject_group", "title": "Add the subjects to the `Rangers` subject group", "steps": []},
+        {"code": "roster_group", "title": "Put the ranger subjects in the patrol roster subject group", "steps": []}])
+    assert [(f["key"], f["params"]) for f in cl] == [("checklist.team", {"name": "Alpha Team"}),
+        ("checklist.permission_subject_group", {"group": "Rangers"}), ("checklist.roster_group", {})]
+    assert cl[0]["values"] == [{"label": "Team name", "value": "Alpha Team", "label_key": "team_name"}]
+    assert cl[0]["title"] == "Create the patrol team Alpha Team", "the stored English is untouched"
+    pre = findings.from_preflight({"blocking": [PRE("patrol_types", "blocking", "2 patrol type(s) the legs need are missing or inactive")],
+                                   "warnings": [PRE("leg_span", "warning", "3 leg(s) start on SMART's 1970-01-01 placeholder or span more than a year (41 leg days as stored)", count=3)]})
+    assert (pre[0]["key"], pre[0]["params"]) == ("preflight.patrol_types", {"count": 2})
+    assert (pre[1]["key"], pre[1]["params"]) == ("preflight.leg_span", {"count": 3, "days": 41})
+    assert findings.from_failed_patrols({"u1": "boom"}, {})[0]["key"] == "import.patrols_failed"
+    assert findings.from_failed_patrols({"u1": "boom"}, {})[0]["params"] == {"count": 1}
+    assert findings.token_rejected("401")["key"] == "datamodel.site_token_rejected"
+
+
+@pytest.mark.parametrize("level, message, key", [
+    ("blocking", "4 observed SMART categor(ies) have no active event type on the site", "preflight.event_types.unmatched"),
+    ("blocking", "1 categor(ies) match more than one event type (several data model pushes on this site)", "preflight.event_types.ambiguous"),
+    ("warning", "2 observed categor(ies) map to an inactive event type (a SMART parent or retired category)", "preflight.event_types.inactive"),
+    ("blocking", "3 observed categor(ies) exist only as configurable model variants (one event type per form)", "preflight.event_types.variants"),
+])
+def test_the_four_event_type_findings_are_told_apart(findings, level, message, key):
+    assert findings.from_preflight({"blocking": [PRE("event_types", level, message)]})[0]["key"] == key
+
+
+def test_retired_and_stranded_members_are_told_apart(findings):
+    f = findings.from_preflight({"warnings": [PRE("inactive_members", "warning", "2 patrol member(s) are retired (inactive subjects)")],
+                                 "blocking": [PRE("inactive_members", "blocking", "1 retired member(s) are in no configured member group, so reactivating them would still leave them off the roster", count=1)]})
+    assert {x["key"] for x in f} == {"preflight.inactive_members.retired", "preflight.inactive_members.stranded"}
+
+
+def test_a_finding_the_rules_do_not_recognise_has_no_key(findings):
+    f = findings.from_preflight({"blocking": [PRE("brand_new_code", "blocking", "something new"),
+                                              PRE("event_types", "blocking", "reworded beyond recognition"),
+                                              PRE("leg_span", "warning", "reworded, with no day count"),
+                                              PRE("check_failed", "blocking", "check_teams could not run: KeyError: 'x'")]})
+    assert [x["key"] for x in f] == [None, None, None, None] and all(x["params"] == {} for x in f)
+    cl = findings.from_checklist([{"code": "team", "title": "A reworded team title", "steps": []}, {"code": "unheard_of", "title": "x", "steps": []}])
+    assert [x["key"] for x in cl] == [None, None]
+
+
+def test_every_key_the_module_can_emit_is_listed(findings):
+    assert {"checklist.team", "preflight.event_types.unmatched", "preflight.inactive_members.stranded", "import.patrols_failed",
+            "datamodel.site_token_rejected"} <= findings.FINDING_KEYS
+    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 32
+
+
+def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
+    pre = findings.from_preflight({"blocking": [PRE("patrol_types", "blocking", "2 patrol type(s) the legs need are missing or inactive"),
+                                                PRE("teams", "blocking", "1 patrol team(s) are missing or inactive", count=1)]})
+    out = findings.plan_mode_adjust(pre)
+    assert out[0]["created_by_run"] is True and out[0]["severity"] == "info" and out[0]["key"] == "preflight.patrol_types"
+    assert "created_by_run" not in out[1] and out[1]["severity"] == "blocking"
+
+
+def test_only_the_inferred_timezone_finding_is_named(findings):
+    f = findings.from_preflight({"warnings": [PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred from waypoint positions")],
+                                 "blocking": [PRE("timezone", "blocking", "timezone 'Asia/Tokyo' is configured but the bundle was written for 'Asia/Manila' (inferred)")]})
+    by = {x["severity"]: (x["key"], x["params"]) for x in f}
+    assert by == {"warning": ("preflight.timezone", {"zone": "Asia/Manila"}), "blocking": (None, {})}
+
+
+def test_every_key_has_an_english_title_and_fix_and_no_message_is_left_over(findings):
+    en = json.loads((ROOT / "web" / "static" / "locales" / "en.json").read_text())["findingText"]
+    have = set()
+    def walk(node, path):
+        if any(k in node for k in ("title", "title_one", "title_other", "fix")):
+            assert "fix" in node and ("title" in node or {"title_one", "title_other"} <= set(node)), path
+            have.add(path)
+        else:
+            for k, v in node.items():
+                walk(v, f"{path}.{k}" if path else k)
+    walk(en, "")
+    assert have == set(findings.FINDING_KEYS)
+
+
+def test_every_key_a_rule_assigns_is_one_the_module_lists(findings):
+    cl = findings.from_checklist([{"code": c, "title": {"team": "Create the patrol team A", "permission_subject_group": "Add the subjects to the `A`b` subject group"}.get(c, "x"), "steps": []}
+                                  for c in ("team", "permission_subject_group", *findings._CHECKLIST_PLAIN)])
+    pre = findings.from_preflight({"blocking": [PRE(c, "blocking", "x") for c in findings._PREFLIGHT_COUNTED]
+                                   + [PRE("event_types", "blocking", phrase) for phrase, _ in findings._EVENT_TYPE_VARIANTS]
+                                   + [PRE("inactive_members", "blocking", "x"), PRE("leg_span", "warning", "x (3 leg days as stored)")],
+                                   "warnings": [PRE("inactive_members", "warning", "x"), PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred")]})
+    keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"]]
+    assert None not in keys and set(keys) == set(findings.FINDING_KEYS)
+    assert cl[1]["params"] == {"group": "A`b"}, "the whole name between the outer backticks"
