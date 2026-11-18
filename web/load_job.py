@@ -549,7 +549,7 @@ class ErSmartSyncMigration:
         return patrol_import.select_patrols(self.bundle, patrol_import.ImportOptions(**self._window()))
 
     def _window_bundle(self):
-        """The bundle as the import will see it: only the window's patrols and their tracks.
+        """The bundle as the import will see it: only the window's patrols.
         Readiness is about what this load imports, so a patrol outside the window must not
         block it; the patrol setup still runs on the whole bundle (the full data model)."""
         w = self._window()

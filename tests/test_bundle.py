@@ -268,7 +268,8 @@ def test_tracks_are_one_per_line_grouped_by_patrol(tmp_path):
     raw = (tmp_path / "tracks.jsonl").read_bytes()
     assert raw.count(b"\n") == 6 and b": " not in raw and b", " not in raw   # one line each, nothing spent on spacing
     runs = _runs(tmp_path)
-    assert [(u, [t["uuid"] for t in lines]) for u, _, lines in runs] == [("p1", ["t1", "t3", "t4"]), ("p2", ["t9", "t5"]), ("p3", ["t0"])]
+    # by patrol, then leg day; a day's tracks stay in the order given (t3 before t1)
+    assert [(u, [t["uuid"] for t in lines]) for u, _, lines in runs] == [("p1", ["t3", "t1", "t4"]), ("p2", ["t9", "t5"]), ("p3", ["t0"])]
     assert [(e["tracks"], e["points"]) for _, e, _ in runs] == [(3, 9), (2, 5), (1, 0)]
     assert doc == json.loads((tmp_path / "tracks.index.json").read_text())
     assert sorted((t["uuid"] for _, _, lines in runs for t in lines)) == sorted(t["uuid"] for t in tracks)

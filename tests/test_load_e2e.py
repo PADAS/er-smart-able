@@ -232,12 +232,9 @@ def test_a_plan_never_reads_every_track(smart_parquet, tmp_path, monkeypatch, tr
 
 
 def test_a_windowed_plan_reads_no_track_of_a_patrol_outside_it(smart_parquet, tmp_path, monkeypatch, track_reads):
-    from tests.conftest import PATROL_1
-    from export.smartdb import hyphenate
-
     load = _plan(smart_parquet, tmp_path, monkeypatch, since="2019-04-01")   # only the second patrol, which has no track
     assert load["plan"]["patrols"]["total"] == 1 and load["plan"]["patrols"]["track_points"] == 0
-    assert ("all",) not in track_reads and ("patrol", hyphenate(PATROL_1)) not in track_reads
+    assert track_reads == []   # a plan counts from the index and reads no track at all
 
 
 def test_a_windowed_plan_counts_its_patrols_points_from_the_index(smart_parquet, tmp_path, monkeypatch, track_reads):
@@ -268,3 +265,56 @@ def test_a_dataset_extracted_before_version_2_still_plans_the_same(smart_parquet
     old = _plan(smart_parquet, tmp_path / "old", monkeypatch, prepare=_as_version_1, **options)
     assert old["plan"]["patrols"] == new["plan"]["patrols"]
     assert [(f["stage"], f["code"]) for f in old["findings"]] == [(f["stage"], f["code"]) for f in new["findings"]]
+
+
+# ---- the contract between this repository's exporter and er-smart-sync's reader: the bytes one
+# writes are the bytes the other reads. Each side's own tests write the tracks with its own code.
+def test_what_the_exporter_writes_is_what_er_smart_sync_reads(tmp_path):
+    from er_smart_sync.bundle import load_bundle
+    from export.bundle import validate_bundle_dir, write_tracks
+
+    import er_smart_sync
+    fixture = Path(er_smart_sync.__file__).parents[2] / "tests" / "fixtures" / "smart_demo_bundle"
+    if not fixture.is_dir():
+        pytest.skip("er-smart-sync is installed without its tests (not an editable checkout)")
+    import shutil
+    b = tmp_path / "bundle"
+    shutil.copytree(fixture, b)
+    tracks = json.loads((b / "tracks.json").read_text())["tracks"]
+    assert len({t["patrol_uuid"] for t in tracks}) > 1
+    tracks[0]["note"] = "é—ñ \u2028 line\nbreak 🐘"   # bytes are not characters, and a line holds no raw newline
+    (b / "tracks.json").unlink()
+    m = json.loads((b / "manifest.json").read_text())
+    m["bundle_schema_version"] = 2
+    (b / "manifest.json").write_text(json.dumps(m))
+    index = write_tracks(tracks, b)["patrols"]
+    assert validate_bundle_dir(b) == []
+    got = load_bundle(b)
+    key = lambda t: t["uuid"]   # noqa: E731
+    for u in {t["patrol_uuid"] for t in tracks}:
+        mine = [t for t in tracks if t["patrol_uuid"] == u]
+        assert sorted(got.tracks.for_patrol(u), key=key) == sorted(mine, key=key)
+        assert got.tracks.points(u) == index[u]["points"] == sum(len(p["coordinates"]) for t in mine for p in t["parts"])
+    assert len(got.tracks) == len(tracks) == m["counts"]["tracks"]
+    write_tracks([], b)
+    assert validate_bundle_dir(b) == [] and list(load_bundle(b).tracks) == []
+
+
+def test_an_exported_bundle_imports_its_tracks(smart_parquet, tmp_path):
+    """The exporter's bundle through er-smart-sync's by-day lookup, as an import builds it for a patrol."""
+    from er_smart_sync.bundle import load_bundle
+    from er_smart_sync.patrol_times import tracks_by_day
+    from export.bundle import build_tracks, write_bundle
+    from export.smartdb import SmartDb, hyphenate
+    from tests.conftest import CA_A, DAY_1, PATROL_1
+    from zoneinfo import ZoneInfo
+
+    db = SmartDb(smart_parquet)
+    out = tmp_path / "bundle"
+    write_bundle(db, db.cas()[0], out, "Asia/Manila", "configured", None, {"kind": "backup", "file": "x.zip"})
+    b = load_bundle(out)
+    assert b.manifest.bundle_schema_version == 2
+    by_day = tracks_by_day(b.tracks.for_patrol(hyphenate(PATROL_1)))
+    assert by_day == {hyphenate(DAY_1): build_tracks(db, CA_A, ZoneInfo("Asia/Manila"), [])["tracks"]}
+    other = next(p["uuid"] for p in b.patrols if p["uuid"] != hyphenate(PATROL_1))
+    assert b.tracks.for_patrol(other) == [] and b.tracks.points(hyphenate(PATROL_1)) == 2

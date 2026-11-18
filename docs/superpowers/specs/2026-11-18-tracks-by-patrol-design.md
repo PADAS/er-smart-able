@@ -49,8 +49,9 @@ the extraction job and the load job share an image.
 no indentation and no spaces after separators, ending in `\n`. A track has
 the fields it has today (`uuid`, `leg_day_uuid`, `leg_uuid`, `patrol_uuid`,
 `distance_km`, `start`, `end`, `parts`). The lines are ordered by
-`patrol_uuid`, then leg day, then track `uuid`, so one patrol's lines are
-one contiguous run of bytes.
+`patrol_uuid`, then leg day, and a leg day's tracks stay in the order the
+exporter built them, so one patrol's lines are one contiguous run of bytes
+and a day's tracks are in the order they always were.
 
 **`tracks.index.json`**:
 
