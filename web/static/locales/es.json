@@ -293,7 +293,8 @@
     "note": "No se pudo actualizar; reintentando…"
   },
   "help": {
-    "noEntry": "Todavía no hay ayuda para el hallazgo «{{id}}». La guía es el texto de solución del propio hallazgo."
+    "noEntry": "Todavía no hay ayuda para el hallazgo «{{id}}». La guía es el texto de solución del propio hallazgo.",
+    "englishOnly": "Esta sección solo está disponible en inglés."
   },
   "upload": {
     "name": "Nombre",

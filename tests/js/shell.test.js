@@ -26,3 +26,12 @@ test('the allowed phrase reads naturally for one, several or no entries', () => 
 test('a status with no message is still shown in words', () => {
   assert.equal(load().pill('some_new_state'), '<span class="pill st-pending">some new state</span>');
 });
+
+test('a help section in another language than the reader\'s says it is only in English', () => {
+  const fr = load({ lang: 'fr', messages: { help: { englishOnly: 'ANGLAIS SEULEMENT' } } });
+  const q = fr.helpSection({ id: 'quirks', title: 'SMART data <quirks>', lang: 'en', html: '<p>body</p>' });
+  assert.match(q, /^<section id="help-quirks" lang="en"><h2>SMART data &lt;quirks&gt;<\/h2><p class="tiny muted" lang="fr">ANGLAIS SEULEMENT<\/p><p>body<\/p><\/section>$/);
+  const own = fr.helpSection({ id: 'sites', title: 'Sites', lang: 'fr', html: '<p>corps</p>' });
+  assert.equal(own, '<section id="help-sites"><h2>Sites</h2><p>corps</p></section>');
+  assert.doesNotMatch(load().helpSection({ id: 'quirks', title: 'Q', lang: 'en', html: '' }), /only|lang=/, 'an English reader sees no note');
+});

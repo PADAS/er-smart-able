@@ -293,7 +293,8 @@
     "note": "Could not refresh; retrying…"
   },
   "help": {
-    "noEntry": "No help entry yet for the finding \"{{id}}\". The finding's own fix text is the guidance."
+    "noEntry": "No help entry yet for the finding \"{{id}}\". The finding's own fix text is the guidance.",
+    "englishOnly": "This section is available in English only."
   },
   "upload": {
     "name": "Name",
