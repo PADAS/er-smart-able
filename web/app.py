@@ -47,7 +47,7 @@ from er_site import HostError, SiteUnreachable, TokenRejected, check_token, norm
 from errors import ApiError
 from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
-                   load_in_progress, now, upload_expires_at)
+                   load_in_progress, now, stored_name, upload_expires_at)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -169,8 +169,8 @@ async def create_dataset(req: DatasetCreate, user=Depends(current_user)):
     store = get_store()
     id = store.create({"name": name, "owner_uid": user["uid"], "owner_email": user["email"], "shared_with": [],
                        "status": "uploading", "created_at": now(), "updated_at": now(),
-                       "source_name": Path(req.filename).name, "source_size": req.size})
-    return {"id": id, "upload": store.upload_target(id, req.filename, req.content_type)}
+                       "source_name": stored_name(req.filename), "source_size": req.size})
+    return {"id": id, "upload": store.upload_target(id, stored_name(req.filename), req.content_type)}
 
 
 @app.put("/api/datasets/{id}/upload")
@@ -197,10 +197,11 @@ async def extract(id: str, user=Depends(current_user)):
     store = get_store()
     if any(load_working(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
         raise ApiError(409, "load_running", "Wait for the running load to stop first")
-    if not store.upload_exists(id, doc["source_name"]):
-        raise ApiError(400, "upload_incomplete", "The upload is missing or incomplete; delete this dataset and upload again")
-    if not store.claim_extract(id):
-        raise ApiError(409, "extract_active", "An extraction is already queued or running")
+    missing = ApiError(400, "upload_incomplete", "The upload is missing or incomplete; delete this dataset and upload again")
+    if doc.get("upload_deleted_at") or not store.upload_exists(id, doc["source_name"]):
+        raise missing
+    if not store.claim_extract(id):   # held by an extraction, or the backup's deletion was reserved meanwhile
+        raise missing if (store.get(id) or {}).get("upload_deleted_at") else ApiError(409, "extract_active", "An extraction is already queued or running")
     try:
         execution = store.start_extract(id)
     except Exception as e:  # noqa: BLE001  the job did not start: say so, and leave the dataset retryable
@@ -229,13 +230,13 @@ async def get_dataset(id: str, user=Depends(current_user)):
 def delete_upload(id: str, user=Depends(current_user)):   # a plain def: the storage call is off the event loop
     """The owner removes the uploaded backup ahead of its expiry. The extracted data, bundles and loads stay."""
     doc = _load(id, user, owner=True)
-    if extract_in_progress(doc):   # the extraction is reading it
-        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
     store = get_store()
+    # reserved first, atomically with claiming an extraction: an extraction cannot start between this
+    # check and the file going, and this cannot go ahead while one is reading the file
+    if not store.claim_upload_delete(id):
+        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
     if doc.get("source_name"):
         store.delete_upload(id, doc["source_name"])
-    if not doc.get("upload_deleted_at"):
-        store.update(id, upload_deleted_at=now())
     return {"ok": True}
 
 

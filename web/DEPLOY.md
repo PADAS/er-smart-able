@@ -332,7 +332,10 @@ which the deploy sets from the repository variable of the same name (30 if
 unset): if you change the rule's `upload_retention_days` in
 `web/infra/terraform.tfvars`, set the repository variable to the same number,
 or the page will show the wrong date. Locally there is no rule and the
-variable is unset, so the page says the backup is kept until deleted. The job does write Parquet, including the credential
+variable is unset, so the page says the backup is kept until deleted. The rule
+matches names ending in `.zip` or `.bak` by case, so a new upload is stored
+with its extension in lower case; an older upload stored as `.ZIP` is never
+deleted by the rule, and its page says so. The job does write Parquet, including the credential
 columns, but only to its temporary disk, which is discarded when it ends:
 only the browser's data and photos (`work/site/`) are uploaded. The site's JSON
 still holds ranger names and the photos are plaintext: treat the bucket as

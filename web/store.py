@@ -58,9 +58,21 @@ _days = os.environ.get("UPLOAD_RETENTION_DAYS", "30" if BACKEND == "gcp" else ""
 UPLOAD_RETENTION_DAYS = int(_days) if _days.strip() else None
 
 
+# The rule deletes only objects whose names end in these, and storage matches by case: a backup stored
+# as X.ZIP is never deleted by it. (web/infra/main.tf: matches_suffix; a test keeps the two the same.)
+EXPIRING_SUFFIXES = (".zip", ".bak")
+
+
+def stored_name(filename: str) -> str:
+    """The name an upload is stored under: its own, with the extension in lower case so the rule matches it."""
+    p = Path(filename)
+    return p.stem + p.suffix.lower()
+
+
 def upload_expires_at(doc: dict):
-    """When the storage rule deletes this dataset's uploaded backup: an ISO time, or None when nothing does."""
-    if UPLOAD_RETENTION_DAYS is None:
+    """When the storage rule deletes this dataset's uploaded backup: an ISO time, or None when nothing
+    does (no rule here, or a name the rule does not match)."""
+    if UPLOAD_RETENTION_DAYS is None or not str(doc.get("source_name") or "").endswith(EXPIRING_SUFFIXES):
         return None
     try:
         return (datetime.fromisoformat(doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
@@ -222,10 +234,23 @@ class LocalStore:
         with self.lock:
             data = self._read()
             doc = data.get(id)
-            if doc is None or extract_in_progress(doc):
+            if doc is None or extract_in_progress(doc) or doc.get("upload_deleted_at"):   # nothing to extract from
                 return False
             doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now(), **NEW_RUN)
             self._write(data)
+            return True
+
+    def claim_upload_delete(self, id: str) -> bool:
+        """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. Under the
+        lock claim_extract takes, and it refuses a dataset marked here: the two cannot both go ahead."""
+        with self.lock:
+            data = self._read()
+            doc = data.get(id)
+            if doc is None or extract_in_progress(doc):
+                return False
+            if not doc.get("upload_deleted_at"):
+                doc.update(upload_deleted_at=now(), updated_at=now())
+                self._write(data)
             return True
 
     # ---- sites
@@ -501,9 +526,27 @@ class GcpStore:
         @firestore.transactional
         def claim(tx) -> bool:
             snap = ref.get(transaction=tx)
+            if not snap.exists or extract_in_progress(snap.to_dict()) or snap.to_dict().get("upload_deleted_at"):
+                return False   # held, or nothing to extract from
+            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now(), **NEW_RUN})
+            return True
+
+        return claim(self.db.transaction())
+
+    def claim_upload_delete(self, id: str) -> bool:
+        """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. A
+        transaction on the document claim_extract reads, and it refuses a dataset marked here: the two
+        cannot both go ahead."""
+        from google.cloud import firestore
+        ref = self._col().document(id)
+
+        @firestore.transactional
+        def claim(tx) -> bool:
+            snap = ref.get(transaction=tx)
             if not snap.exists or extract_in_progress(snap.to_dict()):
                 return False
-            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now(), **NEW_RUN})
+            if not snap.to_dict().get("upload_deleted_at"):
+                tx.update(ref, {"upload_deleted_at": now(), "updated_at": now()})
             return True
 
         return claim(self.db.transaction())
