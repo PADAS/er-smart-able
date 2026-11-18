@@ -139,7 +139,7 @@ def test_a_finding_the_rules_do_not_recognise_has_no_key(findings):
 def test_every_key_the_module_can_emit_is_listed(findings):
     assert {"checklist.team", "preflight.event_types.unmatched", "preflight.inactive_members.stranded", "import.patrols_failed",
             "datamodel.site_token_rejected"} <= findings.FINDING_KEYS
-    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 31
+    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 32
 
 
 def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
@@ -150,7 +150,7 @@ def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
     assert "created_by_run" not in out[1] and out[1]["severity"] == "blocking"
 ```
 
-(31 = 10 checklist keys + 13 plain preflight + leg_span + 2 inactive_members + 4 event_types + 1 import. If the count differs when implemented, the table above is the authority: make the constant match the table and correct the number in the test.)
+(32 = 10 checklist keys + 13 plain preflight + leg_span + 2 inactive_members + 4 event_types + 1 import + 1 datamodel. If the count differs when implemented, the table above is the authority: make the constant match the table and correct the number in the test.)
 
 - [ ] **Step 2: Run; expect failure**
 - [ ] **Step 3: Implement.** One small table-driven function, `_key(source, f) -> (key, params)`, called by `from_checklist`, `from_preflight`, `from_failed_patrols` and `token_rejected`.
