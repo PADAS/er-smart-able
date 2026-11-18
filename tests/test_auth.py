@@ -44,3 +44,31 @@ def test_an_empty_list_allows_anyone(allow):
     auth = allow(" , ")
     assert auth.allowed_entries() == []
     assert auth.email_allowed("anyone@anywhere.org")
+
+
+@pytest.fixture
+def support(monkeypatch):
+    """Reload auth with a given SUPPORT_EMAILS (None: unset), and put it back afterwards."""
+    import auth
+
+    def go(value=None):
+        monkeypatch.delenv("SUPPORT_EMAILS", raising=False)
+        if value is not None:
+            monkeypatch.setenv("SUPPORT_EMAILS", value)
+        return importlib.reload(auth)
+
+    yield go
+    monkeypatch.undo()
+    importlib.reload(auth)
+
+
+def test_support_is_whole_addresses_only(support):
+    auth = support("Sup@EarthRanger.com,, @earthranger.com ; two@partner.org,")
+    assert auth.support_entries() == ["sup@earthranger.com", "two@partner.org"]
+    assert auth.is_support("SUP@earthranger.com") and auth.is_support("two@partner.org")
+    assert not auth.is_support("other@earthranger.com") and not auth.is_support("") and not auth.is_support(None)
+
+
+def test_nobody_is_support_when_unset(support):
+    auth = support()
+    assert auth.support_entries() == [] and not auth.is_support("dev@earthranger.com")
