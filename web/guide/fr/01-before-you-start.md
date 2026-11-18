@@ -36,7 +36,7 @@ L'application se trouve à l'adresse [https://smart-able-977100970772.us-central
 
 Connectez-vous avec votre compte Google EarthRanger. Si vous voyez « Cette adresse e-mail n'est pas autorisée à utiliser smart-able », demandez à l'équipe d'ingénierie d'EarthRanger d'ajouter votre adresse.
 
-Ce que vous téléversez vous appartient. Personne d'autre ne voit un jeu de données ou un site tant que vous ne le partagez pas.
+Ce que vous téléversez vous appartient. Personne d'autre ne voit un jeu de données ou un site tant que vous ne le partagez pas, sauf l'équipe d'assistance d'EarthRanger, qui peut les consulter pour aider à une migration mais ne peut ni les modifier ni charger de données.
 
 ## Combien de temps cela prend
 

@@ -36,7 +36,7 @@ La aplicación está en [https://smart-able-977100970772.us-central1.run.app/](h
 
 Inicie sesión con su cuenta de Google de EarthRanger. Si ve «Este correo electrónico no tiene permiso para usar smart-able», pida al equipo de ingeniería de EarthRanger que añada su dirección.
 
-Lo que usted sube le pertenece. Nadie más ve un conjunto de datos o un sitio hasta que usted lo comparte.
+Lo que usted sube le pertenece. Nadie más ve un conjunto de datos o un sitio hasta que usted lo comparte, salvo el equipo de soporte de EarthRanger, que puede verlos para ayudar con una migración pero no puede modificarlos ni cargar datos.
 
 ## Cuánto tarda
 
