@@ -34,7 +34,7 @@ Nada de lo que hace la aplicación elimina datos de SMART, y eliminar un conjunt
 
 La aplicación está en [https://smart-able-977100970772.us-central1.run.app/](https://smart-able-977100970772.us-central1.run.app/).
 
-Inicie sesión con su cuenta de Google de EarthRanger. Si ve «This email is not allowed» (este correo no está permitido), pida al equipo de ingeniería de EarthRanger que añada su dirección.
+Inicie sesión con su cuenta de Google de EarthRanger. Si ve «Este correo electrónico no tiene permiso para usar smart-able», pida al equipo de ingeniería de EarthRanger que añada su dirección.
 
 Lo que usted sube le pertenece. Nadie más ve un conjunto de datos o un sitio hasta que usted lo comparte.
 

@@ -23,3 +23,6 @@ test('the allowed phrase reads naturally for one, several or no entries', () => 
   assert.equal(P.allowedPhrase('@earthranger.com'), 'your @earthranger.com Google account');   // the string form older servers send
   assert.match(P.renderSignIn({ allowed: ['@a.org', '@b.org'] }), /Sign in with a Google account at @a\.org or @b\.org\./);
 });
+test('a status with no message is still shown in words', () => {
+  assert.equal(load().pill('some_new_state'), '<span class="pill st-pending">some new state</span>');
+});

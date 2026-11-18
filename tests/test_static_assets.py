@@ -40,3 +40,11 @@ def test_the_page_builders_pass_their_node_tests():
         pytest.skip("node is not installed")
     r = subprocess.run(["node", "--test", *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "tests" / "js").glob("*.test.js"))], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_the_narrowest_phones_give_the_language_menu_its_own_header_row():
+    css = (STATIC / "app.css").read_text()
+    block = re.search(r"@media \(max-width: 379\.98px\) \{(.*?)\n\}", css, re.S).group(1)
+    assert "header { flex-wrap: wrap; height: auto;" in block
+    assert ".header-right { display: contents; }" in block
+    assert re.search(r"\.lang-select \{[^}]*order: 1;[^}]*flex-basis: 100%;", block)

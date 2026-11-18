@@ -34,7 +34,7 @@ Hakuna kitu ambacho programu inafanya kinachoondoa data kwenye SMART, na kufuta 
 
 Programu iko kwenye [https://smart-able-977100970772.us-central1.run.app/](https://smart-able-977100970772.us-central1.run.app/).
 
-Ingia kwa akaunti yako ya Google ya EarthRanger. Ukiona "This email is not allowed" (barua pepe hii hairuhusiwi), iombe timu ya uhandisi ya EarthRanger iongeze anwani yako.
+Ingia kwa akaunti yako ya Google ya EarthRanger. Ukiona "Barua pepe hii hairuhusiwi kutumia smart-able", iombe timu ya uhandisi ya EarthRanger iongeze anwani yako.
 
 Unachopakia ni mali yako. Hakuna mtu mwingine anayeona seti ya data au tovuti hadi utakapomshirikisha.
 

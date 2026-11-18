@@ -79,7 +79,7 @@ Chelezo yenye picha inaweza kuwa kubwa, kwa sababu ina picha za kila eneo la hif
 
 Programu inaandika kwenye EarthRanger kama mtumiaji mmoja wa EarthRanger, kupitia tokeni ya API ya mtumiaji huyo. Unahitaji:
 
-- **Anwani ya seva (host) ya tovuti**, kwa mfano `example.pamdas.org`. Andika anwani ya seva pekee, bila `https://` wala njia.
+- **Anwani ya tovuti**, kwa mfano `example.pamdas.org`. Unaweza kuibandika jinsi kivinjari kinavyoionyesha; programu inabakiza anwani ya seva (host) pekee.
 - **Tokeni ya API** ya mtumiaji wa tovuti hiyo. Mwombe msimamizi wa EarthRanger wa tovuti akupe.
 
 Mtumiaji mwenye tokeni lazima aweze kusimamia aina za doria, wahusika, makundi ya wahusika, usanidi wa doria na sehemu za kujaza za doria, na kuunda matukio. Mtumiaji mkuu (superuser) ndilo chaguo rahisi. Kwa mtumiaji mwenye ruhusa chache zaidi, uingizaji unakuambia kila ruhusa inayokosekana.

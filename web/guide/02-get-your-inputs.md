@@ -79,7 +79,7 @@ A backup with photos can be large, because it holds the photos of every conserva
 
 The app writes to EarthRanger as one EarthRanger user, through that user's API token. You need:
 
-- **The site's host**, such as `example.pamdas.org`. Give the host only, without `https://` or a path.
+- **The site's address**, such as `example.pamdas.org`. You can paste it as the browser shows it; the app keeps only the host.
 - **An API token** for a user on that site. Ask the site's EarthRanger administrator for one.
 
 The user behind the token must be able to manage patrol types, subjects, subject groups, patrol configuration and the patrol fields, and to create events. A superuser is the simple choice. With a narrower user, the load tells you each permission that is missing.

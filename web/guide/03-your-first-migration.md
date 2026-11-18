@@ -24,7 +24,7 @@ Check that this is the conservation area you expected and that the counts look r
 
 1. Open the menu under your email address and choose **EarthRanger sites**.
 2. Press **Add a site**.
-3. Enter a name, the host, and the token.
+3. Enter a name, the site address, and the token.
 
 The app checks the token with the site before it saves it. A wrong host or a dead token is refused on the spot. See [Sites and tokens](../help/02-sites.md).
 

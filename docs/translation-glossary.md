@@ -160,6 +160,92 @@ admin shows them, in English.
 In French, *étape* is SMART's word for a patrol's leg and this tool's word
 for a stage of a load. The pages say *étape de patrouille* for the first.
 
+### Status labels
+
+The app shows each status in the reader's language. A reader quoting one
+to Support may give the label; the API value beside it is what the logs
+and the files hold. In French, Spanish and Portuguese a label cannot agree
+with every noun it sits beside (a dataset, a load, a stage): French uses
+the masculine throughout; Spanish and Portuguese use the feminine where
+the status belongs to a load or a stage, and a form that needs no
+agreement (*falló*, *falhou*, *échec*) where it is shared with a dataset.
+Swahili uses the *i-* prefix throughout.
+
+| API value | English | Français | Español | Português | Kiswahili |
+|---|---|---|---|---|---|
+| `uploading` | uploading | téléversement | subiendo | enviando | inapakiwa |
+| `extracting` | extracting | extraction | extrayendo | extraindo | utoaji wa data |
+| `queued` | queued | en file d'attente | en cola | na fila | kwenye foleni |
+| `planning` | planning | planification | planificando | planejando | inapangwa |
+| `planned` | planned | planifié | planificada | planejada | imepangwa |
+| `running` | running | en cours | en ejecución | em execução | inaendelea |
+| `continuing` | continuing | en reprise | continuando | continuando | mwendelezo |
+| `ready` | ready | prêt | listo | pronto | tayari |
+| `done` | done | terminé | terminada | concluída | imekamilika |
+| `success` | success | réussi | correcto | sucesso | imefaulu |
+| `needs_attention` | needs attention | intervention nécessaire | requiere atención | precisa de atenção | inahitaji kushughulikiwa |
+| `warning` | warning | avertissement | advertencia | aviso | onyo |
+| `stopped` | stopped | arrêté | detenida | parada | imesimama |
+| `failed` | failed | échec | falló | falhou | imeshindwa |
+| `blocking` | blocking | bloquant | bloqueante | bloqueante | inazuia |
+| `error` | error | erreur | error | erro | hitilafu |
+| `pending` | pending | en attente | pendiente | pendente | inasubiri |
+| `interrupted` | interrupted | interrompu | interrumpida | interrompida | imekatizwa |
+| (a stage never reached) | not reached | non atteint | no alcanzada | não alcançada | haijafikiwa |
+
+A finding's severity is shown with the finding's own words: *blocking*
+is *bloquant*, *bloqueante*, *bloqueante*, *linalozuia*; *warning* as
+above; *info* is *info*, *información*, *informação*, *taarifa*.
+
+### Buttons, tabs, pages and stages
+
+The guide names these as the app shows them. Keep the two in step.
+
+| English | Français | Español | Português | Kiswahili | Where |
+|---|---|---|---|---|---|
+| Datasets | Jeux de données | Conjuntos de datos | Conjuntos de dados | Seti za data | home page title, breadcrumb |
+| Upload a backup or export | Téléverser une sauvegarde ou un export | Subir copia de seguridad o exportación | Enviar um backup ou uma exportação | Pakia chelezo au faili iliyohamishwa | home page button, dialog title |
+| Upload | Téléverser | Subir | Enviar | Pakia | upload dialog button |
+| Overview | Vue d'ensemble | Resumen | Visão geral | Muhtasari | dataset tab |
+| Loads | Chargements | Cargas | Cargas | Uingizaji | dataset tab |
+| Rangers | Écogardes | Guardaparques | Guarda-parques | Askari | dataset tab, load page section |
+| Browse | Parcourir | Explorar | Explorar | Vinjari | dataset button |
+| Load into EarthRanger | Charger dans EarthRanger | Cargar en EarthRanger | Carregar no EarthRanger | Ingiza kwenye EarthRanger | dataset button |
+| Re-extract | Réextraire | Volver a extraer | Extrair de novo | Rudia utoaji wa data | dataset button |
+| Share | Partager | Compartir | Compartilhar | Shiriki | dataset and site button |
+| Delete | Supprimer | Eliminar | Excluir | Futa | dataset button |
+| EarthRanger sites | Sites EarthRanger | Sitios de EarthRanger | Sites do EarthRanger | Tovuti za EarthRanger | account menu, page title |
+| Add a site | Ajouter un site | Agregar un sitio | Adicionar um site | Ongeza tovuti | sites page button |
+| Add site | Ajouter le site | Agregar sitio | Adicionar site | Ongeza tovuti | site dialog button |
+| Remove (a site) | Retirer | Quitar | Remover | Ondoa | sites page button |
+| What to load | Que charger | Qué cargar | O que carregar | Cha kuingiza | load dialog field |
+| The data model and patrols | Le modèle de données et les patrouilles | El modelo de datos y las patrullas | O modelo de dados e as patrulhas | Moduli data na doria | load dialog choice |
+| The data model only | Le modèle de données seulement | Solo el modelo de datos | Só o modelo de dados | Moduli data pekee | load dialog choice |
+| Make the plan | Établir le plan | Hacer el plan | Fazer o plano | Tengeneza mpango | load dialog button |
+| Confirm and load | Confirmer et charger | Confirmar y cargar | Confirmar e carregar | Thibitisha na uingize | load page button |
+| Continue | Continuer | Continuar | Continuar | Endelea | load page button |
+| Plan again | Refaire le plan | Planificar de nuevo | Planejar de novo | Panga tena | load page button |
+| Delete this load | Supprimer ce chargement | Eliminar esta carga | Excluir esta carga | Futa uingizaji huu | load page button |
+| Event types (stage) | Types d'événement | Tipos de evento | Tipos de evento | Aina za matukio | stage table |
+| Patrol setup (stage) | Configuration des patrouilles | Configuración de patrullas | Preparação de patrulhas | Maandalizi ya doria | stage table |
+| Preflight (stage) | Vérification préalable | Comprobación previa | Verificação prévia | Ukaguzi wa awali | stage table |
+| Patrols (stage) | Patrouilles | Patrullas | Patrulhas | Doria | stage table |
+| Findings | Constats | Hallazgos | Constatações | Matokeo ya ukaguzi | load page heading |
+| Roster group | Groupe des écogardes | Grupo de guardaparques | Grupo de guarda-parques | Kundi la askari | load dialog field |
+| configurable model | modèle configurable | modelo configurable | modelo configurável | moduli inayosanidika | load dialog field |
+| bundle (migration bundle) | paquet | paquete | pacote | kifurushi | messages |
+
+The message for a sign-in refused because the address is not on the list
+(`email_not_allowed`): *Cette adresse e-mail n'est pas autorisée à
+utiliser smart-able*; *Este correo electrónico no tiene permiso para usar
+smart-able*; *Este e-mail não tem permissão para usar o smart-able*;
+*Barua pepe hii hairuhusiwi kutumia smart-able*.
+
+Not translated in the app: the user form's **linked subject** field (Django
+admin shows it in English), the data browser's Rangers tab (the browser is
+in English), and the headers of the rangers CSV download (a program may
+read them).
+
 ## Windows
 
 | English | Français | Español | Português | Kiswahili | Source |
@@ -195,6 +281,18 @@ and its corrections are in. It left these open, most of them in Swahili:
   *askari wa uhifadhi*. Usage differs by country.
 - **Spanish** follows Latin American usage (*haga clic en*, *reportes*).
 - **SMART's sign-in button**: see note 1 above.
+- **The app's counts** (French, Spanish, Portuguese, Swahili): a few short
+  parts such as "3 created" are shared by several nouns, so the past
+  participle takes one gender (masculine) or, in Swahili, one noun class
+  (*zi-*), and reads wrongly beside categories or choices (French,
+  Spanish, Portuguese) or subjects and choices (Swahili).
+- **deactivate** (Swahili *zima*, "switch off"): the app's word for
+  making a choice or subject inactive (*si amilifu*).
+- **configurable model** (Swahili *moduli inayosanidika*): not from a
+  product.
+- **hold** shown as a state beside a load's status: French *réservé*,
+  Spanish *reservada*, Portuguese *com bloqueio*, Swahili *ina kufuli*.
+  The Portuguese can be misread as "blocked".
 
 ## Checked by a fluent speaker
 

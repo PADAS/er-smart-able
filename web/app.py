@@ -28,13 +28,14 @@ Routes:
 """
 from datetime import date
 import hashlib
+import json
 import logging
 import os
 import re
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,7 +43,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from auth import AUTH_DISABLED, allowed_entries, current_user, email_allowed, end_session, start_session
-from er_site import SiteUnreachable, TokenRejected, check_token, normalize_host
+from er_site import HostError, SiteUnreachable, TokenRejected, check_token, normalize_host
+from errors import ApiError
 from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
                    load_in_progress, now)
@@ -57,7 +59,12 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "i18n.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
+# the language menu and the message files: the registry is read once, and one hash over every message
+# file keeps a browser from holding last deploy's messages
+LOCALES = HERE / "static" / "locales"
+LANGUAGES = json.loads((LOCALES / "languages.json").read_text(encoding="utf-8"))
+LOCALES_V = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(LOCALES.glob("*.json")))).hexdigest()[:12]
 
 app = FastAPI(title="smart-able")
 
@@ -66,7 +73,12 @@ app = FastAPI(title="smart-able")
 async def _validation_error(request: Request, exc: RequestValidationError):
     """422 without the submitted values: a body can carry a token."""
     return JSONResponse(status_code=422, content={"detail": [{k: v for k, v in e.items() if k != "input"}
-                                                             for e in exc.errors()]})
+                                                             for e in exc.errors()], "code": "invalid_request"})
+
+
+@app.exception_handler(ApiError)
+async def _api_error(request: Request, exc: ApiError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code, "values": exc.values})
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 templates = Jinja2Templates(directory=HERE / "templates")
 
@@ -95,16 +107,17 @@ def _public(doc: dict, user: dict) -> dict:
 def _load(id: str, user: dict, owner: bool = False) -> dict:
     doc = get_store().get(id)
     if not doc or not can_read(doc, user):
-        raise HTTPException(status_code=404, detail="Dataset not found")
+        raise ApiError(404, "dataset_not_found", "Dataset not found")
     if owner and not is_owner(doc, user):
-        raise HTTPException(status_code=403, detail="Only the owner can do that")
+        raise ApiError(403, "owner_only", "Only the owner can do that")
     return doc
 
 
 # ---------------------------------------------------------------- pages
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION, "assets": ASSETS})
+    return templates.TemplateResponse(request, "index.html", {"version": APP_VERSION, "assets": ASSETS,
+                                                                  "languages": LANGUAGES, "locales_v": LOCALES_V})
 
 
 @app.get("/api/config")
@@ -133,9 +146,11 @@ async def me(user=Depends(current_user)):
 
 
 @app.get("/api/help")
-def help_sections(user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
+def help_sections(lang: str = "en", user=Depends(current_user)):   # a plain def: file reads and Markdown off the event loop
     import help_pages
-    return {"sections": help_pages.sections()}
+    if lang not in {l["code"] for l in LANGUAGES}:   # checked before it names a folder; anything else is English
+        lang = "en"
+    return {"sections": help_pages.sections(lang)}
 
 
 # ---------------------------------------------------------------- datasets
@@ -150,7 +165,7 @@ async def list_datasets(user=Depends(current_user)):
 async def create_dataset(req: DatasetCreate, user=Depends(current_user)):
     name = req.name.strip() or Path(req.filename).stem
     if not re.search(r"\.(zip|bak)$", req.filename, re.I):
-        raise HTTPException(status_code=400, detail="Upload a SMART backup or Conservation Area export as a .zip")
+        raise ApiError(400, "upload_not_zip", "Upload a SMART backup or Conservation Area export as a .zip")
     store = get_store()
     id = store.create({"name": name, "owner_uid": user["uid"], "owner_email": user["email"], "shared_with": [],
                        "status": "uploading", "created_at": now(), "updated_at": now(),
@@ -164,7 +179,7 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     store = get_store()
     if not isinstance(store, LocalStore):
-        raise HTTPException(status_code=400, detail="Uploads go straight to storage on this deployment")
+        raise ApiError(400, "upload_direct", "Uploads go straight to storage on this deployment")
     dest = store.upload_path(id, doc["source_name"])
     dest.parent.mkdir(parents=True, exist_ok=True)
     size = 0
@@ -181,17 +196,17 @@ async def extract(id: str, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     store = get_store()
     if any(load_working(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
-        raise HTTPException(status_code=409, detail="Wait for the running load to stop first")
+        raise ApiError(409, "load_running", "Wait for the running load to stop first")
     if not store.upload_exists(id, doc["source_name"]):
-        raise HTTPException(status_code=400, detail="The upload is missing or incomplete; delete this dataset and upload again")
+        raise ApiError(400, "upload_incomplete", "The upload is missing or incomplete; delete this dataset and upload again")
     if not store.claim_extract(id):
-        raise HTTPException(status_code=409, detail="An extraction is already queued or running")
+        raise ApiError(409, "extract_active", "An extraction is already queued or running")
     try:
         execution = store.start_extract(id)
     except Exception as e:  # noqa: BLE001  the job did not start: say so, and leave the dataset retryable
         logging.exception("could not start extraction for %s", id)
         store.update(id, status="failed", error=f"Could not start the extraction: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=502, detail="Could not start the extraction job") from e
+        raise ApiError(502, "extract_start_failed", "Could not start the extraction job") from e
     # status is not set here: the job may already have marked the dataset running
     store.update(id, execution=execution)
     return {"ok": True, "execution": execution}
@@ -211,7 +226,7 @@ async def delete_dataset(id: str, user=Depends(current_user)):
     _load(id, user, owner=True)
     store = get_store()
     if any(load_in_progress(l) for l in store.list_loads(id)):
-        raise HTTPException(status_code=409, detail="Wait for the running load to stop (or delete it) first")
+        raise ApiError(409, "load_running_delete", "Wait for the running load to stop (or delete it) first")
     store.delete_storage(id)
     store.delete(id)
     return {"ok": True}
@@ -222,7 +237,7 @@ async def share(id: str, req: ShareRequest, user=Depends(current_user)):
     doc = _load(id, user, owner=True)
     email = req.email.strip().lower()
     if not email_allowed(email):
-        raise HTTPException(status_code=400, detail="Can only share with allowed addresses")
+        raise ApiError(400, "share_not_allowed", "Can only share with allowed addresses")
     shared = sorted(set(doc.get("shared_with", [])) | {email})
     get_store().update(id, shared_with=shared)
     return {"shared_with": shared}
@@ -253,9 +268,9 @@ def _site_public(doc: dict, user: dict) -> dict:
 def _load_site(id: str, user: dict, owner: bool = False) -> dict:
     doc = get_store().get_site(id)
     if not doc or not can_read(doc, user):
-        raise HTTPException(status_code=404, detail="Site not found")
+        raise ApiError(404, "site_not_found", "Site not found")
     if owner and not is_owner(doc, user):
-        raise HTTPException(status_code=403, detail="Only the owner can do that")
+        raise ApiError(403, "owner_only", "Only the owner can do that")
     return doc
 
 
@@ -270,17 +285,19 @@ async def list_sites(user=Depends(current_user)):
 def create_site(req: SiteCreate, user=Depends(current_user)):
     try:
         host = normalize_host(req.url)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HostError as e:
+        raise ApiError(400, e.code, str(e))
+    except ValueError as e:   # urlparse's own refusal of a malformed bracketed host
+        raise ApiError(400, "site_host_missing", str(e))
     token = req.token.strip()
     if not token:
-        raise HTTPException(status_code=400, detail="A token is required")
+        raise ApiError(400, "token_required", "A token is required")
     try:
         checked_as = check_token(host, token)
     except TokenRejected as e:
-        raise HTTPException(status_code=400, detail=f"The token was rejected: {e}")
+        raise ApiError(400, "token_rejected", f"The token was rejected: {e}", reason=str(e))
     except SiteUnreachable as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise ApiError(400, "site_unreachable", str(e), reason=str(e))
     store = get_store()
     id = store.create_site({"name": req.name.strip() or host, "url": host, "owner_uid": user["uid"],
                             "owner_email": user["email"], "shared_with": [], "token_hint": token[-4:],
@@ -301,7 +318,7 @@ async def share_site(id: str, req: ShareRequest, user=Depends(current_user)):
     doc = _load_site(id, user, owner=True)
     email = req.email.strip().lower()
     if not email_allowed(email):
-        raise HTTPException(status_code=400, detail="Can only share with allowed addresses")
+        raise ApiError(400, "share_not_allowed", "Can only share with allowed addresses")
     shared = sorted(set(doc.get("shared_with", [])) | {email})
     get_store().update_site(id, shared_with=shared)
     return {"shared_with": shared}
@@ -326,7 +343,7 @@ def _window_date(value, which: str) -> str | None:
     try:
         return date.fromisoformat(value.strip()).isoformat()
     except (AttributeError, TypeError, ValueError):
-        raise HTTPException(status_code=400, detail=f"The window's {which} must be a date (YYYY-MM-DD)") from None
+        raise ApiError(400, "window_not_date", f"The window's {which} must be a date (YYYY-MM-DD)", which=which) from None
 
 
 class LoadCreate(BaseModel):
@@ -353,7 +370,7 @@ def _load_public(doc: dict, user: dict, dataset: Optional[dict] = None) -> dict:
 def _load_load(id: str, user: dict) -> dict:
     doc = get_store().get_load(id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Load not found")
+        raise ApiError(404, "load_not_found", "Load not found")
     _load(doc["dataset_id"], user)   # read on the dataset is the permission
     return doc
 
@@ -366,22 +383,22 @@ def _launch(load_id: str, mode: str):
     except Exception as e:  # noqa: BLE001
         logging.exception("could not start load %s", load_id)
         store.update_load(load_id, status="failed", error=f"Could not start the job: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=502, detail="Could not start the load job") from e
+        raise ApiError(502, "load_start_failed", "Could not start the load job") from e
     store.update_load(load_id, execution=execution)
 
 
 def _not_extracting(dataset: Optional[dict]):
     """A load reads the dataset's bundle, which an extraction rewrites."""
     if dataset and extract_in_progress(dataset):
-        raise HTTPException(status_code=409, detail="The dataset is being extracted; wait for it to finish")
+        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
 
 
 def _start(load_id: str, mode: str, claim_status: str):
     dataset_id = (get_store().get_load(load_id) or {}).get("dataset_id")
     _not_extracting(get_store().get(dataset_id) if dataset_id else None)
     if not get_store().claim_load(load_id, claim_status):
-        raise HTTPException(status_code=409, detail="This load, or another load of this conservation area into that site, "
-                                                    "is already planning or running")
+        raise ApiError(409, "load_active_same", "This load, or another load of this conservation area into that site, "
+                                                "is already planning or running")
     _launch(load_id, mode)
 
 
@@ -392,28 +409,28 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     site = _load_site(req.site_id, user)
     entry = next((e for e in doc.get("export") or [] if e.get("dir") == req.ca_id), None)
     if not entry:
-        raise HTTPException(status_code=400, detail="No migration bundle for that conservation area; re-extract the dataset")
+        raise ApiError(400, "no_bundle", "No migration bundle for that conservation area; re-extract the dataset")
     scope = req.options.get("scope") or "all"
     if scope not in LOAD_SCOPES:
-        raise HTTPException(status_code=400, detail="What to load must be the data model only, or the data model and patrols")
+        raise ApiError(400, "scope_invalid", "What to load must be the data model only, or the data model and patrols")
     since, until = _window_date(req.options.get("since"), "start"), _window_date(req.options.get("until"), "end")
     if scope == "datamodel" and (since or until):
-        raise HTTPException(status_code=400, detail="A date window applies to patrols; a data-model-only load has none")
+        raise ApiError(400, "window_without_patrols", "A date window applies to patrols; a data-model-only load has none")
     if since and until and since > until:
-        raise HTTPException(status_code=400, detail="The window's start is after its end")
+        raise ApiError(400, "window_reversed", "The window's start is after its end")
     if scope == "all" and not entry.get("patrols"):
-        raise HTTPException(status_code=400, detail="That conservation area has no patrols to load; load the data model only")
+        raise ApiError(400, "no_patrols", "That conservation area has no patrols to load; load the data model only")
     language = req.options.get("language") or entry.get("default_language")
     if language not in entry.get("languages", []):
-        raise HTTPException(status_code=400, detail=f"Language {language!r} is not in the bundle")
+        raise ApiError(400, "language_not_in_bundle", f"Language {language!r} is not in the bundle", language=language)
     cm = req.options.get("configurable_model") or None
     if cm and cm not in [c["uuid"] for c in entry.get("configurable_models", [])]:
-        raise HTTPException(status_code=400, detail="Unknown configurable model")
+        raise ApiError(400, "unknown_model", "Unknown configurable model")
     category = req.options.get("event_category")
     if category is None or (isinstance(category, str) and not category.strip()):
         category = ca_identifier(entry.get("ca_id"))
     elif not isinstance(category, str) or not EVENT_CATEGORY.fullmatch(category.strip()):
-        raise HTTPException(status_code=400, detail="The event category must be 2-30 letters, digits, '-' or '_'")
+        raise ApiError(400, "event_category_invalid", "The event category must be 2-30 letters, digits, '-' or '_'")
     category = category.strip()
     store = get_store()
     load_id = store.create_load({
@@ -425,7 +442,7 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
         "created_at": now(), "updated_at": now(), "continuations": 0,
         "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})
     if load_id is None:
-        raise HTTPException(status_code=409, detail="A load of this conservation area into that site is already active")
+        raise ApiError(409, "load_active", "A load of this conservation area into that site is already active")
     _launch(load_id, "plan")
     return _load_public(store.get_load(load_id), user)
 
@@ -454,16 +471,16 @@ def _needs_site(doc: dict, user: dict):
     the site's sharing applies as well as the dataset's."""
     site = get_store().get_site(doc.get("site_id", ""))
     if not site:
-        raise HTTPException(status_code=409, detail="The site was removed; register it again and start a new load")
+        raise ApiError(409, "site_removed", "The site was removed; register it again and start a new load")
     if not can_read(site, user):
-        raise HTTPException(status_code=403, detail="You do not have access to that site")
+        raise ApiError(403, "site_no_access", "You do not have access to that site")
 
 
 @app.post("/api/loads/{id}/run")
 def run_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
     if not (doc.get("status") in ("planned", "needs_attention") or _stale(doc)):
-        raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be run; plan it again first")
+        raise ApiError(409, "load_cannot_run", f"A {doc.get('status')} load cannot be run; plan it again first", status=doc.get("status"))
     _needs_site(doc, user)
     _start(id, "run", "queued")
     return _load_public(get_store().get_load(id), user)
@@ -473,7 +490,7 @@ def run_load(id: str, user=Depends(current_user)):
 def replan_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
     if not (doc.get("status") in ("planned", "needs_attention", "failed", "done") or _stale(doc)) or load_in_progress(doc):
-        raise HTTPException(status_code=409, detail=f"A {doc.get('status')} load cannot be planned again now")
+        raise ApiError(409, "load_cannot_plan", f"A {doc.get('status')} load cannot be planned again now", status=doc.get("status"))
     _needs_site(doc, user)
     _start(id, "plan", "planning")
     return _load_public(get_store().get_load(id), user)
@@ -483,7 +500,7 @@ def replan_load(id: str, user=Depends(current_user)):
 async def delete_load(id: str, user=Depends(current_user)):
     doc = _load_load(id, user)
     if load_in_progress(doc):
-        raise HTTPException(status_code=409, detail="Wait for the load to stop before deleting it")
+        raise ApiError(409, "load_delete_running", "Wait for the load to stop before deleting it")
     get_store().delete_load(id)
     return {"ok": True}
 
@@ -494,9 +511,9 @@ async def load_file(id: str, name: str, user=Depends(current_user)):
     try:
         found = get_store().get_load_file(doc["dataset_id"], id, name)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad path")
+        raise ApiError(400, "bad_path", "Bad path")
     if not found:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise ApiError(404, "not_found", "Not found")
     chunks, size, ctype = found
     return StreamingResponse(chunks, media_type=ctype, headers={"Content-Length": str(size)})
 
@@ -510,7 +527,7 @@ async def site_root_redirect(id: str):
 async def site_index(id: str, user=Depends(current_user)):
     doc = _load(id, user)
     if doc.get("status") != "ready":
-        raise HTTPException(status_code=409, detail=f"Dataset is {doc.get('status')}")
+        raise ApiError(409, "dataset_status", f"Dataset is {doc.get('status')}", status=doc.get("status"))
     return FileResponse(BROWSER, media_type="text/html")
 
 
@@ -524,9 +541,9 @@ async def site_file(id: str, path: str, user=Depends(current_user)):
     try:
         found = get_store().open_site_file(id, path)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Bad path")
+        raise ApiError(400, "bad_path", "Bad path")
     if not found:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise ApiError(404, "not_found", "Not found")
     chunks, size, ctype = found
     headers = {"Content-Length": str(size), "Cache-Control": "private, max-age=3600"}
     return StreamingResponse(chunks, media_type=ctype, headers=headers)

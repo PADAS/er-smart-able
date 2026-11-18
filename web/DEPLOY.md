@@ -234,7 +234,41 @@ page by its real path (`03-your-first-migration.md`,
 
 **To mark a language reviewed,** set `"reviewed": true` for it in
 `web/static/locales/languages.json` and add the reviewer's name to the
-glossary. The note goes from that language's pages.
+glossary. The note goes from that language's pages and from the app.
+
+#### The app's own words
+
+The app itself (not the site) reads its messages from
+`web/static/locales/<code>.json`, through `T`, `t` and `tn` in
+`web/static/i18n.js`. `en.json` is the source and the fallback: a message a
+language lacks shows in English. The reader picks a language in the header;
+it is remembered in the browser (`localStorage.lang`). A language marked
+`"reviewed": false` in `languages.json` shows the "machine translated" note
+under the header; setting it to `true` removes the note.
+
+- **To correct a message,** edit it in `web/static/locales/<code>.json`. Keep
+  every `{{placeholder}}` exactly as the English message has it, and the
+  `_one`/`_other` forms of a count. Read `docs/translation-glossary.md` first.
+- **To add a phrase,** add it to `en.json` first, then to `fr.json`,
+  `es.json`, `pt.json` and `sw.json`. Run
+  `node --test "tests/js/*.test.js"`: the tests name each message a language
+  is missing, an unknown key, a changed placeholder, and an English message
+  nothing uses. Text in `pages.js` is made with `T`, never typed in.
+  `tests/js/pseudo.test.js` renders every screen with every message
+  replaced and fails on any word left over, so a screen with a new state
+  needs a fixture there.
+- **A server error** carries a `code`; the browser shows `errors.<code>`. A
+  new error in `web/` is raised as an `ApiError` with a code, and the code
+  gets a message in every language. A code the browser does not know is
+  shown as the server worded it, in English.
+- **The help drawer** asks `/api/help?lang=`, which serves the translated
+  pages of `web/help/<code>/`, or the English page where there is none.
+
+What stays in English on purpose: the dataset browser, the live log, the
+quirks reference (it is marked `lang="en"` in the help), a finding's own
+title, detail and fix (to be translated in a later part), text a job stored
+on a dataset or load (its `error`, the log tail), the EarthRanger admin menu
+names, and the column headers of the CSV downloads.
 
 **When an English page changes,** change its four translations in the same
 pull request. The build catches a missing step, not a changed sentence.
@@ -242,8 +276,6 @@ pull request. The build catches a missing step, not a changed sentence.
 **To add a language,** add it to `languages.json` and add its
 `web/site/locales/<code>.json`. Its pages show in English until they are
 translated.
-
-The app's own help drawer still serves the English `web/help/*.md` only.
 
 `.github/workflows/pages.yml` publishes it on every merge to `main` that
 touches its sources, and can be run by hand from the Actions tab. Once, a

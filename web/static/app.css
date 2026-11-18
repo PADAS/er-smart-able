@@ -39,6 +39,9 @@ header .mi { color: inherit; }
 #appName { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 18px; font-weight: 500; white-space: nowrap; }
 #version { flex: none; color: inherit; opacity: 0.8; white-space: nowrap; }
 .header-right { flex: none; margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.lang-select { flex: none; max-width: 120px; padding: 5px 6px; font: 500 14px/20px var(--sans); color: var(--er-ui-cta-text); background: transparent; border: 1px solid color-mix(in srgb, var(--er-ui-cta-text) 40%, transparent); border-radius: 8px; cursor: pointer; text-overflow: ellipsis; }
+.lang-select option { color: var(--er-ui-text-primary-text); background: var(--er-ui-background-elevated-component); }
+.lang-note { margin: 0; padding: 8px 16px; font-size: 13px; line-height: 18px; background: var(--er-ui-background-hover-background); color: var(--er-ui-text-secondary-text); border-bottom: 1px solid var(--er-ui-divider-lines); }
 header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
 #account { position: relative; min-width: 0; }
 #account summary { list-style: none; cursor: pointer; display: block; padding: 6px 8px; border-radius: 8px; font-weight: 500; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -65,13 +68,25 @@ header .btn.ghost, #account summary { color: var(--er-ui-cta-text); }
   #version, #helpBtn .label { display: none; }
   #helpBtn { padding: 6px; }
   #account summary { max-width: 100px; }
+  .lang-select { max-width: 84px; padding: 4px 2px; }
 }
 /* below 480px: the lockup, Help and an account icon; nothing in the band ellipsizes. The email moves into the menu. */
 @media (max-width: 479.98px) {
   #appName, #version { display: none; }
+  header { gap: 6px; padding: 0 8px; }
+  .header-right { gap: 2px; }
+  .lang-select { max-width: 64px; }   /* the name truncates; the lockup, Help and the account icon keep their room at 320px */
   #account summary { max-width: none; overflow: visible; text-overflow: clip; font-size: 0; padding: 4px 6px; }   /* the email stays the summary's accessible name */
   #account summary::before { content: 'account_circle'; font-family: 'Material Symbols Outlined'; font-size: 24px; font-weight: normal; line-height: 1; vertical-align: -6px; }
   .menu-email { display: block; }
+}
+/* the narrowest phones: the language menu takes its own row; lockup, Help and the account icon keep the first */
+@media (max-width: 379.98px) {
+  header { flex-wrap: wrap; height: auto; min-height: 48px; padding: 8px; row-gap: 6px; }
+  .header-right { display: contents; }
+  #helpBtn, #account { margin-left: auto; }
+  #helpBtn:not([hidden]) + #account { margin-left: 0; }
+  .lang-select { order: 1; flex-basis: 100%; max-width: none; }
 }
 
 /* ---- controls */

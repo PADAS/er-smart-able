@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>smart-able</title>
+  <meta name="locales-v" content="{{ locales_v }}">
   <!-- the tokens hang on data-theme, so it is set before anything paints; app.js keeps it in step afterwards -->
   <script>(function () { var t; try { t = localStorage.theme; } catch (e) {} document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; })();</script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
@@ -15,33 +16,35 @@
 </head>
 <body>
   <header>
-    <a id="home" href="#/" title="Back to the dataset list"><img src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger"></a><span id="appName">SMART migration</span><span id="version" class="tiny">{{ version }}</span>
+    <a id="home" href="#/" title="Back to the dataset list" data-i18n-title="shell.home"><img src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger"></a><span id="appName" data-i18n="shell.appName">SMART migration</span><span id="version" class="tiny">{{ version }}</span>
     <div class="header-right">
-      <button id="helpBtn" class="btn ghost" title="Help" aria-label="Help" hidden><span class="mi" aria-hidden="true">help</span><span class="label">Help</span></button>
+      <select id="lang" class="lang-select" aria-label="Language" data-i18n-aria="shell.language">{% for l in languages %}<option value="{{ l.code }}" lang="{{ l.code }}">{{ l.name }}</option>{% endfor %}</select>
+      <button id="helpBtn" class="btn ghost" title="Help" aria-label="Help" data-i18n-title="shell.help" data-i18n-aria="shell.help" hidden><span class="mi" aria-hidden="true">help</span><span class="label" data-i18n="shell.help">Help</span></button>
       <details id="account" hidden>
         <summary id="whoEmail"></summary>
         <div id="accountMenu">
           <p id="menuEmail" class="menu-email"></p>
-          <button id="menuSites" class="menu-item"><span class="mi" aria-hidden="true">dns</span>EarthRanger sites</button>
+          <button id="menuSites" class="menu-item"><span class="mi" aria-hidden="true">dns</span><span data-i18n="shell.sites">EarthRanger sites</span></button>
           <fieldset class="menu-theme">
-            <legend>Theme</legend>
-            <label><input type="radio" name="theme" value="system">System</label>
-            <label><input type="radio" name="theme" value="light">Light</label>
-            <label><input type="radio" name="theme" value="dark">Dark</label>
+            <legend data-i18n="shell.theme">Theme</legend>
+            <label><input type="radio" name="theme" value="system"><span data-i18n="shell.themeSystem">System</span></label>
+            <label><input type="radio" name="theme" value="light"><span data-i18n="shell.themeLight">Light</span></label>
+            <label><input type="radio" name="theme" value="dark"><span data-i18n="shell.themeDark">Dark</span></label>
           </fieldset>
-          <button id="signOut" class="menu-item"><span class="mi" aria-hidden="true">logout</span>Sign out</button>
+          <button id="signOut" class="menu-item"><span class="mi" aria-hidden="true">logout</span><span data-i18n="shell.signOut">Sign out</span></button>
           <p class="tiny menu-version">{{ version }}</p>
         </div>
       </details>
     </div>
   </header>
+  <p id="langNote" class="lang-note" hidden data-i18n="shell.machineTranslated">This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English.</p>
   <div id="crumbs" class="crumbs" hidden></div>
 
   <main id="page" class="wrap"></main>
 
   <div id="helpBackdrop" class="backdrop" hidden></div>
-  <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help">
-    <div class="drawer-head"><h2>Help</h2><button class="btn ghost" id="helpClose" title="Close"><span class="mi" aria-hidden="true">close</span></button></div>
+  <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help" data-i18n-aria="shell.help">
+    <div class="drawer-head"><h2 data-i18n="shell.help">Help</h2><button class="btn ghost" id="helpClose" title="Close" data-i18n-title="shell.close"><span class="mi" aria-hidden="true">close</span></button></div>
     <nav id="helpToc" class="help-toc"></nav>
     <p id="helpNote" class="tiny help-note" hidden></p>
     <div id="helpBody" class="help-body"></div>
@@ -51,10 +54,12 @@
     <div class="dialog">
       <h3 id="modalTitle">Share</h3>
       <div id="modalBody"></div>
-      <div class="row right" id="modalFoot"><button class="btn ghost" id="modalClose">Close</button></div>
+      <div class="row right" id="modalFoot"><button class="btn ghost" id="modalClose" data-i18n="shell.close">Close</button></div>
     </div>
   </div>
 
+  <script type="application/json" id="languages">{{ languages | tojson }}</script>
+  <script src="/static/i18n.js?v={{ assets['i18n.js'] }}"></script>
   <script src="/static/pages.js?v={{ assets['pages.js'] }}"></script>
   <script src="/static/app.js?v={{ assets['app.js'] }}"></script>
 </body>

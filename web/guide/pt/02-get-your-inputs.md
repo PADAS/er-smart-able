@@ -79,7 +79,7 @@ Um backup com fotos pode ser grande, porque contém as fotos de todas as áreas 
 
 O aplicativo grava no EarthRanger como um usuário do EarthRanger, por meio do token de API desse usuário. Você precisa de:
 
-- **O host do site**, por exemplo `example.pamdas.org`. Informe só o host, sem `https://` nem caminho.
+- **O endereço do site**, por exemplo `example.pamdas.org`. Você pode colá-lo como o navegador o mostra; o aplicativo mantém só o host.
 - **Um token de API** de um usuário desse site. Peça um ao administrador do EarthRanger do site.
 
 O usuário dono do token precisa poder gerenciar os tipos de patrulha, os sujeitos, os grupos de sujeitos, a configuração de patrulhas e os campos de patrulha, e criar eventos. Um superusuário é a escolha simples. Com um usuário mais restrito, a carga informa cada permissão que falta.

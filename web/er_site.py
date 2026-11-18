@@ -16,6 +16,13 @@ class SiteUnreachable(Exception):
     pass
 
 
+class HostError(ValueError):
+    """A host the site form cannot use; `code` names which, so a caller need not match the text."""
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
 def normalize_host(url: str) -> str:
     """'https://Site.pamdas.org/api/v1.0/' -> 'site.pamdas.org'."""
     s = (url or "").strip()
@@ -27,7 +34,7 @@ def normalize_host(url: str) -> str:
     except ValueError:
         has_port = True
     if has_port or parsed.username:
-        raise ValueError("Enter just the site's host name, like site.pamdas.org")
+        raise HostError("site_host_only", "Enter just the site's host name, like site.pamdas.org")
     host = (parsed.hostname or "").lower()
     try:
         ipaddress.ip_address(host)
@@ -35,9 +42,9 @@ def normalize_host(url: str) -> str:
     except ValueError:
         is_ip = False
     if is_ip or host == "localhost":
-        raise ValueError("Enter the site's host name, like site.pamdas.org")
+        raise HostError("site_host_missing", "Enter the site's host name, like site.pamdas.org")
     if not host or not _HOST.match(host) or "." not in host:
-        raise ValueError("Enter the site's host name, like site.pamdas.org")
+        raise HostError("site_host_missing", "Enter the site's host name, like site.pamdas.org")
     return host
 
 
