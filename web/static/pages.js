@@ -124,6 +124,15 @@ function renderHome(datasets) {
     '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
 }
 
+// One section of the help drawer. s.html is the server's rendering of a help page. A section in another
+// language than the reader's (the quirks reference, or a page with no translation yet) is marked with
+// its language and says, in the reader's language, that it is only in English.
+function helpSection(s) {
+  var other = s.lang !== currentLang();
+  return '<section id="help-' + esc(s.id) + '"' + (other ? ' lang="' + esc(s.lang) + '"' : '') + '><h2>' + esc(s.title) + '</h2>' +
+    (other ? '<p class="tiny muted" lang="' + esc(currentLang()) + '">' + T('help.englishOnly') + '</p>' : '') + s.html + '</section>';
+}
+
 // The load page keeps its rangers table across refreshes while this key is unchanged (so a sort or a
 // scroll survives a poll). The table's words are part of what is kept, so the key names the language:
 // a change of language builds the table again.

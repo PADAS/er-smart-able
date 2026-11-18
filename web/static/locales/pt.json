@@ -281,7 +281,8 @@
     "note": "Não foi possível atualizar; tentando de novo…"
   },
   "help": {
-    "noEntry": "Ainda não há ajuda para a constatação \"{{id}}\". O próprio texto de correção da constatação serve de orientação."
+    "noEntry": "Ainda não há ajuda para a constatação \"{{id}}\". O próprio texto de correção da constatação serve de orientação.",
+    "englishOnly": "Esta seção está disponível apenas em inglês."
   },
   "upload": {
     "name": "Nome",

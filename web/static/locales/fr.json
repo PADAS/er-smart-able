@@ -281,7 +281,8 @@
     "note": "Actualisation impossible ; nouvel essai…"
   },
   "help": {
-    "noEntry": "Pas encore d'aide pour le constat « {{id}} ». Le texte de correction du constat lui-même sert de guide."
+    "noEntry": "Pas encore d'aide pour le constat « {{id}} ». Le texte de correction du constat lui-même sert de guide.",
+    "englishOnly": "Cette section n'existe qu'en anglais."
   },
   "upload": {
     "name": "Nom",

@@ -281,7 +281,8 @@
     "note": "Imeshindwa kusasisha; inajaribu tena…"
   },
   "help": {
-    "noEntry": "Bado hakuna msaada kwa tokeo \"{{id}}\". Maelezo ya marekebisho ya tokeo lenyewe ndiyo mwongozo."
+    "noEntry": "Bado hakuna msaada kwa tokeo \"{{id}}\". Maelezo ya marekebisho ya tokeo lenyewe ndiyo mwongozo.",
+    "englishOnly": "Sehemu hii inapatikana kwa Kiingereza pekee."
   },
   "upload": {
     "name": "Jina",

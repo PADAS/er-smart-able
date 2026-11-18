@@ -3,7 +3,7 @@
 What to know when reading data out of a SMART conservation area backup or
 export. Each section is linked from the place in smart-able where it
 matters, and from the warnings `./smart-able export` prints. Verified on
-SMART 7.5.4–7.5.6 data (the Lawin backups and the Camarines Norte export)
+SMART 7.5.4–7.5.6 backups and exports
 unless a section says otherwise. `./smart-able browse` publishes this page
 as `quirks.html` next to the browser.
 

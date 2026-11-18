@@ -659,7 +659,7 @@ async function openHelp(anchor) {
     if (!sections || gen !== helpGen || location.hash !== from || !ME) return;   // failed, or the reader left meanwhile
     if (!HELP) {
       HELP = sections;
-      body.innerHTML = HELP.map(s => '<section id="help-' + esc(s.id) + '"' + (s.lang !== currentLang() ? ' lang="' + esc(s.lang) + '"' : '') + '><h2>' + esc(s.title) + '</h2>' + s.html + '</section>').join('');
+      body.innerHTML = HELP.map(helpSection).join('');
       $('#helpToc').innerHTML = HELP.map(s => '<button class="link" data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</button>').join('');
       $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
       body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
