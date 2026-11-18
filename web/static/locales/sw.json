@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Waweke askari kwenye kundi la wahusika la orodha ya askari",
-        "fix": "Hakuna kundi la askari lililotajwa kwa uingizaji huu, kwa hiyo wahusika askari hawamo kwenye kundi lolote ambamo askari wanachaguliwa. Panga uingizaji tena ukitaja kundi la askari, au kwenye usimamizi wa Django fungua Patrol configuration › member subject groups, chagua au unda kundi, kisha ongeza wahusika."
+        "fix": "Hakuna kundi la askari lililotajwa kwa uingizaji huu, au lililotajwa halikupatikana, kwa hiyo wahusika askari hawamo kwenye kundi lolote ambamo askari wanachaguliwa. Panga uingizaji tena ukitaja kundi la askari, au kwenye usimamizi wa Django fungua Patrol configuration › member subject groups, chagua au unda kundi, kisha ongeza wahusika."
       },
       "permission_subject_group": {
         "title": "Ongeza wahusika kwenye kundi la wahusika {{group}}",
@@ -339,7 +339,7 @@
       "subjects": {
         "title_one": "Mwanachama {{count}} wa doria hawezi kuwekwa kwenye kipande",
         "title_other": "Wanachama {{count}} wa doria hawawezi kuwekwa kwenye kipande",
-        "fix": "Wahusika askari wao hawapo, au hawamo kwenye kundi lolote lililoorodheshwa chini ya Patrol configuration › members. Bonyeza Endelea ili uingizaji uwaunde, au waongeze kwenye kundi la namna hiyo kwenye Django admin › Subject groups."
+        "fix": "Wahusika askari wao hawapo, au hawamo kwenye kundi lolote lililoorodheshwa chini ya Patrol configuration › members. Uingizaji unawaunda na, kundi la askari likitajwa, unawaongeza humo. Vinginevyo waongeze kwenye kundi la namna hiyo kwenye Django admin › Subject groups."
       },
       "teams": {
         "title_one": "Timu {{count}} ya doria inakosekana au si amilifu",
@@ -382,7 +382,7 @@
         "unmatched": {
           "title_one": "Kategoria {{count}} ya SMART yenye vielelezo haina aina ya tukio iliyo amilifu kwenye tovuti",
           "title_other": "Kategoria {{count}} za SMART zenye vielelezo hazina aina ya tukio iliyo amilifu kwenye tovuti",
-          "fix": "Moduli data haijatumwa chini ya kategoria ya matukio ambayo uingizaji huu unaitumia. Kama utumaji wa awali ulitumia kitambulisho tofauti, panga uingizaji tena kwa kategoria hiyo ya matukio. Vinginevyo bonyeza Endelea; uingizaji unaunda aina za matukio."
+          "fix": "Moduli data haijatumwa chini ya kategoria ya matukio ambayo uingizaji huu unaitumia. Kama utumaji wa awali ulitumia kitambulisho tofauti, panga uingizaji tena kwa kategoria hiyo ya matukio."
         },
         "ambiguous": {
           "title_one": "Kategoria {{count}} inalingana na aina zaidi ya moja ya tukio",

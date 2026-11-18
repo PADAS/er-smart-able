@@ -254,3 +254,15 @@ def test_every_key_has_an_english_title_and_fix_and_no_message_is_left_over(find
                 walk(v, f"{path}.{k}" if path else k)
     walk(en, "")
     assert have == set(findings.FINDING_KEYS)
+
+
+def test_every_key_a_rule_assigns_is_one_the_module_lists(findings):
+    cl = findings.from_checklist([{"code": c, "title": {"team": "Create the patrol team A", "permission_subject_group": "Add the subjects to the `A`b` subject group"}.get(c, "x"), "steps": []}
+                                  for c in ("team", "permission_subject_group", *findings._CHECKLIST_PLAIN)])
+    pre = findings.from_preflight({"blocking": [PRE(c, "blocking", "x") for c in findings._PREFLIGHT_COUNTED]
+                                   + [PRE("event_types", "blocking", phrase) for phrase, _ in findings._EVENT_TYPE_VARIANTS]
+                                   + [PRE("inactive_members", "blocking", "x"), PRE("leg_span", "warning", "x (3 leg days as stored)")],
+                                   "warnings": [PRE("inactive_members", "warning", "x"), PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred")]})
+    keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"]]
+    assert None not in keys and set(keys) == set(findings.FINDING_KEYS)
+    assert cl[1]["params"] == {"group": "A`b"}, "the whole name between the outer backticks"

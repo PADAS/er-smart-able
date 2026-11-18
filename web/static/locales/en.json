@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Put the rangers in the roster subject group",
-        "fix": "No roster group was named for this load, so the ranger subjects are in no group rangers are picked from. Plan the load again with a roster group, or in Django admin open Patrol configuration › member subject groups, choose or create the group, and add the subjects."
+        "fix": "No roster group was named for this load, or the one named was not found, so the ranger subjects are in no group rangers are picked from. Plan the load again with a roster group, or in Django admin open Patrol configuration › member subject groups, choose or create the group, and add the subjects."
       },
       "permission_subject_group": {
         "title": "Add the subjects to the subject group {{group}}",
@@ -339,7 +339,7 @@
       "subjects": {
         "title_one": "{{count}} patrol member cannot be put on a segment",
         "title_other": "{{count}} patrol members cannot be put on a segment",
-        "fix": "Their ranger subjects do not exist, or are in no group listed under Patrol configuration › members. Press Continue to let the load create them, or add them to such a group in Django admin › Subject groups."
+        "fix": "Their ranger subjects do not exist, or are in no group listed under Patrol configuration › members. The load creates them and, when a roster group is named, adds them to it. Otherwise add them to such a group in Django admin › Subject groups."
       },
       "teams": {
         "title_one": "{{count}} patrol team is missing or inactive",
@@ -382,7 +382,7 @@
         "unmatched": {
           "title_one": "{{count}} observed SMART category has no active event type on the site",
           "title_other": "{{count}} observed SMART categories have no active event type on the site",
-          "fix": "The data model has not been pushed under the event category this load uses. If an earlier push used another identifier, plan the load again with that event category. Otherwise press Continue; the load creates the event types."
+          "fix": "The data model has not been pushed under the event category this load uses. Check the event category: if an earlier push used another identifier, plan the load again with that one."
         },
         "ambiguous": {
           "title_one": "{{count}} category matches more than one event type",

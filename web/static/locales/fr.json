@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Mettre les écogardes dans le groupe de sujets de la liste des écogardes",
-        "fix": "Aucun groupe des écogardes n'a été indiqué pour ce chargement ; les sujets écogardes ne sont donc dans aucun groupe où les écogardes sont choisis. Refaites le plan du chargement en indiquant un groupe des écogardes, ou, dans l'administration Django, ouvrez Patrol configuration › member subject groups, choisissez ou créez le groupe et ajoutez-y les sujets."
+        "fix": "Aucun groupe des écogardes n'a été indiqué pour ce chargement, ou celui qui a été indiqué est introuvable ; les sujets écogardes ne sont donc dans aucun groupe où les écogardes sont choisis. Refaites le plan du chargement en indiquant un groupe des écogardes, ou, dans l'administration Django, ouvrez Patrol configuration › member subject groups, choisissez ou créez le groupe et ajoutez-y les sujets."
       },
       "permission_subject_group": {
         "title": "Ajouter les sujets au groupe de sujets {{group}}",
@@ -339,7 +339,7 @@
       "subjects": {
         "title_one": "{{count}} membre de patrouille ne peut pas être placé sur un segment",
         "title_other": "{{count}} membres de patrouille ne peuvent pas être placés sur un segment",
-        "fix": "Leurs sujets écogardes n'existent pas, ou ne sont dans aucun groupe listé sous Patrol configuration › members. Appuyez sur Continuer pour laisser le chargement les créer, ou ajoutez-les à un tel groupe dans Django admin › Subject groups."
+        "fix": "Leurs sujets écogardes n'existent pas, ou ne sont dans aucun groupe listé sous Patrol configuration › members. Le chargement les crée et, si un groupe des écogardes est indiqué, les y ajoute. Sinon, ajoutez-les à un tel groupe dans Django admin › Subject groups."
       },
       "teams": {
         "title_one": "{{count}} équipe de patrouille manque ou est inactive",
@@ -382,7 +382,7 @@
         "unmatched": {
           "title_one": "{{count}} catégorie SMART observée n'a aucun type d'événement actif sur le site",
           "title_other": "{{count}} catégories SMART observées n'ont aucun type d'événement actif sur le site",
-          "fix": "Le modèle de données n'a pas été envoyé sous la catégorie d'événements que ce chargement utilise. Si un envoi antérieur a utilisé un autre identifiant, refaites le plan du chargement avec cette catégorie d'événements. Sinon, appuyez sur Continuer ; le chargement crée les types d'événement."
+          "fix": "Le modèle de données n'a pas été envoyé sous la catégorie d'événements que ce chargement utilise. Si un envoi antérieur a utilisé un autre identifiant, refaites le plan du chargement avec cette catégorie d'événements."
         },
         "ambiguous": {
           "title_one": "{{count}} catégorie correspond à plusieurs types d'événement",

@@ -48,7 +48,7 @@ _PREFLIGHT_COUNTED = ("language", "time_coverage", "feature_flag", "permissions"
 _EVENT_TYPE_VARIANTS = (("have no active event type", "unmatched"), ("match more than one event type", "ambiguous"),
                         ("map to an inactive event type", "inactive"), ("exist only as configurable", "variants"))
 _TEAM_TITLE = re.compile(r"^Create the patrol team (.+)$")
-_GROUP_TITLE = re.compile(r"`([^`]+)` subject group")
+_GROUP_TITLE = re.compile(r"^Add the subjects to the `(.+)` subject group$")
 _LEG_DAYS = re.compile(r"\((\d+) leg days")
 _ZONE_INFERRED = re.compile(r"timezone (\S+) was inferred")
 
@@ -73,7 +73,7 @@ def _checklist_key(item: dict) -> tuple:
         m = _TEAM_TITLE.match(title)
         return ("checklist.team", {"name": m.group(1)}) if m else (None, {})
     if code == "permission_subject_group":
-        m = _GROUP_TITLE.search(title)
+        m = _GROUP_TITLE.match(title)
         return ("checklist.permission_subject_group", {"group": m.group(1)}) if m else (None, {})
     return None, {}
 
@@ -130,7 +130,7 @@ def checklist_values(item: dict) -> list:
             if code == "station_names" and not v.startswith("Unnamed station"):
                 continue   # the `patrol_station` field name is quoted beside the station names
             seen.add(v)
-            out.append({"label": label, "value": v, "label_key": _LABEL_KEY[label]})
+            out.append({"label": label, "value": v, "label_key": _LABEL_KEY.get(label)})
     return out
 
 

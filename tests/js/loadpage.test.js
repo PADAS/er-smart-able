@@ -116,3 +116,8 @@ test('a counted title follows the language\'s plural, and a plan marks what the 
   assert.equal(P.findingText(made).title, 'SERA CRÉÉ : 2 TYPES');
   assert.equal(load().findingText(made).title, made.title);
 });
+
+test('the translated path is the one taken for a named finding in another language', () => {
+  const h = load({ lang: 'fr', messages: {} }).renderFindings([TEAM], 'needs_attention');   // the real French messages are not loaded here: English is the fallback text
+  assert.match(h, /class="original"/, 'a named finding with its message and values is shown from the message file');
+});

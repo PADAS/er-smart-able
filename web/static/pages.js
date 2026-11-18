@@ -331,7 +331,7 @@ function renderLoadTitle(l) {
 }
 
 // blocking first; each with its copyable values and a link to its help entry.
-// The frame is translated; a finding's own title, detail, fix and value labels are shown as the server stored them.
+// The frame is translated, and so is a finding the server named (see findingText); its detail lines and copyable values are data, shown as stored.
 // The words of one finding, as HTML-safe text: { title, fix, translated }. A finding is stored in
 // English (f.title, f.fix). Where the server named its message (f.key) and the reader's language is
 // not English, the title and fix are that message, filled from f.params; if the message is missing or

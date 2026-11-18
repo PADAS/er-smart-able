@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Colocar os guarda-parques no grupo de sujeitos da lista de guarda-parques",
-        "fix": "Nenhum grupo de guarda-parques foi informado para esta carga, então os sujeitos guarda-parques não estão em nenhum grupo do qual os guarda-parques são escolhidos. Planeje a carga de novo informando um grupo de guarda-parques, ou na administração do Django abra Patrol configuration › member subject groups, escolha ou crie o grupo e adicione os sujeitos."
+        "fix": "Nenhum grupo de guarda-parques foi informado para esta carga, ou o grupo informado não foi encontrado, então os sujeitos guarda-parques não estão em nenhum grupo do qual os guarda-parques são escolhidos. Planeje a carga de novo informando um grupo de guarda-parques, ou na administração do Django abra Patrol configuration › member subject groups, escolha ou crie o grupo e adicione os sujeitos."
       },
       "permission_subject_group": {
         "title": "Adicionar os sujeitos ao grupo de sujeitos {{group}}",
@@ -339,7 +339,7 @@
       "subjects": {
         "title_one": "{{count}} membro de patrulha não pode ser colocado em um segmento",
         "title_other": "{{count}} membros de patrulha não podem ser colocados em um segmento",
-        "fix": "Os sujeitos guarda-parques deles não existem, ou não estão em nenhum grupo listado em Patrol configuration › members. Pressione Continuar para deixar a carga criá-los, ou adicione-os a um grupo assim em Django admin › Subject groups."
+        "fix": "Os sujeitos guarda-parques deles não existem, ou não estão em nenhum grupo listado em Patrol configuration › members. A carga os cria e, se um grupo de guarda-parques for informado, os adiciona a ele. Caso contrário, adicione-os a um grupo assim em Django admin › Subject groups."
       },
       "teams": {
         "title_one": "{{count}} equipe de patrulha está faltando ou inativa",
@@ -382,7 +382,7 @@
         "unmatched": {
           "title_one": "{{count}} categoria do SMART observada não tem nenhum tipo de evento ativo no site",
           "title_other": "{{count}} categorias do SMART observadas não têm nenhum tipo de evento ativo no site",
-          "fix": "O modelo de dados não foi enviado sob a categoria de eventos que esta carga usa. Se um envio anterior usou outro identificador, planeje a carga de novo com essa categoria de eventos. Caso contrário, pressione Continuar; a carga cria os tipos de evento."
+          "fix": "O modelo de dados não foi enviado sob a categoria de eventos que esta carga usa. Se um envio anterior usou outro identificador, planeje a carga de novo com essa categoria de eventos."
         },
         "ambiguous": {
           "title_one": "{{count}} categoria corresponde a mais de um tipo de evento",
