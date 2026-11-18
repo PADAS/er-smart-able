@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Colocar os guarda-parques no grupo de sujeitos da lista de guarda-parques",
-        "fix": "Nenhum grupo foi informado para esta carga, então os sujeitos guarda-parques não estão em nenhum grupo do qual os guarda-parques são escolhidos. Planeje a carga de novo informando um grupo, ou na administração do Django abra Patrol configuration › member subject groups, escolha ou crie o grupo e adicione os sujeitos."
+        "fix": "Nenhum grupo de guarda-parques foi informado para esta carga, então os sujeitos guarda-parques não estão em nenhum grupo do qual os guarda-parques são escolhidos. Planeje a carga de novo informando um grupo de guarda-parques, ou na administração do Django abra Patrol configuration › member subject groups, escolha ou crie o grupo e adicione os sujeitos."
       },
       "permission_subject_group": {
         "title": "Adicionar os sujeitos ao grupo de sujeitos {{group}}",
@@ -290,11 +290,11 @@
       },
       "patrol_type_icons": {
         "title": "Escolher um ícone para cada tipo de patrulha",
-        "fix": "Isto não para a carga. A API não consegue definir ícones, então escolha um para cada novo tipo de patrulha em EarthRanger admin › Patrol types."
+        "fix": "Isto não interrompe a carga. A API não consegue definir ícones, então escolha um para cada novo tipo de patrulha em EarthRanger admin › Patrol types."
       },
       "station_names": {
         "title": "Dar nome às bases que o SMART deixou sem nome",
-        "fix": "Isto não para a carga. Estas bases não têm nome no SMART, então foram criadas com um nome provisório. Dê nome a elas no SMART e exporte de novo, ou renomeie a opção em Django admin › Choices."
+        "fix": "Isto não interrompe a carga. Estas bases não têm nome no SMART, então foram criadas com um nome provisório. Dê nome a elas no SMART e exporte de novo, ou renomeie a opção em Django admin › Choices."
       }
     },
     "preflight": {
@@ -334,7 +334,7 @@
       "choices": {
         "title_one": "{{count}} opção que as patrulhas usam está faltando ou inativa",
         "title_other": "{{count}} opções que as patrulhas usam estão faltando ou inativas",
-        "fix": "Isto não para a carga. A carga cria as opções que faltam; uma opção que um administrador desativou pode ser reativada em Django admin › Choices."
+        "fix": "Isto não interrompe a carga. A carga cria as opções que faltam; uma opção que um administrador desativou pode ser reativada em Django admin › Choices."
       },
       "subjects": {
         "title_one": "{{count}} membro de patrulha não pode ser colocado em um segmento",
@@ -349,7 +349,7 @@
       "collection_type": {
         "title_one": "{{count}} ponto de localização contém várias observações, e o site não tem um tipo de evento de agrupamento",
         "title_other": "{{count}} pontos de localização contêm várias observações, e o site não tem um tipo de evento de agrupamento",
-        "fix": "Isto não para a carga; os eventos deles são importados sem agrupamento. Para agrupá-los, adicione ou ative o tipo de evento incident_collection em EarthRanger admin › Event types."
+        "fix": "Isto não interrompe a carga; os eventos deles são importados sem agrupamento. Para agrupá-los, adicione ou ative o tipo de evento incident_collection em EarthRanger admin › Event types."
       },
       "observers": {
         "title_one": "{{count}} observação não tem ninguém que possa ser indicado como quem a relatou",
@@ -392,7 +392,7 @@
         "inactive": {
           "title_one": "{{count}} categoria observada corresponde a um tipo de evento inativo",
           "title_other": "{{count}} categorias observadas correspondem a um tipo de evento inativo",
-          "fix": "Isto não para a carga. Os eventos delas são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em EarthRanger admin › Event types se os guarda-parques devem continuar a usá-lo."
+          "fix": "Isto não interrompe a carga. Os eventos delas são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em EarthRanger admin › Event types se os guarda-parques deverem continuar a usá-lo."
         },
         "variants": {
           "title_one": "{{count}} categoria observada existe só como variantes do modelo configurável",

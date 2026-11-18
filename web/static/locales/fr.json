@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Mettre les écogardes dans le groupe de sujets de la liste des écogardes",
-        "fix": "Aucun groupe n'a été indiqué pour ce chargement ; les sujets écogardes ne sont donc dans aucun groupe où les écogardes sont choisis. Refaites le plan du chargement en nommant un groupe, ou, dans l'administration Django, ouvrez Patrol configuration › member subject groups, choisissez ou créez le groupe et ajoutez-y les sujets."
+        "fix": "Aucun groupe des écogardes n'a été indiqué pour ce chargement ; les sujets écogardes ne sont donc dans aucun groupe où les écogardes sont choisis. Refaites le plan du chargement en indiquant un groupe des écogardes, ou, dans l'administration Django, ouvrez Patrol configuration › member subject groups, choisissez ou créez le groupe et ajoutez-y les sujets."
       },
       "permission_subject_group": {
         "title": "Ajouter les sujets au groupe de sujets {{group}}",
@@ -305,7 +305,7 @@
       "language": {
         "title_one": "{{count}} élément du modèle de données n'a pas de libellé dans la langue choisie",
         "title_other": "{{count}} éléments du modèle de données n'ont pas de libellé dans la langue choisie",
-        "fix": "Ils se rabattent sur la langue par défaut du lot. Si les libellés comptent, refaites le plan du chargement avec la langue la mieux couverte ; l'onglet Data Model du jeu de données montre la couverture de chaque langue."
+        "fix": "Ils se rabattent sur la langue par défaut du paquet. Si les libellés comptent, refaites le plan du chargement avec la langue la mieux couverte ; l'onglet Data Model du jeu de données montre la couverture de chaque langue."
       },
       "time_coverage": {
         "title_one": "{{count}} jour d'étape de patrouille n'a aucune information d'heure",
@@ -359,7 +359,7 @@
       "bundle_warnings": {
         "title_one": "L'extraction a consigné {{count}} avertissement",
         "title_other": "L'extraction a consigné {{count}} avertissements",
-        "fix": "Ils sont listés ci-dessous et dans le manifeste du lot. La section SMART data quirks de l'aide explique chaque type."
+        "fix": "Ils sont listés ci-dessous et dans le manifeste du paquet. La section SMART data quirks de l'aide explique chaque type."
       },
       "leg_span": {
         "title_one": "{{count}} étape de patrouille commence à la date provisoire de 1970 de SMART ou couvre plus d'un an ({{days}} jours d'étape tels qu'enregistrés)",

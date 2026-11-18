@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Poner a los guardaparques en el grupo de sujetos de la lista de guardaparques",
-        "fix": "No se indicó un grupo para esta carga, así que los sujetos guardaparques no están en ningún grupo del que se eligen los guardaparques. Planifique de nuevo la carga indicando un grupo, o en la administración de Django abra Patrol configuration › member subject groups, elija o cree el grupo y agregue los sujetos."
+        "fix": "No se indicó un grupo de guardaparques para esta carga, así que los sujetos guardaparques no están en ningún grupo del que se eligen los guardaparques. Planifique de nuevo la carga indicando un grupo de guardaparques, o en la administración de Django abra Patrol configuration › member subject groups, elija o cree el grupo y agregue los sujetos."
       },
       "permission_subject_group": {
         "title": "Agregar los sujetos al grupo de sujetos {{group}}",
@@ -352,8 +352,8 @@
         "fix": "Esto no detiene la carga; sus eventos se importan sin agrupar. Para agruparlos, agregue o active el tipo de evento incident_collection en EarthRanger admin › Event types."
       },
       "observers": {
-        "title_one": "{{count}} observación no tiene a nadie a quien nombrar como quien la reportó",
-        "title_other": "{{count}} observaciones no tienen a nadie a quien nombrar como quien las reportó",
+        "title_one": "{{count}} observación no tiene a nadie que pueda figurar como quien la reportó",
+        "title_other": "{{count}} observaciones no tienen a nadie que pueda figurar como quien las reportó",
         "fix": "Nada que hacer a menos que importe: sus eventos no indican quién los reportó. Para cambiarlo, dé al observador un registro de empleado en SMART y exporte de nuevo."
       },
       "bundle_warnings": {

@@ -262,7 +262,7 @@
       },
       "roster_group": {
         "title": "Waweke askari kwenye kundi la wahusika la orodha ya askari",
-        "fix": "Hakuna kundi lililotajwa kwa uingizaji huu, kwa hiyo wahusika askari hawamo kwenye kundi lolote ambamo askari wanachaguliwa. Panga uingizaji tena ukitaja kundi, au kwenye usimamizi wa Django fungua Patrol configuration › member subject groups, chagua au unda kundi, kisha ongeza wahusika."
+        "fix": "Hakuna kundi la askari lililotajwa kwa uingizaji huu, kwa hiyo wahusika askari hawamo kwenye kundi lolote ambamo askari wanachaguliwa. Panga uingizaji tena ukitaja kundi la askari, au kwenye usimamizi wa Django fungua Patrol configuration › member subject groups, chagua au unda kundi, kisha ongeza wahusika."
       },
       "permission_subject_group": {
         "title": "Ongeza wahusika kwenye kundi la wahusika {{group}}",
@@ -293,7 +293,7 @@
         "fix": "Hili halisimamishi uingizaji. API haiwezi kuweka aikoni, kwa hiyo chagua moja kwa kila aina mpya ya doria kwenye EarthRanger admin › Patrol types."
       },
       "station_names": {
-        "title": "Vipe majina vituo ambavyo SMART iliviacha bila majina",
+        "title": "Vipe majina vituo (stations) ambavyo SMART iliviacha bila majina",
         "fix": "Hili halisimamishi uingizaji. Vituo hivi (stations) havina jina kwenye SMART, kwa hiyo viliundwa kwa jina la muda. Vipe majina kwenye SMART kisha hamisha tena kutoka SMART (export), au badilisha jina la chaguo kwenye Django admin › Choices."
       }
     },
@@ -395,8 +395,8 @@
           "fix": "Hili halisimamishi uingizaji. Matukio yake yanaingizwa kwa kutumia aina isiyo amilifu, ambayo EarthRanger haiitoi kwa ripoti mpya. Ifanye aina hiyo kuwa amilifu kwenye EarthRanger admin › Event types kama askari wanapaswa kuendelea kuitumia."
         },
         "variants": {
-          "title_one": "Kategoria {{count}} yenye vielelezo ipo tu kama vibadala (variants) vya modeli inayoweza kusanidiwa",
-          "title_other": "Kategoria {{count}} zenye vielelezo zipo tu kama vibadala (variants) vya modeli inayoweza kusanidiwa",
+          "title_one": "Kategoria {{count}} yenye vielelezo ipo tu kama vibadala (variants) vya moduli inayosanidika",
+          "title_other": "Kategoria {{count}} zenye vielelezo zipo tu kama vibadala (variants) vya moduli inayosanidika",
           "fix": "Uingizaji bado hauwezi kujua kielelezo ni cha kibadala kipi, kwa hiyo doria hizi bado haziwezi kuingizwa."
         }
       }

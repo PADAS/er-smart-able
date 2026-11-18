@@ -105,7 +105,7 @@ Kategoria za SMART zenye vielelezo zinahitaji aina ya tukio iliyo amilifu kwenye
 - **Hakuna aina ya tukio iliyo amilifu**: moduli data haijatumwa chini ya kategoria ya matukio ambayo uingizaji huu unaitumia. Katika mpango hili linatarajiwa na linawekwa alama kuwa ni kitu ambacho utekelezaji utakiunda. Katika utekelezaji, kagua kategoria ya matukio: kama utumaji wa awali ulitumia kitambulisho tofauti, panga uingizaji tena kwa kitambulisho hicho.
 - **Inalingana na aina zaidi ya moja ya tukio**: tovuti ina utumaji kadhaa wa moduli data, chini ya kategoria tofauti za matukio, wenye majina yaleyale ya aina. Panga uingizaji tena kwa kategoria ya matukio ya utumaji unaotaka kuutumia.
 - **Inaelekea kwenye aina ya tukio isiyo amilifu**: ni onyo. Kategoria ni kategoria mzazi ya SMART au iliacha kutumika; matukio yake yanaingizwa kwa kutumia aina isiyo amilifu, ambayo EarthRanger haiitoi kwa ripoti mpya. Washa aina hiyo kwenye **EarthRanger admin › Event types** kama askari wanapaswa kuendelea kuitumia.
-- **Ipo tu kama vibadala (variants) vya modeli inayoweza kusanidiwa** vya modeli inayoweza kusanidiwa): kategoria hizo zina aina moja ya tukio kwa kila fomu, na uingizaji bado hauwezi kujua kielelezo ni cha kibadala kipi. Doria hizo bado haziwezi kuingizwa; inahitajika ulinganisho wa vibadala, ambayo ni kazi inayosubiri kwenye er-smart-sync.
+- **Ipo tu kama vibadala (variants) vya moduli inayosanidika**: kategoria hizo zina aina moja ya tukio kwa kila fomu, na uingizaji bado hauwezi kujua kielelezo ni cha kibadala kipi. Doria hizo bado haziwezi kuingizwa; inahitajika ulinganisho wa vibadala, ambayo ni kazi inayosubiri kwenye er-smart-sync.
 
 ### Hakuna aina ya tukio ya mkusanyiko {#finding-collection_type}
 
