@@ -26,7 +26,12 @@
     "upload": "Subir copia de seguridad o exportación",
     "empty": "Todavía no hay conjuntos de datos. Suba una copia de seguridad o una exportación para empezar.",
     "you": "usted",
-    "shared": "compartido"
+    "shared": "compartido",
+    "allUsers": "Todos los usuarios",
+    "allUsersTitle": "Mostrar los conjuntos de datos y los sitios de todos los usuarios (vista de soporte)"
+  },
+  "support": {
+    "line": "Vista de soporte: solo lectura. Propietario: {{owner}}."
   },
   "dataset": {
     "browse": "Explorar",
@@ -96,6 +101,7 @@
     "add": "Agregar un sitio",
     "you": "usted",
     "tokenAs": "…{{hint}} como {{user}}",
+    "checkedAs": "comprobado como {{user}}",
     "share": "Compartir",
     "remove": "Quitar",
     "removeTitle": "Quitar este sitio y su token",

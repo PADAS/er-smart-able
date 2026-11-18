@@ -26,7 +26,12 @@
     "upload": "Enviar um backup ou uma exportação",
     "empty": "Ainda não há conjuntos de dados. Envie um backup ou uma exportação para começar.",
     "you": "você",
-    "shared": "compartilhado"
+    "shared": "compartilhado",
+    "allUsers": "Todos os usuários",
+    "allUsersTitle": "Mostrar os conjuntos de dados e os sites de todos os usuários (visualização de suporte)"
+  },
+  "support": {
+    "line": "Visualização de suporte: somente leitura. Proprietário: {{owner}}."
   },
   "dataset": {
     "browse": "Explorar",
@@ -96,6 +101,7 @@
     "add": "Adicionar um site",
     "you": "você",
     "tokenAs": "…{{hint}} como {{user}}",
+    "checkedAs": "verificado como {{user}}",
     "share": "Compartilhar",
     "remove": "Remover",
     "removeTitle": "Remover este site e o token dele",

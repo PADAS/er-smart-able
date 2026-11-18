@@ -105,10 +105,10 @@ const CALLS = {
   renderSignIn: [[{}], [{ allowed: ['@one.example.org'] }], [{ allowed: ['@a.example.org', '@b.example.org', '@c.example.org'] }], [{ allowed: '@str.example.org' }]],
   renderDatasetCard: DATASETS.map(d => [d]),
   renderCardList: [[DATASETS], [[]]],
-  renderHome: [[DATASETS], [[]], [DATASETS, SITES], [[], []], [DATASETS, null, 'Stored detail lines']],
+  renderHome: [[DATASETS], [[]], [DATASETS, SITES], [[], []], [DATASETS, null, 'Stored detail lines'], [DATASETS, SITES, null, { support: true, all: true }], [[], [], null, { support: true }]],
   renderRangersSection: [[{ ...LOAD, rangers: RANGERS, rangers_total: 3 }, true], [{ ...LOAD, rangers: RANGERS, rangers_total: 9, options: { scope: 'datamodel' } }], [LOAD]],
   renderNotFound: [['load'], ['dataset'], []],
-  renderSites: [[SITES], [[]]],
+  renderSites: [[SITES], [[]], [[{ ...SITES[0], mine: false, access: 'support', token_hint: null, owner_email: 'owner@example.org' }]]],
   renderTabs: [[ownDs, 'overview'], [DATASETS[0], 'loads'], [ownDs, 'rangers']],
   renderOverview: [...DATASETS.map(d => [d]), [ownDs],
     // the uploaded backup: expiring, about to go, kept for good, deleted by the owner, gone by the rule
@@ -117,11 +117,13 @@ const CALLS = {
   renderLoadsTab: [[ownDs, LOADS], [ownDs, []], [DATASETS[1], []]],
   renderRangersTab: [[{ ...LOAD, rangers: RANGERS }], [{ ...LOAD, site: null, rangers: RANGERS }], [null], [{ ...LOAD, rangers: [] }]],
   renderDatasetPage: [[{ ...ownDs, upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } }, 'backup'], [{ ...ownDs, status: 'uploading', upload: { present: false } }, 'backup'], [ownDs, 'backup'],
-    [ownDs, 'overview'], [ownDs, 'loads', { loads: LOADS }], [DATASETS[1], 'rangers', { load: { ...LOAD, rangers: RANGERS } }], [DATASETS[0], 'overview']],
+    [ownDs, 'overview'], [ownDs, 'loads', { loads: LOADS }], [DATASETS[1], 'rangers', { load: { ...LOAD, rangers: RANGERS } }], [DATASETS[0], 'overview'],
+    // support view: every tab, with the line and no controls
+    ...['overview', 'loads', 'backup'].map(tab => [{ ...ownDs, mine: false, access: 'support', owner_email: 'owner@example.org', upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } }, tab, { loads: LOADS }])],
   renderLoadTitle: LOADS.map(l => [l]).concat([[{ ...LOADS[0], findings: FINDINGS.slice(0, 2) }], [{ ...LOADS[0], held: true }], [{ ...LOADS[0], status: 'planned', findings: [] }]]),
   renderFindings: [[FINDINGS, 'planned'], [KEYED, 'needs_attention'], [[], 'done'], [[], 'running'], [undefined, 'planned']],
   renderProgress: LOADS.flatMap(l => [[l, true], [l, false]]),
-  renderLoadPage: LOADS.flatMap(l => [[l, true], [l, false]]),
+  renderLoadPage: LOADS.flatMap(l => [[l, true], [l, false]]).concat(LOADS.map(l => [{ ...l, access: 'support' }, false])),
   renderStages: LOADS.flatMap(l => [[l, true], [l, false]]),
   renderPlan: [[PLAN], [{}], [{ patrols: { total: 1, events: 0, track_points: 0 }, roster: {}, subjects: { create: [], unchanged: 3 } }]],
 };

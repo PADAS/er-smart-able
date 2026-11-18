@@ -120,8 +120,12 @@ function renderCardList(datasets) {
 }
 // The home page: the datasets, then the EarthRanger sites they are loaded into. sites is null when
 // they could not be fetched; the section then says why (sitesError) and the datasets still show.
-function renderHome(datasets, sites, sitesError) {
-  return '<div class="page-head"><h1>' + T('home.title') + '</h1>' +
+// opts.support: the reader is support staff, who get a switch to list every user's datasets and sites
+// (opts.all: it is on). Nobody else is shown it, and the server ignores the request from anyone else.
+function renderHome(datasets, sites, sitesError, opts) {
+  opts = opts || {};
+  var everyone = opts.support ? '<label class="switch" title="' + T('home.allUsersTitle') + '"><input type="checkbox" id="allUsers"' + (opts.all ? ' checked' : '') + '>' + T('home.allUsers') + '</label>' : '';
+  return '<div class="page-head"><h1>' + T('home.title') + '</h1>' + everyone +
     '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>' + T('home.upload') + '</button></div>' +
     '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>' +
     (sites === undefined ? '' : sites ? renderSites(sites) : '<section id="sites" class="home-section"><div class="page-head"><h2>' + T('shell.sites') + '</h2></div><p class="empty">' + esc(sitesError) + '</p></section>');
@@ -164,6 +168,9 @@ function renderRangersSection(l, open) {
 
 // ---- the dataset page
 // what: 'dataset' (the default) or 'load'; a load is shared through its dataset
+// Shown on a dataset or load the reader reaches only as support staff: they may look, and the page
+// draws none of its controls (the server refuses them in any case).
+function supportLine(owner) { return '<p class="support-line"><span class="mi" aria-hidden="true">visibility</span>' + T('support.line', { owner: owner || '' }) + '</p>'; }
 function renderNotFound(what) {
   return '<div class="panel"><h1>' + T('dataset.notFoundTitle') + '</h1><p class="muted">' + T(what === 'load' ? 'dataset.notFoundLoad' : 'dataset.notFoundDataset') + '</p>' +
     '<a class="btn primary" href="#/"><span class="mi" aria-hidden="true">arrow_back</span>' + T('dataset.backToDatasets') + '</a></div>';
@@ -185,7 +192,7 @@ function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); r
 function renderSites(sites) {
   var rows = (sites || []).map(s => '<tr>' +
     '<td><b>' + esc(s.name) + '</b><div class="tiny">' + esc(s.url) + '</div></td>' +
-    '<td class="tiny">' + T('sites.tokenAs', { hint: s.token_hint, user: s.checked_as }) + '</td>' +
+    '<td class="tiny">' + (s.token_hint ? T('sites.tokenAs', { hint: s.token_hint, user: s.checked_as }) : s.checked_as ? T('sites.checkedAs', { user: s.checked_as }) : '—') + '</td>' +
     '<td>' + (s.mine ? T('sites.you') : esc(s.owner_email)) + '</td>' +
     '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
     '<td class="actions">' + (s.mine ?
@@ -230,7 +237,7 @@ function renderOverview(d) {
   var rows = areaRows.map(e => '<tr><td><b>' + esc(e.name || e.ca_id) + '</b></td><td class="tiny">' + esc(e.ca_id) + '</td><td class="tiny">' + esc(e.version || e.smart_version || d.db_version || '') + '</td>' +
     '<td class="tiny">' + (e.patrols != null ? tn('units.patrols', e.patrols) : '') + (e.waypoints != null ? ' · ' + tn('units.waypoints', e.waypoints) : '') + '</td>' +
     '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? browseLink(d) : '') +   // the viewer answers 409 unless ready
-    (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : ' <span class="tiny">' + T('dataset.reExtractToLoad') + '</span>') + '</div></td></tr>').join('');
+    (d.extract_held || d.access === 'support' ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : ' <span class="tiny">' + T('dataset.reExtractToLoad') + '</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>' + T('dataset.extraction') + '</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') + backupReminder(d) +
     (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', {}, { action: T('dataset.reExtract') }) : '') + '</p>' : '') +
@@ -278,7 +285,7 @@ function deleteBackupBody(d) { return confirmBody([T('confirm.deleteBackupWhat',
 
 function renderLoadsTab(d, loads) {
   var list = (loads || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  var canLoad = !d.extract_held && (d.export || []).some(hasBundle);   // an extraction rewrites the bundle a load reads
+  var canLoad = d.access !== 'support' && !d.extract_held && (d.export || []).some(hasBundle);   // an extraction rewrites the bundle a load reads
   var btn = canLoad ? '<button id="loadBtn" class="primary"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : '';
   if (!list.length) return '<div class="page-head"><h2>' + T('dataset.tabLoads') + '</h2>' + btn + '</div><p class="empty">' + T('dataset.noLoads') + '</p>';
   return '<div class="page-head"><h2>' + T('dataset.tabLoads') + '</h2>' + btn + '</div><div class="panel"><table><thead><tr><th>' + T('dataset.colAreaSite') + '</th><th>' + T('dataset.colStatus') + '</th><th>' + T('dataset.colProgress') + '</th><th>' + T('dataset.colStarted') + '</th><th>' + T('dataset.colBy') + '</th></tr></thead><tbody>' +
@@ -307,7 +314,7 @@ function renderDatasetPage(d, tab, extra) {
   var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load)
     : tab === 'backup' ? (backupPanel(d) || '<div class="panel"><p class="tiny">' + T(d.status === 'uploading' ? 'backup.uploading' : 'backup.unknown') + '</p></div>') : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
-    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
+    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div>' + (d.access === 'support' ? supportLine(d.owner_email) : '') + '</div>' + actions + '</div>' +
     renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
 }
 
@@ -342,21 +349,22 @@ function renderLoadTitle(l) {
   const facts = loadFacts(l);
   let actions = '';
   const busy = l.dataset_extracting ? ' disabled title="' + T('load.extractingTitle') + '"' : '';   // the server refuses a run or a plan meanwhile
-  if (!active && l.site) {
+  const viewing = l.access === 'support';   // support staff look; they are offered nothing that acts
+  if (!active && l.site && !viewing) {
     // a plan writes nothing, so a run gets further than its plan: confirm is offered even with blocking findings
     if (l.status === 'planned') actions += '<button class="primary" data-run' + busy + '><span class="mi" aria-hidden="true">play_arrow</span>' + (blocking ? T('load.confirmStops', { n: fmtNum(blocking) }) : T('load.confirm')) + '</button>';
     if (l.status === 'needs_attention' || stale) actions += '<button class="primary" data-run' + busy + '><span class="mi" aria-hidden="true">play_arrow</span>' + T('load.continue') + '</button>';
     if (stale || ['planned', 'needs_attention', 'failed', 'done'].includes(l.status)) actions += '<button data-replan' + busy + '><span class="mi" aria-hidden="true">refresh</span>' + T('load.planAgain') + '</button>';
   }
-  if (!active) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>' + T('load.delete') + '</button>';
+  if (!active && !viewing) actions += '<button class="danger" data-del><span class="mi" aria-hidden="true">delete</span>' + T('load.delete') + '</button>';
   let notes = '';
   if (!active && l.site && l.status === 'planned' && blocking) notes += '<div class="tiny">' + tn('load.stopsAt', blocking) + '</div>';
-  if (busy && !active && l.site) notes += '<div class="tiny">' + T('load.extractingNote') + '</div>';
+  if (busy && !active && l.site && !viewing) notes += '<div class="tiny">' + T('load.extractingNote') + '</div>';
   if (stale) notes += '<div class="tiny">' + T('load.stale') + '</div>';
   if (l.error) notes += '<div class="tiny card-error">' + esc(l.error) + '</div>';
   return '<div class="title-block"><div><h1>' + esc(loadName(l)) + ' ' + pill(l.status) +
     ' <button class="help" data-help="help-statuses" title="' + T('load.statusesHelp') + '"><span class="mi" aria-hidden="true">help</span></button></h1>' +
-    '<div class="tiny">' + facts.map(esc).join(' · ') + '</div></div>' +
+    '<div class="tiny">' + facts.map(esc).join(' · ') + '</div>' + (viewing ? supportLine(l.owner_email) : '') + '</div>' +
     (actions || notes ? '<div>' + (actions ? '<div class="actions">' + actions + '</div>' : '') + notes + '</div>' : '') + '</div>';
 }
 

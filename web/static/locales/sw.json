@@ -26,7 +26,12 @@
     "upload": "Pakia chelezo au faili iliyohamishwa",
     "empty": "Bado hakuna seti za data. Pakia chelezo au faili iliyohamishwa (export) ili kuanza.",
     "you": "wewe",
-    "shared": "imeshirikiwa"
+    "shared": "imeshirikiwa",
+    "allUsers": "Watumiaji wote",
+    "allUsersTitle": "Onyesha seti za data na tovuti za watumiaji wote (mwonekano wa usaidizi)"
+  },
+  "support": {
+    "line": "Mwonekano wa usaidizi: kusoma tu. Mmiliki: {{owner}}."
   },
   "dataset": {
     "browse": "Vinjari",
@@ -96,6 +101,7 @@
     "add": "Ongeza tovuti",
     "you": "wewe",
     "tokenAs": "…{{hint}} kama {{user}}",
+    "checkedAs": "imekaguliwa kama {{user}}",
     "share": "Shiriki",
     "remove": "Ondoa",
     "removeTitle": "Ondoa tovuti hii na tokeni yake",

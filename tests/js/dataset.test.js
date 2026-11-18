@@ -186,3 +186,22 @@ test('a tab the bar offers is a tab the route opens: Backup on a dataset that fa
   assert.match(src, /if \(!tabAllowed\(d, tab\)\) \{ tab = 'overview';/, 'the route asks the same question as the tab bar');
   assert.doesNotMatch(src, /hasLoadTabs\(/, 'and no second rule of its own');
 });
+// ---- support view: support staff may open any dataset and are drawn nothing that changes it
+const viewed = { ...d, mine: false, access: 'support', owner_email: 'owner@example.org', upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } };
+test('a dataset in support view says so and draws no controls, on every tab', () => {
+  for (const tab of ['overview', 'loads', 'backup']) {
+    const h = P.renderDatasetPage(viewed, tab, { loads: [] });
+    assert.match(h, /class="support-line">.*Support view: read-only\. Owned by owner@example\.org\./, tab);
+    for (const id of ['shareBtn', 'extractBtn', 'deleteBtn', 'deleteBackupBtn', 'loadBtn']) assert.ok(!h.includes('id="' + id + '"'), tab + ' ' + id);
+    assert.doesNotMatch(h, /data-act="load"/, tab);
+  }
+  assert.match(P.renderDatasetPage(viewed, 'overview', {}), /href="\/d\/a1\/"/);   // browsing is looking
+});
+test('the same dataset shared with the reader keeps its Load button and has no support line', () => {
+  const h = P.renderDatasetPage({ ...viewed, access: 'shared' }, 'loads', { loads: [] });
+  assert.match(h, /id="loadBtn"/); assert.doesNotMatch(h, /support-line/);
+});
+test('a failed dataset in support view still shows its error and log', () => {
+  const h = P.renderDatasetPage({ ...viewed, status: 'failed', export: [], error: 'zip is not a SMART backup', log_tail: 'the log' }, 'overview', {});
+  assert.match(h, /support-line/); assert.match(h, /zip is not a SMART backup/); assert.match(h, /the log/);
+});
