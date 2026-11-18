@@ -174,6 +174,10 @@ function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; 
 function hasBundle(e) { return !!(e && e.dir); }
 // Loads and Rangers open once an extraction has produced an export, so a failed re-extract keeps them
 function hasLoadTabs(d) { return !!((d.export || []).length || d.status === 'ready'); }
+// Whether a tab of the dataset page can be opened. Loads and Rangers need something extracted; Overview
+// and Backup are there whatever the extraction did. The tab bar and the route both ask this, so a tab
+// that is offered is a tab that opens.
+function tabAllowed(d, tab) { return !(tab === 'loads' || tab === 'rangers') || hasLoadTabs(d); }
 function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
 
 // ---- the sites page. Only the token hint is shown; the token itself never reaches the page.
@@ -205,9 +209,8 @@ function siteEditBody(s) {
     '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary" id="siteBtn">' + T('siteEdit.submit') + '</button></div></form>';
 }
 function renderTabs(d, tab) {
-  var ready = hasLoadTabs(d);
   return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers'], ['backup', T('dataset.tabBackup'), '/backup']].map(t => {
-    var off = (t[0] === 'loads' || t[0] === 'rangers') && !ready;   // those two need an extraction; the backup is there whatever it did
+    var off = !tabAllowed(d, t[0]);
     return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
   }).join('') + '</nav>';
 }

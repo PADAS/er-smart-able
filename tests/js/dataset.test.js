@@ -172,3 +172,17 @@ test('the Backup tab says so while the file is still uploading', () => {
   const P = at(load());
   assert.match(P.renderDatasetPage({ ...own, status: 'uploading', upload: { present: false } }, 'backup'), /The backup is still uploading\./);
 });
+
+test('a tab the bar offers is a tab the route opens: Backup on a dataset that failed before extracting anything', () => {
+  const P = at(load()), failed = { ...own, status: 'failed', export: [], cas: [], upload: { present: true, expires_at: '2026-12-20T00:00:00+00:00' } };
+  assert.equal(P.tabAllowed(failed, 'backup'), true); assert.equal(P.tabAllowed(failed, 'overview'), true);
+  assert.equal(P.tabAllowed(failed, 'loads'), false); assert.equal(P.tabAllowed(failed, 'rangers'), false);
+  assert.equal(P.tabAllowed({ ...failed, status: 'ready' }, 'loads'), true);
+  const tabs = P.renderTabs(failed, 'backup');
+  for (const [tab, off] of [['', false], ['/loads', true], ['/rangers', true], ['/backup', false]])
+    assert.equal(new RegExp('href="#/datasets/a1' + tab + '"[^>]*aria-disabled="true"').test(tabs), off, tab || 'overview');
+  assert.match(P.renderDatasetPage(failed, 'backup'), /Delete the backup now/, 'the owner can still delete the backup of a dataset that never extracted');
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
+  assert.match(src, /if \(!tabAllowed\(d, tab\)\) \{ tab = 'overview';/, 'the route asks the same question as the tab bar');
+  assert.doesNotMatch(src, /hasLoadTabs\(/, 'and no second rule of its own');
+});

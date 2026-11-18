@@ -328,7 +328,7 @@ async function showDataset(route, poll) {
   }
   if (!current()) return;
   let tab = route.tab;
-  if (tab !== 'overview' && !hasLoadTabs(d)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
+  if (!tabAllowed(d, tab)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
   const extra = {};
   try {
     if (tab === 'loads') extra.loads = await api('/api/datasets/' + d.id + '/loads');
