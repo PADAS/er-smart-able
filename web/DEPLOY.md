@@ -79,6 +79,18 @@ limits:
 Deleting a dataset deletes its loads, their plans and reports. It never
 deletes anything already written to EarthRanger.
 
+A load reads the conservation area's tracks one patrol at a time, so its
+memory does not grow with them (`docs/load-performance.md`). That holds for a
+dataset extracted with this version or later, whose bundle is version 2
+(`tracks.jsonl` and `tracks.index.json`). A dataset extracted earlier has a
+version 1 bundle (`tracks.json`), which still loads but is read whole: it
+needs about 5.5 times that file in the load job's memory, counting the copy on
+`/tmp`. If such a load dies with "The configured memory limit was reached",
+re-extract the dataset (its backup must still be stored) and load again. The
+job still copies the export to its in-memory `/tmp`, so a large area needs
+that much memory and no more; the load job's `--memory` stays where it is
+until that copy is gone.
+
 ## Support view
 
 The addresses in `SUPPORT_EMAILS` are the support staff. Signed in, each

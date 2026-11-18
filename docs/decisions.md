@@ -67,3 +67,25 @@ them, and `extract/check_schema.sh` warns about every table or column that
 differs from the snapshot on any input. Reopen when an 8.x backup is
 extracted: its warnings list the deltas, and the snapshot should then be
 regenerated from it once the browser handles them.
+
+## 2026-11-18: A bundle's tracks are one per line, read a patrol at a time
+
+A load read the bundle's `tracks.json` whole, which takes about 4.5 times
+the file in memory; an area with an 801 MiB file could not be planned in the
+load job (GUNDI-5944). An import only ever needs the tracks of the patrol it
+is on. So bundle version 2 writes the tracks one per line, a patrol's lines
+together (`tracks.jsonl`), with each patrol's byte range and counts in
+`tracks.index.json`, and er-smart-sync reads a patrol's lines when it
+imports that patrol. Memory no longer grows with the area
+(`docs/load-performance.md`).
+
+One file per patrol was the simpler reader, but a large area would be tens
+of thousands of small objects to upload, list and download. Parsing the one
+`tracks.json` as a stream needed no new layout, but it cannot jump to a
+patrol, so every worker and every retry would scan the file again.
+
+er-smart-sync still reads version 1, with the memory it needed before, so a
+dataset extracted earlier loads without being touched; re-extracting it
+writes version 2. A track is now checked when its patrol is imported, so a
+bad one fails that patrol and not the bundle. Reopen if `patrols.json`,
+still read whole, becomes the next thing too big to hold.
