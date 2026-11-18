@@ -203,3 +203,67 @@ def test_the_page_names_its_assets_by_their_content(client):
         digest = hashlib.sha256((ROOT / "web" / "static" / name).read_bytes()).hexdigest()[:12]
         assert re.search(rf'"/static/{re.escape(name)}\?v={digest}"', html), name
         assert c.get(f"/static/{name}?v={digest}").status_code == 200
+
+
+# ---- editing a site: rename it, replace its token
+def _made(client, er):
+    app, c = client
+    r = c.post("/api/sites", json={"name": "North", "url": "north.pamdas.org", "token": "tok-first-1111"})
+    assert r.status_code == 201
+    return app, c, r.json()["id"]
+
+
+def test_the_owner_renames_a_site_and_its_token_is_untouched(client, er):
+    calls, _ = er
+    app, c, id = _made(client, er)
+    r = c.patch(f"/api/sites/{id}", json={"name": "  North Zone  "})
+    assert r.status_code == 200 and r.json()["name"] == "North Zone" and r.json()["token_hint"] == "1111"
+    assert len(calls) == 1, "a rename does not call the site"
+    assert app.get_store().read_site_token(id) == "tok-first-1111"
+    assert c.patch(f"/api/sites/{id}", json={"name": "   "}).json()["name"] == "north.pamdas.org", "an empty name falls back to the host, as when adding"
+    assert c.patch(f"/api/sites/{id}", json={"token": "  "}).json()["token_hint"] == "1111", "an empty token keeps the one stored"
+
+
+def test_a_replaced_token_is_checked_first_and_only_then_stored(client, er):
+    calls, state = er
+    app, c, id = _made(client, er)
+    state["user"] = "new_user"
+    r = c.patch(f"/api/sites/{id}", json={"token": " tok-second-2222 "})
+    assert r.status_code == 200 and r.json()["token_hint"] == "2222" and r.json()["checked_as"] == "new_user"
+    assert calls[-1] == ("north.pamdas.org", "tok-second-2222") and app.get_store().read_site_token(id) == "tok-second-2222"
+    assert "tok-second" not in r.text and "tok-second" not in str(app.get_store().get_site(id))
+    state["reject"] = True
+    r = c.patch(f"/api/sites/{id}", json={"name": "Renamed", "token": "tok-bad-3333"})
+    assert r.status_code == 400 and r.json()["code"] == "token_rejected" and "tok-bad" not in r.text
+    doc = app.get_store().get_site(id)
+    assert app.get_store().read_site_token(id) == "tok-second-2222" and doc["token_hint"] == "2222" and doc["name"] == "North", "a refused token changes nothing, the name included"
+
+
+def test_the_host_of_a_site_cannot_be_edited(client, er):
+    app, c, id = _made(client, er)
+    r = c.patch(f"/api/sites/{id}", json={"name": "x", "url": "elsewhere.pamdas.org"})
+    assert r.status_code == 422 and app.get_store().get_site(id)["url"] == "north.pamdas.org"
+
+
+def test_only_the_owner_edits_a_site(client, er):
+    app, c = client
+    id = app.get_store().create_site({"name": "theirs", "url": "x.pamdas.org", "owner_email": "someone@earthranger.com", "owner_uid": "someone",
+                                      "shared_with": ["dev@earthranger.com"], "token_hint": "9999"}, "tok-theirs-9999")
+    r = c.patch(f"/api/sites/{id}", json={"name": "mine now"})
+    assert r.status_code == 403 and r.json()["code"] == "owner_only" and app.get_store().get_site(id)["name"] == "theirs"
+    assert c.patch("/api/sites/nope", json={"name": "x"}).status_code == 404
+
+
+def test_a_token_is_not_replaced_while_a_load_into_the_site_is_running(client, er):
+    app, c, id = _made(client, er)
+    store = app.get_store()
+    from store import now
+    ds = store.create({"name": "d", "source_name": "b.zip", "status": "ready", "export": [], "created_at": now(), "updated_at": now(), **OWNER})
+    load = store.create_load({"dataset_id": ds, "ca_id": "A", "site_id": id, "status": "running", "claimed_at": now(), "started_at": now(),
+                              "created_at": now(), "updated_at": now(), **OWNER})
+    assert load
+    r = c.patch(f"/api/sites/{id}", json={"token": "tok-second-2222"})
+    assert r.status_code == 409 and r.json()["code"] == "site_busy" and store.read_site_token(id) == "tok-first-1111"
+    assert c.patch(f"/api/sites/{id}", json={"name": "Still renamable"}).status_code == 200
+    store.update_load(load, status="done")
+    assert c.patch(f"/api/sites/{id}", json={"token": "tok-second-2222"}).status_code == 200

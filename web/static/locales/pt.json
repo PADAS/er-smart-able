@@ -71,7 +71,8 @@
     "sharedWith": "compartilhado com {{list}}",
     "uploaded": "enviado em {{date}}",
     "ownedByYou": "pertence a você",
-    "notFoundCrumb": "Não encontrado"
+    "notFoundCrumb": "Não encontrado",
+    "tabBackup": "Backup"
   },
   "backup": {
     "title": "Backup enviado",
@@ -83,7 +84,13 @@
     "gone": "Não está mais guardado.",
     "reupload": "Para extrair de novo, envie o backup novamente como um novo conjunto de dados.",
     "extractedStays": "Os dados extraídos não são afetados. Eles ficam até você excluir o conjunto de dados.",
-    "deleteNow": "Excluir o backup agora"
+    "deleteNow": "Excluir o backup agora",
+    "uploading": "O backup ainda está sendo enviado.",
+    "unknown": "Não há informação sobre o backup enviado.",
+    "reminderSoon_one": "O backup enviado será excluído em {{count}} dia.",
+    "reminderSoon_other": "O backup enviado será excluído em {{count}} dias.",
+    "reminderDue": "O backup enviado aguarda exclusão automática.",
+    "reminderGone": "O backup enviado não está mais guardado."
   },
   "sites": {
     "add": "Adicionar um site",
@@ -96,7 +103,8 @@
     "colToken": "Token",
     "colOwner": "Proprietário",
     "colShared": "Compartilhado com",
-    "empty": "Ainda não há sites. Adicione o site do EarthRanger no qual você vai carregar."
+    "empty": "Ainda não há sites. Adicione o site do EarthRanger no qual você vai carregar.",
+    "edit": "Editar"
   },
   "rangers": {
     "title": "Guarda-parques",
@@ -316,6 +324,13 @@
     "submit": "Adicionar site",
     "checking": "Verificando o token…"
   },
+  "siteEdit": {
+    "title": "Editar o site",
+    "hint": "Mude o nome ou substitua o token. O endereço do site não pode ser alterado.",
+    "token": "Novo token",
+    "tokenKeep": "deixe vazio para manter o token atual",
+    "submit": "Salvar"
+  },
   "loadDialog": {
     "title": "Carregar \"{{name}}\" no EarthRanger",
     "intro": "Primeiro é feito um plano sem gravar nada. Você o confirma antes de o site ser alterado.",
@@ -419,6 +434,7 @@
     "site_host_only": "Digite só o nome do host do site, como site.pamdas.org",
     "site_host_missing": "Digite o nome do host do site, como site.pamdas.org",
     "site_unreachable": "{{reason}}",
-    "invalid_request": "A solicitação não era válida."
+    "invalid_request": "A solicitação não era válida.",
+    "site_busy": "Aguarde a carga neste site parar antes de substituir o token"
   }
 }

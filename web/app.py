@@ -16,6 +16,7 @@ Routes:
   POST /api/datasets/{id}/share {email};  DELETE /api/datasets/{id}/share/{email}
   GET  /api/sites             sites (EarthRanger targets) the user owns or is shared on
   POST /api/sites             {name, url, token}; checks the token, stores it as a secret
+  PATCH  /api/sites/{id}       the owner renames it or replaces its token (checked first)
   DELETE /api/sites/{id}      owner only
   POST /api/sites/{id}/share {email};  DELETE /api/sites/{id}/share/{email}
   GET  /api/datasets/{id}/loads   POST: {ca_id, site_id, options}; starts planning
@@ -279,6 +280,13 @@ class SiteCreate(BaseModel):
     token: str
 
 
+class SiteEdit(BaseModel):
+    """What can change on a site: its name and its token. Not its host: another host is another site."""
+    model_config = {"extra": "forbid"}
+    name: Optional[str] = None
+    token: Optional[str] = None
+
+
 def _site_public(doc: dict, user: dict) -> dict:
     return {k: doc.get(k) for k in ("id", "name", "url", "owner_email", "shared_with", "token_hint", "checked_at",
                                     "checked_as", "created_at")} | {"mine": is_owner(doc, user)}
@@ -311,17 +319,43 @@ def create_site(req: SiteCreate, user=Depends(current_user)):
     token = req.token.strip()
     if not token:
         raise ApiError(400, "token_required", "A token is required")
-    try:
-        checked_as = check_token(host, token)
-    except TokenRejected as e:
-        raise ApiError(400, "token_rejected", f"The token was rejected: {e}", reason=str(e))
-    except SiteUnreachable as e:
-        raise ApiError(400, "site_unreachable", str(e), reason=str(e))
+    checked_as = _checked_token(host, token)
     store = get_store()
     id = store.create_site({"name": req.name.strip() or host, "url": host, "owner_uid": user["uid"],
                             "owner_email": user["email"], "shared_with": [], "token_hint": token[-4:],
                             "checked_at": now(), "checked_as": checked_as, "created_at": now(), "updated_at": now()},
                            token)
+    return _site_public(store.get_site(id), user)
+
+
+def _checked_token(host: str, token: str) -> str:
+    """The user the token works as on the site, or the error the site form shows."""
+    try:
+        return check_token(host, token)
+    except TokenRejected as e:
+        raise ApiError(400, "token_rejected", f"The token was rejected: {e}", reason=str(e))
+    except SiteUnreachable as e:
+        raise ApiError(400, "site_unreachable", str(e), reason=str(e))
+
+
+@app.patch("/api/sites/{id}")
+def edit_site(id: str, req: SiteEdit, user=Depends(current_user)):
+    """The owner renames a site or replaces its token. A new token is checked against the site before
+    anything is stored, and not swapped under a load that is using the old one."""
+    doc = _load_site(id, user, owner=True)
+    store = get_store()
+    fields = {}
+    if req.name is not None:
+        fields["name"] = req.name.strip() or doc["url"]
+    token = (req.token or "").strip()
+    if token:
+        if any(load_in_progress(l) for l in store.site_loads(id)):
+            raise ApiError(409, "site_busy", "Wait for the load into this site to stop before replacing its token")
+        checked_as = _checked_token(doc["url"], token)
+        store.replace_site_token(id, token)
+        fields.update(token_hint=token[-4:], checked_at=now(), checked_as=checked_as)
+    if fields:
+        store.update_site(id, **fields)
     return _site_public(store.get_site(id), user)
 
 

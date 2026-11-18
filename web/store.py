@@ -281,6 +281,16 @@ class LocalStore:
             if id in data:
                 data[id].update(fields); data[id]["updated_at"] = now(); self._write_file(self.dir / "sites.json", data)
 
+    def replace_site_token(self, id: str, token: str):
+        """A new token for a site that keeps its id, so its loads go on with it."""
+        doc = self.get_site(id)
+        if not doc:
+            raise KeyError(id)
+        self._write_secret(doc["secret_name"], token)
+
+    def site_loads(self, site_id: str) -> list:
+        return [dict(id=k, **v) for k, v in self._read_file(self._loads_path()).items() if v.get("site_id") == site_id]
+
     def delete_site(self, id: str):
         with self.lock:
             data = self._read_file(self.dir / "sites.json")
@@ -579,6 +589,19 @@ class GcpStore:
     def update_site(self, id: str, **fields):
         fields["updated_at"] = now()
         self._sites().document(id).update(fields)
+
+    def replace_site_token(self, id: str, token: str):
+        """A new token for a site that keeps its id, so its loads go on with it: a new version of
+        the site's secret, which read_site_token reads as the latest."""
+        doc = self.get_site(id)
+        if not doc:
+            raise KeyError(id)
+        from google.cloud import secretmanager
+        secretmanager.SecretManagerServiceClient().add_secret_version(
+            parent=f"projects/{self.project}/secrets/{doc['secret_name']}", payload={"data": token.encode("utf-8")})
+
+    def site_loads(self, site_id: str) -> list:
+        return [dict(id=d.id, **d.to_dict()) for d in self._loads().where("site_id", "==", site_id).stream()]
 
     def delete_site(self, id: str):
         doc = self.get_site(id)

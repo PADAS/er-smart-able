@@ -215,3 +215,7 @@ a.dataset-card:hover { border-color: var(--er-ui-cta-primary); }
 .dataset-card .shared-mark { text-transform: uppercase; letter-spacing: 0.04em; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .stack label { display: flex; flex-direction: column; gap: 4px; }
+/* the home page's second section, the EarthRanger sites, under the datasets */
+.home-section { margin-top: 32px; }
+.home-section .page-head h2 { margin: 0; font-size: 20px; }
+.backup-reminder a { margin-left: 2px; }

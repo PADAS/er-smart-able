@@ -71,7 +71,8 @@
     "sharedWith": "shared with {{list}}",
     "uploaded": "uploaded {{date}}",
     "ownedByYou": "owned by you",
-    "notFoundCrumb": "Not found"
+    "notFoundCrumb": "Not found",
+    "tabBackup": "Backup"
   },
   "backup": {
     "title": "Uploaded backup",
@@ -83,7 +84,13 @@
     "gone": "No longer stored.",
     "reupload": "To extract again, upload the backup again as a new dataset.",
     "extractedStays": "The extracted data is not affected. It stays until you delete the dataset.",
-    "deleteNow": "Delete the backup now"
+    "deleteNow": "Delete the backup now",
+    "uploading": "The backup is still uploading.",
+    "unknown": "Nothing is known about the uploaded backup.",
+    "reminderSoon_one": "The uploaded backup is deleted in {{count}} day.",
+    "reminderSoon_other": "The uploaded backup is deleted in {{count}} days.",
+    "reminderDue": "The uploaded backup is due for automatic deletion.",
+    "reminderGone": "The uploaded backup is no longer stored."
   },
   "sites": {
     "add": "Add a site",
@@ -96,7 +103,8 @@
     "colToken": "Token",
     "colOwner": "Owner",
     "colShared": "Shared with",
-    "empty": "No sites yet. Add the EarthRanger site you will load into."
+    "empty": "No sites yet. Add the EarthRanger site you will load into.",
+    "edit": "Edit"
   },
   "rangers": {
     "title": "Rangers",
@@ -316,6 +324,13 @@
     "submit": "Add site",
     "checking": "Checking the token…"
   },
+  "siteEdit": {
+    "title": "Edit site",
+    "hint": "Change the name, or replace the token. The site address cannot be changed.",
+    "token": "New token",
+    "tokenKeep": "leave empty to keep the current token",
+    "submit": "Save"
+  },
   "loadDialog": {
     "title": "Load \"{{name}}\" into EarthRanger",
     "intro": "First a plan is made without writing anything. You confirm it before the site is changed.",
@@ -419,6 +434,7 @@
     "site_host_only": "Enter just the site's host name, like site.pamdas.org",
     "site_host_missing": "Enter the site's host name, like site.pamdas.org",
     "site_unreachable": "{{reason}}",
-    "invalid_request": "The request was not valid."
+    "invalid_request": "The request was not valid.",
+    "site_busy": "Wait for the load into this site to stop before replacing its token"
   }
 }

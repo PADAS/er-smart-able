@@ -22,7 +22,7 @@ Check that this is the conservation area you expected and that the counts look r
 
 ## 4. Add a site
 
-1. Open the menu under your email address and choose **EarthRanger sites**.
+1. On the home page, find **EarthRanger sites**, below your datasets.
 2. Press **Add a site**.
 3. Enter a name, the site address, and the token.
 

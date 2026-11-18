@@ -71,7 +71,8 @@
     "sharedWith": "compartido con {{list}}",
     "uploaded": "subido el {{date}}",
     "ownedByYou": "de su propiedad",
-    "notFoundCrumb": "No encontrado"
+    "notFoundCrumb": "No encontrado",
+    "tabBackup": "Copia de seguridad"
   },
   "backup": {
     "title": "Copia de seguridad subida",
@@ -83,7 +84,13 @@
     "gone": "Ya no está almacenada.",
     "reupload": "Para extraer de nuevo, suba otra vez la copia de seguridad como un conjunto de datos nuevo.",
     "extractedStays": "Los datos extraídos no se ven afectados. Se conservan hasta que usted elimine el conjunto de datos.",
-    "deleteNow": "Eliminar la copia de seguridad ahora"
+    "deleteNow": "Eliminar la copia de seguridad ahora",
+    "uploading": "La copia de seguridad todavía se está subiendo.",
+    "unknown": "No hay información sobre la copia de seguridad subida.",
+    "reminderSoon_one": "La copia de seguridad subida se elimina en {{count}} día.",
+    "reminderSoon_other": "La copia de seguridad subida se elimina en {{count}} días.",
+    "reminderDue": "La copia de seguridad subida está pendiente de eliminación automática.",
+    "reminderGone": "La copia de seguridad subida ya no está almacenada."
   },
   "sites": {
     "add": "Agregar un sitio",
@@ -96,7 +103,8 @@
     "colToken": "Token",
     "colOwner": "Propietario",
     "colShared": "Compartido con",
-    "empty": "Todavía no hay sitios. Agregue el sitio de EarthRanger en el que va a cargar."
+    "empty": "Todavía no hay sitios. Agregue el sitio de EarthRanger en el que va a cargar.",
+    "edit": "Editar"
   },
   "rangers": {
     "title": "Guardaparques",
@@ -316,6 +324,13 @@
     "submit": "Agregar sitio",
     "checking": "Comprobando el token…"
   },
+  "siteEdit": {
+    "title": "Editar el sitio",
+    "hint": "Cambie el nombre o reemplace el token. La dirección del sitio no se puede cambiar.",
+    "token": "Token nuevo",
+    "tokenKeep": "déjelo vacío para conservar el token actual",
+    "submit": "Guardar"
+  },
   "loadDialog": {
     "title": "Cargar «{{name}}» en EarthRanger",
     "intro": "Primero se hace un plan sin escribir nada. Usted lo confirma antes de que se modifique el sitio.",
@@ -419,6 +434,7 @@
     "site_host_only": "Escriba solo el nombre de host del sitio, como site.pamdas.org",
     "site_host_missing": "Escriba el nombre de host del sitio, como site.pamdas.org",
     "site_unreachable": "{{reason}}",
-    "invalid_request": "La solicitud no era válida."
+    "invalid_request": "La solicitud no era válida.",
+    "site_busy": "Espere a que la carga en este sitio se detenga antes de reemplazar su token"
   }
 }

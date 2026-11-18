@@ -22,7 +22,7 @@ Vérifiez qu'il s'agit bien de la zone de conservation attendue et que les nombr
 
 ## 4. Ajouter un site
 
-1. Ouvrez le menu sous votre adresse e-mail et choisissez **Sites EarthRanger**.
+1. Sur la page d'accueil, repérez **Sites EarthRanger**, sous vos jeux de données.
 2. Appuyez sur **Ajouter un site**.
 3. Saisissez un nom, l'adresse du site et le jeton.
 

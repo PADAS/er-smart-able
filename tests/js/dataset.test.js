@@ -130,7 +130,7 @@ test('only the owner is offered the delete, not while it is being extracted, and
   assert.match(P.backupPanel({ ...own, extract_held: true, upload: up }), /id="deleteBackupBtn" class="danger" disabled/);
   assert.equal(P.backupPanel({ ...own, status: 'uploading', upload: { present: false } }), '');
   assert.equal(P.backupPanel(own), '');
-  assert.match(P.renderOverview({ ...own, upload: up }), /id="backup"/);
+  assert.match(P.renderDatasetPage({ ...own, upload: up }, 'backup'), /id="backup"/);
 });
 test('the delete dialogs say what goes and that it cannot be undone, with Cancel first', () => {
   const P = load();
@@ -141,4 +141,34 @@ test('the delete dialogs say what goes and that it cannot be undone, with Cancel
   const b = P.deleteBackupBody({ source_name: 'a<b>.zip' });
   assert.match(b, /deletes the file a&lt;b&gt;\.zip now\. The extracted data, the bundles and the loads stay\./);
   assert.match(b, /This cannot be undone/); assert.match(b, /Delete backup<\/button>/);
+});
+
+// ---- the Backup tab
+test('the uploaded backup has its own tab, and the Overview no longer carries the panel', () => {
+  const P = at(load()), up = { present: true, expires_at: '2026-12-20T00:00:00+00:00' };
+  const ds = { ...own, upload: up };
+  assert.equal(JSON.stringify(P.parseRoute('#/datasets/a1/backup')), JSON.stringify({ page: 'dataset', id: 'a1', tab: 'backup' }));
+  assert.equal(P.routeHash({ page: 'dataset', id: 'a1', tab: 'backup' }), '#/datasets/a1/backup');
+  const tabs = P.renderTabs(ds, 'backup');
+  assert.match(tabs, /<a href="#\/datasets\/a1\/backup" class="active" aria-current="page">Backup<\/a>/);
+  assert.ok(tabs.indexOf('/rangers') < tabs.indexOf('/backup'), 'Overview, Loads, Rangers, Backup');
+  assert.match(P.renderDatasetPage(ds, 'backup'), /id="backup"/); assert.match(P.renderDatasetPage(ds, 'backup'), /Delete the backup now/);
+  assert.doesNotMatch(P.renderDatasetPage(ds, 'overview'), /id="backup"/);
+  assert.doesNotMatch(P.renderTabs({ ...own, status: 'failed', export: [] }, 'overview'), /backup"[^>]*aria-disabled/, 'the tab is there whatever the extraction did');
+});
+test('the Overview reminds the reader only when the backup goes within a week or has gone', () => {
+  const P = at(load()), on = (u, extra) => P.renderOverview({ ...own, upload: u, ...extra });
+  assert.doesNotMatch(on({ present: true, expires_at: new Date(T0 + 20 * DAY).toISOString() }), /backup/i, 'weeks away: nothing');
+  assert.doesNotMatch(on({ present: true, expires_at: null }), /backup/i);
+  const soon = on({ present: true, expires_at: new Date(T0 + 3 * DAY).toISOString() });
+  assert.match(soon, /The uploaded backup is deleted in 3 days\. <a href="#\/datasets\/a1\/backup">Backup<\/a>/);
+  assert.match(on({ present: true, expires_at: new Date(T0 + DAY - 1000).toISOString() }), /deleted in 1 day\./);
+  assert.match(on({ present: true, expires_at: new Date(T0 - 1000).toISOString() }), /The uploaded backup is due for automatic deletion\. <a href/);
+  assert.match(on({ present: false }), /The uploaded backup is no longer stored\. <a href="#\/datasets\/a1\/backup">Backup<\/a>/);
+  assert.doesNotMatch(on({ present: false }, { status: 'uploading' }), /no longer stored/);
+  assert.doesNotMatch(P.renderOverview(own), /backup/i, 'no word about the backup from the server: nothing');
+});
+test('the Backup tab says so while the file is still uploading', () => {
+  const P = at(load());
+  assert.match(P.renderDatasetPage({ ...own, status: 'uploading', upload: { present: false } }, 'backup'), /The backup is still uploading\./);
 });

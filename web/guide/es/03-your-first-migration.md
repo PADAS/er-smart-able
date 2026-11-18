@@ -22,7 +22,7 @@ Compruebe que es el área de conservación que esperaba y que los números parec
 
 ## 4. Añadir un sitio
 
-1. Abra el menú situado bajo su dirección de correo y elija **Sitios de EarthRanger**.
+1. En la página de inicio, busque **Sitios de EarthRanger**, debajo de sus conjuntos de datos.
 2. Haga clic en **Agregar un sitio**.
 3. Escriba un nombre, la dirección del sitio y el token.
 
