@@ -43,17 +43,18 @@ def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=
 # finding that does not fit (a new code, a reworded message) has no key: it is shown as stored.
 _CHECKLIST_PLAIN = ("roster_group", "enable_patrol_schemas", "permission_patrol_types", "permission_segment_schema",
                     "permission_subjects", "permission_patrol_config", "patrol_type_icons", "station_names")
-_PREFLIGHT_COUNTED = ("timezone", "language", "time_coverage", "feature_flag", "permissions", "patrol_types", "segment_schema",
+_PREFLIGHT_COUNTED = ("language", "time_coverage", "feature_flag", "permissions", "patrol_types", "segment_schema",
                       "choices", "subjects", "teams", "collection_type", "observers", "bundle_warnings")
 _EVENT_TYPE_VARIANTS = (("have no active event type", "unmatched"), ("match more than one event type", "ambiguous"),
                         ("map to an inactive event type", "inactive"), ("exist only as configurable", "variants"))
 _TEAM_TITLE = re.compile(r"^Create the patrol team (.+)$")
 _GROUP_TITLE = re.compile(r"`([^`]+)` subject group")
 _LEG_DAYS = re.compile(r"\((\d+) leg days")
+_ZONE_INFERRED = re.compile(r"timezone (\S+) was inferred")
 
 FINDING_KEYS = frozenset(
     ["checklist.team", "checklist.permission_subject_group"] + [f"checklist.{c}" for c in _CHECKLIST_PLAIN]
-    + [f"preflight.{c}" for c in _PREFLIGHT_COUNTED] + ["preflight.leg_span"]
+    + [f"preflight.{c}" for c in _PREFLIGHT_COUNTED] + ["preflight.leg_span", "preflight.timezone"]
     + ["preflight.inactive_members.retired", "preflight.inactive_members.stranded"]
     + [f"preflight.event_types.{v}" for _, v in _EVENT_TYPE_VARIANTS]
     + ["import.patrols_failed", "datamodel.site_token_rejected"])
@@ -85,6 +86,9 @@ def _preflight_key(f: dict) -> tuple:
     if code == "leg_span":
         m = _LEG_DAYS.search(message)
         return ("preflight.leg_span", {**params, "days": int(m.group(1))}) if m else (None, {})
+    if code == "timezone":   # only the inferred zone; a configured zone that disagrees with the bundle stays as worded
+        m = _ZONE_INFERRED.search(message)
+        return ("preflight.timezone", {"zone": m.group(1)}) if m and f.get("level") == "warning" else (None, {})
     if code == "inactive_members":
         which = {"warning": "retired", "blocking": "stranded"}.get(f.get("level"))
         return (f"preflight.inactive_members.{which}", params) if which else (None, {})

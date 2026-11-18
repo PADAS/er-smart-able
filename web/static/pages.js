@@ -332,14 +332,33 @@ function renderLoadTitle(l) {
 
 // blocking first; each with its copyable values and a link to its help entry.
 // The frame is translated; a finding's own title, detail, fix and value labels are shown as the server stored them.
+// The words of one finding, as HTML-safe text: { title, fix, translated }. A finding is stored in
+// English (f.title, f.fix). Where the server named its message (f.key) and the reader's language is
+// not English, the title and fix are that message, filled from f.params; if the message is missing or
+// leaves a placeholder unfilled, the stored English is shown whole. An English reader sees the stored
+// text as it always was.
+function findingText(f) {
+  var stored = { title: esc(f.title), fix: esc(f.fix), translated: false };
+  if (currentLang() === 'en' || typeof f.key !== 'string') return stored;
+  var base = 'findingText.' + f.key, p = f.params || {}, counted = hasMessage(base + '.title_other');
+  if (!(counted || hasMessage(base + '.title')) || !hasMessage(base + '.fix')) return stored;
+  if (counted && typeof p.count !== 'number') return stored;
+  var title = counted ? tn(base + '.title', p.count, p) : T(base + '.title', p), fix = T(base + '.fix', p);
+  if (title.indexOf('{{') !== -1 || fix.indexOf('{{') !== -1) return stored;   // a value the sentence needs is missing
+  if (f.created_by_run) title = T('findings.createdByRun', {}, { title: title });
+  return { title: title, fix: fix, translated: true };
+}
 function renderFindings(findings, status) {
   const fs = (findings || []).slice().sort((a, b) => (FINDING_RANK[a.severity] ?? 1) - (FINDING_RANK[b.severity] ?? 1));
   if (!fs.length) return ['planned', 'done'].includes(status) ? '<p class="muted tiny">' + T('findings.none') + '</p>' : '';
   const severity = f => hasMessage('findings.severity.' + f.severity) ? t('findings.severity.' + f.severity) : f.severity;
   const stage = f => hasMessage('stages.' + f.stage) ? t('stages.' + f.stage) : f.stage;
-  return '<h3>' + T('findings.title') + '</h3>' + fs.map(f => '<div class="finding ' + esc(f.severity) + '"><b>' + esc(f.title) + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="' + T('findings.howToFix') + '"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(severity(f)) + ' · ' + esc(stage(f)) + (f.affected && f.affected.count ? ' · ' + tn('units.patrols', f.affected.count) : '') + '</span>' +
-    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + esc(v.label) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="' + T('findings.copy') + '"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
-    (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (f.fix ? '<div class="tiny"><b>' + T('findings.fix') + '</b> ' + esc(f.fix) + '</div>' : '') + '</div>').join('');
+  return '<h3>' + T('findings.title') + '</h3>' + fs.map(f => { const w = findingText(f); return '<div class="finding ' + esc(f.severity) + '"><b>' + w.title + '</b> <button class="help" data-help="finding-' + esc(f.code) + '" title="' + T('findings.howToFix') + '"><span class="mi" aria-hidden="true">help</span></button> <span class="tiny">' + esc(severity(f)) + ' · ' + esc(stage(f)) + (f.affected && f.affected.count ? ' · ' + tn('units.patrols', f.affected.count) : '') + '</span>' +
+    ((f.values || []).length ? '<div class="values">' + f.values.map(v => '<span class="value"><span class="tiny">' + (v.label_key && hasMessage('findings.valueLabel.' + v.label_key) ? T('findings.valueLabel.' + v.label_key) : esc(v.label)) + '</span><code>' + esc(v.value) + '</code><button class="ghost" data-copy="' + esc(v.value) + '" title="' + T('findings.copy') + '"><span class="mi" aria-hidden="true">content_copy</span></button></span>').join('') + '</div>' : '') +
+    (f.detail ? '<pre>' + esc(f.detail) + '</pre>' : '') + (w.fix ? '<div class="tiny"><b>' + T('findings.fix') + '</b> ' + w.fix + '</div>' : '') +
+    // the stored English keeps what the translated sentence leaves out (a team's members, how many patrols name it)
+    (w.translated ? '<details class="original" lang="en"><summary>' + T('findings.original') + '</summary><div class="tiny"><b>' + esc(f.title) + '</b></div>' + (f.fix ? '<pre>' + esc(f.fix) + '</pre>' : '') + '</details>' : '') +
+    '</div>'; }).join('');
 }
 
 // the progress bar and import summary, the log (open while the load is active) and the load's files

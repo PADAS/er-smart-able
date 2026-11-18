@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -232,3 +233,24 @@ def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
     out = findings.plan_mode_adjust(pre)
     assert out[0]["created_by_run"] is True and out[0]["severity"] == "info" and out[0]["key"] == "preflight.patrol_types"
     assert "created_by_run" not in out[1] and out[1]["severity"] == "blocking"
+
+
+def test_only_the_inferred_timezone_finding_is_named(findings):
+    f = findings.from_preflight({"warnings": [PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred from waypoint positions")],
+                                 "blocking": [PRE("timezone", "blocking", "timezone 'Asia/Tokyo' is configured but the bundle was written for 'Asia/Manila' (inferred)")]})
+    by = {x["severity"]: (x["key"], x["params"]) for x in f}
+    assert by == {"warning": ("preflight.timezone", {"zone": "Asia/Manila"}), "blocking": (None, {})}
+
+
+def test_every_key_has_an_english_title_and_fix_and_no_message_is_left_over(findings):
+    en = json.loads((ROOT / "web" / "static" / "locales" / "en.json").read_text())["findingText"]
+    have = set()
+    def walk(node, path):
+        if any(k in node for k in ("title", "title_one", "title_other", "fix")):
+            assert "fix" in node and ("title" in node or {"title_one", "title_other"} <= set(node)), path
+            have.add(path)
+        else:
+            for k, v in node.items():
+                walk(v, f"{path}.{k}" if path else k)
+    walk(en, "")
+    assert have == set(findings.FINDING_KEYS)

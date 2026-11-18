@@ -51,7 +51,7 @@ test('the wiring script holds no confirm or alert with words of its own', () => 
 });
 test('every English message is used by the code or the template', () => {
   const src = read('static/pages.js') + read('static/app.js') + read('templates/index.html');
-  const dynamic = [/^status\./, /^stages\./, /^findings\.severity\./, /^errors\./, /^csv\./, /^plan\.(?:create|update|deactivate)$/];   // looked up by a value from the data
+  const dynamic = [/^status\./, /^stages\./, /^findings\.severity\./, /^errors\./, /^findingText\./, /^findings\.valueLabel\./, /^csv\./, /^plan\.(?:create|update|deactivate)$/];   // looked up by a value from the data
   const unused = Object.keys(EN).filter(k => !dynamic.some(d => d.test(k)) && !src.includes("'" + k.replace(/_(one|other)$/, '') + "'") && !src.includes('"' + k + '"'));
   assert.deepEqual(unused, []);
 });

@@ -243,7 +243,177 @@
     "fix": "Fix:",
     "howToFix": "How to fix this",
     "copy": "Copy to clipboard",
-    "copyPrompt": "Copy this value:"
+    "copyPrompt": "Copy this value:",
+    "original": "Original text (English)",
+    "createdByRun": "Will be created by this load: {{title}}",
+    "valueLabel": {
+      "team_name": "Team name",
+      "subject_group": "Subject group",
+      "station_name": "Station name",
+      "feature": "Feature",
+      "permission": "Permission"
+    }
+  },
+  "findingText": {
+    "checklist": {
+      "team": {
+        "title": "Create the patrol team {{name}}",
+        "fix": "In Django admin, open Patrol configuration › Teams and add a team whose display is exactly this name. Create every team listed, then press Continue."
+      },
+      "roster_group": {
+        "title": "Put the rangers in the roster subject group",
+        "fix": "No roster group was named for this load, so the ranger subjects are in no group rangers are picked from. Plan the load again with a roster group, or in Django admin open Patrol configuration › member subject groups, choose or create the group, and add the subjects."
+      },
+      "permission_subject_group": {
+        "title": "Add the subjects to the subject group {{group}}",
+        "fix": "The site user cannot change subject-group membership. Grant the user that permission and press Continue, or add the subjects to the group yourself in Django admin › Subject groups."
+      },
+      "enable_patrol_schemas": {
+        "title": "Enable the patrol_schemas feature on this site",
+        "fix": "In Django admin, open Preview features › patrol_schemas and enable it for this tenant. Ask EarthRanger Core if the page is not available. Then press Continue."
+      },
+      "permission_patrol_types": {
+        "title": "Grant permission: patrol types",
+        "fix": "The site user cannot create or change patrol types. In Django admin, open Users › the user and add the permission shown. Then press Continue."
+      },
+      "permission_segment_schema": {
+        "title": "Grant permission: universal patrol fields",
+        "fix": "The site user cannot write the universal patrol fields. Add the permission shown; today that needs a superuser. Then press Continue."
+      },
+      "permission_subjects": {
+        "title": "Grant permission: subjects",
+        "fix": "The site user cannot view, add or change subjects. In Django admin, open Users › the user and add the permission shown. Then press Continue."
+      },
+      "permission_patrol_config": {
+        "title": "Grant permission: patrol configuration",
+        "fix": "The site user cannot read the patrol configuration. In Django admin, open Users › the user and add the permission shown. Then press Continue."
+      },
+      "patrol_type_icons": {
+        "title": "Pick an icon for each patrol type",
+        "fix": "This does not stop the load. The API cannot set icons, so choose one for each new patrol type in EarthRanger admin › Patrol types."
+      },
+      "station_names": {
+        "title": "Name the stations SMART left unnamed",
+        "fix": "This does not stop the load. These stations have no name in SMART, so they were created with a placeholder. Name them in SMART and export again, or rename the choice in Django admin › Choices."
+      }
+    },
+    "preflight": {
+      "timezone": {
+        "title": "The timezone {{zone}} was inferred",
+        "fix": "SMART did not record the conservation area's timezone, so the extraction inferred it from where the waypoints are. If it is wrong, set SMART_ABLE_TIMEZONE for the extraction and extract the dataset again."
+      },
+      "language": {
+        "title_one": "{{count}} data-model element has no label in the chosen language",
+        "title_other": "{{count}} data-model elements have no label in the chosen language",
+        "fix": "They fall back to the bundle's default language. If the labels matter, plan the load again with the best-covered language; the dataset's Data Model tab shows how well each is covered."
+      },
+      "time_coverage": {
+        "title_one": "{{count}} leg day has no time information",
+        "title_other": "{{count}} leg days have no time information",
+        "fix": "Nothing to do. Their segments cover the whole day."
+      },
+      "feature_flag": {
+        "title": "The patrol_schemas feature is off on this site",
+        "fix": "In Django admin, open Preview features › patrol_schemas and enable it for this tenant. Then press Continue."
+      },
+      "permissions": {
+        "title_one": "The site user lacks {{count}} permission the import needs",
+        "title_other": "The site user lacks {{count}} permissions the import needs",
+        "fix": "Grant each permission listed, in Django admin › Users › the user. Creating events in a category needs that category's create permission, usually granted through a permission set. Then press Continue."
+      },
+      "patrol_types": {
+        "title_one": "{{count}} patrol type is missing or inactive",
+        "title_other": "{{count}} patrol types are missing or inactive",
+        "fix": "Activate the type in EarthRanger admin › Patrol types, or press Continue to let the load create it again."
+      },
+      "segment_schema": {
+        "title_one": "{{count}} universal patrol field is missing or deprecated",
+        "title_other": "{{count}} universal patrol fields are missing or deprecated",
+        "fix": "If an admin deprecated a field on purpose, restore it in the patrol form builder. Otherwise press Continue; the load writes these fields."
+      },
+      "choices": {
+        "title_one": "{{count}} option the patrols use is missing or inactive",
+        "title_other": "{{count}} options the patrols use are missing or inactive",
+        "fix": "This does not stop the load. The load creates missing options; an option an admin switched off can be re-activated in Django admin › Choices."
+      },
+      "subjects": {
+        "title_one": "{{count}} patrol member cannot be put on a segment",
+        "title_other": "{{count}} patrol members cannot be put on a segment",
+        "fix": "Their ranger subjects do not exist, or are in no group listed under Patrol configuration › members. Press Continue to let the load create them, or add them to such a group in Django admin › Subject groups."
+      },
+      "teams": {
+        "title_one": "{{count}} patrol team is missing or inactive",
+        "title_other": "{{count}} patrol teams are missing or inactive",
+        "fix": "In Django admin, open Patrol configuration › Teams and add or activate a team whose display is exactly each name shown. Then press Continue."
+      },
+      "collection_type": {
+        "title_one": "{{count}} waypoint holds several observations, and the site has no collection event type",
+        "title_other": "{{count}} waypoints hold several observations, and the site has no collection event type",
+        "fix": "This does not stop the load; their events import ungrouped. To group them, add or activate the incident_collection event type in EarthRanger admin › Event types."
+      },
+      "observers": {
+        "title_one": "{{count}} observation has nobody who can be named as its reporter",
+        "title_other": "{{count}} observations have nobody who can be named as their reporter",
+        "fix": "Nothing to do unless it matters: their events carry no reporter. To change that, give the observer an employee record in SMART and export again."
+      },
+      "bundle_warnings": {
+        "title_one": "The extraction recorded {{count}} warning",
+        "title_other": "The extraction recorded {{count}} warnings",
+        "fix": "They are listed below and in the bundle's manifest. The SMART data quirks section of the help explains each kind."
+      },
+      "leg_span": {
+        "title_one": "{{count}} leg starts on SMART's 1970 placeholder date or spans more than a year ({{days}} leg days as stored)",
+        "title_other": "{{count}} legs start on SMART's 1970 placeholder date or span more than a year ({{days}} leg days as stored)",
+        "fix": "Nothing to do. The load keeps only the leg days that have a track or a waypoint. To correct the dates, fix the leg in SMART and export again."
+      },
+      "inactive_members": {
+        "retired": {
+          "title_one": "{{count}} patrol member is an inactive subject",
+          "title_other": "{{count}} patrol members are inactive subjects",
+          "fix": "Nothing to do. EarthRanger accepts only active members on a segment, so the load activates these subjects for the run and deactivates them again when it finishes."
+        },
+        "stranded": {
+          "title_one": "{{count}} inactive patrol member is in no member group",
+          "title_other": "{{count}} inactive patrol members are in no member group",
+          "fix": "Activating them would still leave them off the roster. Add them to a group listed under Patrol configuration › members, in Django admin › Subject groups. Then press Continue."
+        }
+      },
+      "event_types": {
+        "unmatched": {
+          "title_one": "{{count}} observed SMART category has no active event type on the site",
+          "title_other": "{{count}} observed SMART categories have no active event type on the site",
+          "fix": "The data model has not been pushed under the event category this load uses. If an earlier push used another identifier, plan the load again with that event category. Otherwise press Continue; the load creates the event types."
+        },
+        "ambiguous": {
+          "title_one": "{{count}} category matches more than one event type",
+          "title_other": "{{count}} categories match more than one event type",
+          "fix": "The site has several data model pushes with the same type names. Plan the load again with the event category of the push to import against."
+        },
+        "inactive": {
+          "title_one": "{{count}} observed category maps to an inactive event type",
+          "title_other": "{{count}} observed categories map to an inactive event type",
+          "fix": "This does not stop the load. Their events import against the inactive type, which EarthRanger does not offer for new reports. Activate the type in EarthRanger admin › Event types if rangers should keep using it."
+        },
+        "variants": {
+          "title_one": "{{count}} observed category exists only as configurable model variants",
+          "title_other": "{{count}} observed categories exist only as configurable model variants",
+          "fix": "The import cannot yet tell which variant an observation belongs to, so these patrols cannot be imported yet."
+        }
+      }
+    },
+    "import": {
+      "patrols_failed": {
+        "title_one": "{{count}} patrol failed to import",
+        "title_other": "{{count}} patrols failed to import",
+        "fix": "Read each error below. If it names a missing team, subject or event type, fix that on the site, then press Continue. Only these patrols are retried."
+      }
+    },
+    "datamodel": {
+      "site_token_rejected": {
+        "title": "The site's token no longer works",
+        "fix": "Nothing was written. Remove the site, register it again with a working token, and start a new load."
+      }
+    }
   },
   "progress": {
     "title": "Progress",

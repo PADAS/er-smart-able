@@ -243,7 +243,177 @@
     "fix": "Solución:",
     "howToFix": "Cómo corregirlo",
     "copy": "Copiar al portapapeles",
-    "copyPrompt": "Copie este valor:"
+    "copyPrompt": "Copie este valor:",
+    "original": "Texto original (inglés)",
+    "createdByRun": "Lo creará esta carga: {{title}}",
+    "valueLabel": {
+      "team_name": "Nombre del equipo",
+      "subject_group": "Grupo de sujetos",
+      "station_name": "Nombre de la estación",
+      "feature": "Función",
+      "permission": "Permiso"
+    }
+  },
+  "findingText": {
+    "checklist": {
+      "team": {
+        "title": "Crear el equipo de patrulla {{name}}",
+        "fix": "En la administración de Django, abra Patrol configuration › Teams y agregue un equipo cuyo campo display sea exactamente este nombre. Cree todos los equipos indicados y después haga clic en Continuar."
+      },
+      "roster_group": {
+        "title": "Poner a los guardaparques en el grupo de sujetos de la lista de guardaparques",
+        "fix": "No se indicó un grupo para esta carga, así que los sujetos guardaparques no están en ningún grupo del que se eligen los guardaparques. Planifique de nuevo la carga indicando un grupo, o en la administración de Django abra Patrol configuration › member subject groups, elija o cree el grupo y agregue los sujetos."
+      },
+      "permission_subject_group": {
+        "title": "Agregar los sujetos al grupo de sujetos {{group}}",
+        "fix": "El usuario del sitio no puede cambiar la pertenencia a grupos de sujetos. Concédale ese permiso y haga clic en Continuar, o agregue usted mismo los sujetos al grupo en Django admin › Subject groups."
+      },
+      "enable_patrol_schemas": {
+        "title": "Activar la función patrol_schemas en este sitio",
+        "fix": "En la administración de Django, abra Preview features › patrol_schemas y actívela para este inquilino (tenant). Consulte a EarthRanger Core si la página no está disponible. Después haga clic en Continuar."
+      },
+      "permission_patrol_types": {
+        "title": "Conceder permiso: tipos de patrullaje",
+        "fix": "El usuario del sitio no puede crear ni cambiar tipos de patrullaje. En la administración de Django, abra Users › el usuario y agregue el permiso indicado. Después haga clic en Continuar."
+      },
+      "permission_segment_schema": {
+        "title": "Conceder permiso: campos universales de patrulla",
+        "fix": "El usuario del sitio no puede escribir los campos universales de patrulla. Agregue el permiso indicado; hoy eso requiere un superusuario. Después haga clic en Continuar."
+      },
+      "permission_subjects": {
+        "title": "Conceder permiso: sujetos",
+        "fix": "El usuario del sitio no puede ver, agregar ni cambiar sujetos. En la administración de Django, abra Users › el usuario y agregue el permiso indicado. Después haga clic en Continuar."
+      },
+      "permission_patrol_config": {
+        "title": "Conceder permiso: configuración de patrullas",
+        "fix": "El usuario del sitio no puede leer la configuración de patrullas. En la administración de Django, abra Users › el usuario y agregue el permiso indicado. Después haga clic en Continuar."
+      },
+      "patrol_type_icons": {
+        "title": "Elegir un icono para cada tipo de patrullaje",
+        "fix": "Esto no detiene la carga. La API no puede establecer iconos, así que elija uno para cada tipo de patrullaje nuevo en EarthRanger admin › Patrol types."
+      },
+      "station_names": {
+        "title": "Poner nombre a las estaciones que SMART dejó sin nombre",
+        "fix": "Esto no detiene la carga. Estas estaciones no tienen nombre en SMART, así que se crearon con un nombre provisional. Póngales nombre en SMART y exporte de nuevo, o cambie el nombre de la opción en Django admin › Choices."
+      }
+    },
+    "preflight": {
+      "timezone": {
+        "title": "La zona horaria {{zone}} se dedujo",
+        "fix": "SMART no registró la zona horaria del área de conservación, así que la extracción la dedujo de dónde están las coordenadas (waypoints). Si es incorrecta, defina SMART_ABLE_TIMEZONE para la extracción y extraiga de nuevo el conjunto de datos."
+      },
+      "language": {
+        "title_one": "{{count}} elemento del modelo de datos no tiene etiqueta en el idioma elegido",
+        "title_other": "{{count}} elementos del modelo de datos no tienen etiqueta en el idioma elegido",
+        "fix": "Recurren al idioma predeterminado del paquete. Si las etiquetas importan, planifique de nuevo la carga con el idioma mejor cubierto; la pestaña Data Model del conjunto de datos muestra la cobertura de cada idioma."
+      },
+      "time_coverage": {
+        "title_one": "{{count}} día de tramo no tiene información de hora",
+        "title_other": "{{count}} días de tramo no tienen información de hora",
+        "fix": "Nada que hacer. Sus segmentos abarcan todo el día."
+      },
+      "feature_flag": {
+        "title": "La función patrol_schemas está desactivada en este sitio",
+        "fix": "En la administración de Django, abra Preview features › patrol_schemas y actívela para este inquilino (tenant). Después haga clic en Continuar."
+      },
+      "permissions": {
+        "title_one": "Al usuario del sitio le falta {{count}} permiso que la importación necesita",
+        "title_other": "Al usuario del sitio le faltan {{count}} permisos que la importación necesita",
+        "fix": "Conceda cada permiso indicado, en Django admin › Users › el usuario. Crear eventos en una categoría requiere el permiso de creación de esa categoría, que normalmente se concede mediante un conjunto de permisos. Después haga clic en Continuar."
+      },
+      "patrol_types": {
+        "title_one": "{{count}} tipo de patrullaje falta o está inactivo",
+        "title_other": "{{count}} tipos de patrullaje faltan o están inactivos",
+        "fix": "Active el tipo en EarthRanger admin › Patrol types, o haga clic en Continuar para que la carga lo cree de nuevo."
+      },
+      "segment_schema": {
+        "title_one": "{{count}} campo universal de patrulla falta o está obsoleto",
+        "title_other": "{{count}} campos universales de patrulla faltan o están obsoletos",
+        "fix": "Si un administrador marcó un campo como obsoleto a propósito, restáurelo en el generador de formularios de patrulla. Si no, haga clic en Continuar; la carga escribe estos campos."
+      },
+      "choices": {
+        "title_one": "{{count}} opción que usan las patrullas falta o está inactiva",
+        "title_other": "{{count}} opciones que usan las patrullas faltan o están inactivas",
+        "fix": "Esto no detiene la carga. La carga crea las opciones que faltan; una opción que un administrador desactivó puede reactivarse en Django admin › Choices."
+      },
+      "subjects": {
+        "title_one": "{{count}} miembro de patrulla no se puede poner en un segmento",
+        "title_other": "{{count}} miembros de patrulla no se pueden poner en un segmento",
+        "fix": "Sus sujetos guardaparques no existen, o no están en ningún grupo incluido en Patrol configuration › members. Haga clic en Continuar para que la carga los cree, o agréguelos a un grupo así en Django admin › Subject groups."
+      },
+      "teams": {
+        "title_one": "{{count}} equipo de patrulla falta o está inactivo",
+        "title_other": "{{count}} equipos de patrulla faltan o están inactivos",
+        "fix": "En la administración de Django, abra Patrol configuration › Teams y agregue o active un equipo cuyo campo display sea exactamente cada nombre mostrado. Después haga clic en Continuar."
+      },
+      "collection_type": {
+        "title_one": "{{count}} coordenada contiene varias observaciones, y el sitio no tiene un tipo de evento de agrupación",
+        "title_other": "{{count}} coordenadas contienen varias observaciones, y el sitio no tiene un tipo de evento de agrupación",
+        "fix": "Esto no detiene la carga; sus eventos se importan sin agrupar. Para agruparlos, agregue o active el tipo de evento incident_collection en EarthRanger admin › Event types."
+      },
+      "observers": {
+        "title_one": "{{count}} observación no tiene a nadie a quien nombrar como quien la reportó",
+        "title_other": "{{count}} observaciones no tienen a nadie a quien nombrar como quien las reportó",
+        "fix": "Nada que hacer a menos que importe: sus eventos no indican quién los reportó. Para cambiarlo, dé al observador un registro de empleado en SMART y exporte de nuevo."
+      },
+      "bundle_warnings": {
+        "title_one": "La extracción registró {{count}} advertencia",
+        "title_other": "La extracción registró {{count}} advertencias",
+        "fix": "Están listadas abajo y en el manifiesto del paquete. La sección SMART data quirks de la ayuda explica cada tipo."
+      },
+      "leg_span": {
+        "title_one": "{{count}} tramo empieza en la fecha provisional de 1970 de SMART o abarca más de un año ({{days}} días de tramo tal como están guardados)",
+        "title_other": "{{count}} tramos empiezan en la fecha provisional de 1970 de SMART o abarcan más de un año ({{days}} días de tramo tal como están guardados)",
+        "fix": "Nada que hacer. La carga conserva solo los días de tramo que tienen un trayecto o una coordenada. Para corregir las fechas, corrija el tramo en SMART y exporte de nuevo."
+      },
+      "inactive_members": {
+        "retired": {
+          "title_one": "{{count}} miembro de patrulla es un sujeto inactivo",
+          "title_other": "{{count}} miembros de patrulla son sujetos inactivos",
+          "fix": "Nada que hacer. EarthRanger solo acepta miembros activos en un segmento, así que la carga activa estos sujetos para la ejecución y los desactiva de nuevo cuando termina."
+        },
+        "stranded": {
+          "title_one": "{{count}} miembro de patrulla inactivo no está en ningún grupo de miembros",
+          "title_other": "{{count}} miembros de patrulla inactivos no están en ningún grupo de miembros",
+          "fix": "Activarlos los dejaría igualmente fuera de la lista de guardaparques. Agréguelos a un grupo incluido en Patrol configuration › members, en Django admin › Subject groups. Después haga clic en Continuar."
+        }
+      },
+      "event_types": {
+        "unmatched": {
+          "title_one": "{{count}} categoría de SMART observada no tiene ningún tipo de evento activo en el sitio",
+          "title_other": "{{count}} categorías de SMART observadas no tienen ningún tipo de evento activo en el sitio",
+          "fix": "El modelo de datos no se ha enviado bajo la categoría de eventos que usa esta carga. Si un envío anterior usó otro identificador, planifique de nuevo la carga con esa categoría de eventos. Si no, haga clic en Continuar; la carga crea los tipos de evento."
+        },
+        "ambiguous": {
+          "title_one": "{{count}} categoría coincide con más de un tipo de evento",
+          "title_other": "{{count}} categorías coinciden con más de un tipo de evento",
+          "fix": "El sitio tiene varios envíos de modelo de datos con los mismos nombres de tipo. Planifique de nuevo la carga con la categoría de eventos del envío contra el que importar."
+        },
+        "inactive": {
+          "title_one": "{{count}} categoría observada corresponde a un tipo de evento inactivo",
+          "title_other": "{{count}} categorías observadas corresponden a un tipo de evento inactivo",
+          "fix": "Esto no detiene la carga. Sus eventos se importan contra el tipo inactivo, que EarthRanger no ofrece para reportes nuevos. Active el tipo en EarthRanger admin › Event types si los guardaparques deben seguir usándolo."
+        },
+        "variants": {
+          "title_one": "{{count}} categoría observada existe solo como variantes del modelo configurable",
+          "title_other": "{{count}} categorías observadas existen solo como variantes del modelo configurable",
+          "fix": "La importación todavía no sabe a qué variante pertenece una observación, así que estas patrullas no se pueden importar aún."
+        }
+      }
+    },
+    "import": {
+      "patrols_failed": {
+        "title_one": "{{count}} patrulla no se pudo importar",
+        "title_other": "{{count}} patrullas no se pudieron importar",
+        "fix": "Lea cada error de abajo. Si nombra un equipo, un sujeto o un tipo de evento que falta, corríjalo en el sitio y después haga clic en Continuar. Solo se reintentan estas patrullas."
+      }
+    },
+    "datamodel": {
+      "site_token_rejected": {
+        "title": "El token del sitio ya no funciona",
+        "fix": "No se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva."
+      }
+    }
   },
   "progress": {
     "title": "Progreso",
