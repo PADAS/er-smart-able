@@ -294,6 +294,24 @@ and its corrections are in. It left these open, most of them in Swahili:
   Spanish *reservada*, Portuguese *com bloqueio*, Swahili *ina kufuli*.
   The Portuguese can be misread as "blocked".
 
+## Findings that still show in English
+
+A load's findings are stored in English and shown in the reader's language
+where the app can tell which finding it is. These still show in English:
+
+- a finding whose check could not run (code `check_failed`): its text is
+  the check's name and a program error;
+- a configured timezone that disagrees with the bundle's;
+- every finding of a load made before release 0.13;
+- a finding that a later release of `er-smart-sync` words differently or
+  adds: it falls back to English until `web/findings.py` learns it;
+- the detail lines and the copyable values of every finding. They are
+  data: names, ids and permissions to type exactly.
+
+Under each translated finding, "Original text (English)" opens the stored
+wording, which also carries what the translation leaves out (a team's
+members, how many patrols name it).
+
 ## Checked by a fluent speaker
 
 Nobody yet. Add a name and a date when a language has been read through,

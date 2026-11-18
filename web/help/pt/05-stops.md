@@ -102,10 +102,10 @@ A mesma situação de *Criar uma equipe de patrulha* acima: cada equipe citada p
 
 As categorias do SMART observadas precisam de um tipo de evento ativo no site. A mensagem diz qual caso se aplica:
 
-- **No active event type** (nenhum tipo de evento ativo): o modelo de dados não foi enviado sob a categoria de eventos que esta carga usa. Em um plano isso é esperado e é marcado como algo que a execução vai criar. Em uma execução, confira a categoria de eventos: se um envio anterior usou outro identificador, planeje a carga de novo com ele.
-- **Match more than one event type** (corresponde a mais de um tipo de evento): o site tem vários envios de modelo de dados, sob categorias diferentes, com os mesmos nomes de tipo. Planeje a carga de novo com a categoria de eventos do envio contra o qual importar.
-- **Map to an inactive event type** (corresponde a um tipo de evento inativo): um aviso. A categoria é uma categoria-mãe do SMART ou foi desativada; os eventos dela são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em **EarthRanger admin › Event types** se os guarda-parques devem continuar a usá-lo.
-- **Exist only as configurable model variants** (existem só como variantes do modelo configurável): essas categorias têm um tipo de evento por formulário, e a importação ainda não sabe a qual variante uma observação pertence. Essas patrulhas ainda não podem ser importadas; é preciso um mapeamento de variantes, que está pendente no er-smart-sync.
+- **Nenhum tipo de evento ativo**: o modelo de dados não foi enviado sob a categoria de eventos que esta carga usa. Em um plano isso é esperado e é marcado como algo que a execução vai criar. Em uma execução, confira a categoria de eventos: se um envio anterior usou outro identificador, planeje a carga de novo com ele.
+- **Corresponde a mais de um tipo de evento**: o site tem vários envios de modelo de dados, sob categorias diferentes, com os mesmos nomes de tipo. Planeje a carga de novo com a categoria de eventos do envio contra o qual importar.
+- **Corresponde a um tipo de evento inativo**: um aviso. A categoria é uma categoria-mãe do SMART ou foi desativada; os eventos dela são importados contra o tipo inativo, que o EarthRanger não oferece para relatórios novos. Ative o tipo em **EarthRanger admin › Event types** se os guarda-parques devem continuar a usá-lo.
+- **Existe só como variantes do modelo configurável**: essas categorias têm um tipo de evento por formulário, e a importação ainda não sabe a qual variante uma observação pertence. Essas patrulhas ainda não podem ser importadas; é preciso um mapeamento de variantes, que está pendente no er-smart-sync.
 
 ### Não há tipo de evento de agrupamento {#finding-collection_type}
 
