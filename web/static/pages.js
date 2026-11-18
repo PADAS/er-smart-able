@@ -36,7 +36,7 @@ function parseRoute(hash) {
   var m = /^#load\/([A-Za-z0-9]+)$/.exec(h);
   if (m) return { page: 'legacy-load', load: m[1] };
   if (h === '#/sites') return { page: 'sites' };
-  m = /^#\/datasets\/([A-Za-z0-9]+)(?:\/(loads|rangers))?$/.exec(h);
+  m = /^#\/datasets\/([A-Za-z0-9]+)(?:\/(loads|rangers|backup))?$/.exec(h);
   if (m) return { page: 'dataset', id: m[1], tab: m[2] || 'overview' };
   m = /^#\/datasets\/([A-Za-z0-9]+)\/loads\/([A-Za-z0-9]+)$/.exec(h);
   if (m) return { page: 'load', id: m[1], load: m[2] };
@@ -118,10 +118,13 @@ function renderCardList(datasets) {
   var list = (datasets || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   return list.length ? list.map(renderDatasetCard).join('') : '<p class="empty">' + T('home.empty') + '</p>';
 }
-function renderHome(datasets) {
+// The home page: the datasets, then the EarthRanger sites they are loaded into. sites is null when
+// they could not be fetched; the section then says why (sitesError) and the datasets still show.
+function renderHome(datasets, sites, sitesError) {
   return '<div class="page-head"><h1>' + T('home.title') + '</h1>' +
     '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>' + T('home.upload') + '</button></div>' +
-    '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
+    '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>' +
+    (sites === undefined ? '' : sites ? renderSites(sites) : '<section id="sites" class="home-section"><div class="page-head"><h2>' + T('shell.sites') + '</h2></div><p class="empty">' + esc(sitesError) + '</p></section>');
 }
 
 // One section of the help drawer. s.html is the server's rendering of a help page. A section in another
@@ -171,9 +174,14 @@ function fmtWhen(s) { return s ? String(s).slice(0, 16).replace('T', ' ') : ''; 
 function hasBundle(e) { return !!(e && e.dir); }
 // Loads and Rangers open once an extraction has produced an export, so a failed re-extract keeps them
 function hasLoadTabs(d) { return !!((d.export || []).length || d.status === 'ready'); }
+// Whether a tab of the dataset page can be opened. Loads and Rangers need something extracted; Overview
+// and Backup are there whatever the extraction did. The tab bar and the route both ask this, so a tab
+// that is offered is a tab that opens.
+function tabAllowed(d, tab) { return !(tab === 'loads' || tab === 'rangers') || hasLoadTabs(d); }
 function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
 
 // ---- the sites page. Only the token hint is shown; the token itself never reaches the page.
+// ---- sites: the home page's second section. A row per site; its owner can edit, share and remove it.
 function renderSites(sites) {
   var rows = (sites || []).map(s => '<tr>' +
     '<td><b>' + esc(s.name) + '</b><div class="tiny">' + esc(s.url) + '</div></td>' +
@@ -181,17 +189,28 @@ function renderSites(sites) {
     '<td>' + (s.mine ? T('sites.you') : esc(s.owner_email)) + '</td>' +
     '<td>' + ((s.shared_with || []).map(esc).join('<br>') || '<span class="tiny">—</span>') + '</td>' +
     '<td class="actions">' + (s.mine ?
+      '<button data-act="siteEdit" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">edit</span>' + T('sites.edit') + '</button>' +
       '<button data-act="siteShare" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">share</span>' + T('sites.share') + '</button>' +
       '<button data-act="siteDelete" data-id="' + esc(s.id) + '" class="danger" title="' + T('sites.removeTitle') + '"><span class="mi" aria-hidden="true">delete</span>' + T('sites.remove') + '</button>' : '') + '</td></tr>').join('');
-  return '<div class="page-head"><h1>' + T('shell.sites') + '</h1>' +
-    '<button id="addSiteBtn" class="btn primary"><span class="mi" aria-hidden="true">add</span>' + T('sites.add') + '</button></div>' +
+  return '<section id="sites" class="home-section"><div class="page-head"><h2>' + T('shell.sites') + '</h2>' +
+    '<button id="addSiteBtn" class="btn"><span class="mi" aria-hidden="true">add</span>' + T('sites.add') + '</button></div>' +
     ((sites || []).length ? '<div class="panel"><table><thead><tr><th>' + T('sites.colSite') + '</th><th>' + T('sites.colToken') + '</th><th>' + T('sites.colOwner') + '</th><th>' + T('sites.colShared') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      : '<p class="empty">' + T('sites.empty') + '</p>');
+      : '<p class="empty">' + T('sites.empty') + '</p>') + '</section>';
+}
+// The edit-a-site form. The name is the site's; the address is shown, not asked for (another address
+// is another site); the token field is empty and stays optional: filled in, it replaces the token.
+function siteEditBody(s) {
+  return '<p class="muted tiny">' + T('siteEdit.hint') + '</p>' +
+    '<form id="siteForm" class="col" autocomplete="off">' +
+    '<label class="field"><span>' + T('siteDialog.name') + '</span><input type="text" id="siteName" required value="' + esc(s.name) + '"></label>' +
+    '<div class="field"><span>' + T('siteDialog.host') + '</span><div><code>' + esc(s.url) + '</code> <span class="tiny">' + T('sites.tokenAs', { hint: s.token_hint, user: s.checked_as }) + '</span></div></div>' +
+    '<label class="field"><span>' + T('siteEdit.token') + '</span><input type="password" id="siteToken" autocomplete="off" placeholder="' + T('siteEdit.tokenKeep') + '"></label>' +
+    '<p class="tiny" id="siteError" role="alert"></p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary" id="siteBtn">' + T('siteEdit.submit') + '</button></div></form>';
 }
 function renderTabs(d, tab) {
-  var ready = hasLoadTabs(d);
-  return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers']].map(t => {
-    var off = t[0] !== 'overview' && !ready;
+  return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers'], ['backup', T('dataset.tabBackup'), '/backup']].map(t => {
+    var off = !tabAllowed(d, t[0]);
     return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
   }).join('') + '</nav>';
 }
@@ -213,10 +232,9 @@ function renderOverview(d) {
     '<td class="actions"><div class="area-actions">' + (d.status === 'ready' ? browseLink(d) : '') +   // the viewer answers 409 unless ready
     (d.extract_held ? '' : hasBundle(e) ? ' <button class="primary" data-act="load" data-ca="' + esc(e.dir) + '"><span class="mi" aria-hidden="true">upload</span>' + T('dataset.load') + '</button>' : ' <span class="tiny">' + T('dataset.reExtractToLoad') + '</span>') + '</div></td></tr>').join('');
   return '<div class="panel"><h2>' + T('dataset.extraction') + '</h2><p>' + pill(d.status) + (times ? ' <span class="tiny">' + times + '</span>' : '') + '</p>' +
-    (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
+    (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') + backupReminder(d) +
     (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', {}, { action: T('dataset.reExtract') }) : '') + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">' + T(running ? 'dataset.logLive' : 'dataset.logTail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
-    backupPanel(d) +
     (!rows && d.status === 'ready' ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><p class="tiny">' + T('dataset.noAreas') + '</p>' + browseLink(d) + '</div>' : '') +
     (rows ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><table><thead><tr><th>' + T('dataset.colName') + '</th><th>' + T('dataset.colSmartId') + '</th><th>' + T('dataset.colVersion') + '</th><th>' + T('dataset.colContents') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
 }
@@ -237,6 +255,17 @@ function backupPanel(d) {
     '<p class="tiny">' + T('backup.extractedStays') + '</p>' +
     (u.present && d.mine ? '<button id="deleteBackupBtn" class="danger"' + (d.extract_held ? ' disabled' : '') + '><span class="mi" aria-hidden="true">delete</span>' + T('backup.deleteNow') + '</button>' : '') +
     '</div>';
+}
+// The Overview's one line about the backup, which has its own tab: only when it goes within a week,
+// is due to go, or has gone. Otherwise the expiry would not be seen until someone thought to look.
+function backupReminder(d) {
+  var u = d.upload;
+  if (!u || d.status === 'uploading') return '';
+  var text;
+  if (!u.present) text = T('backup.reminderGone');
+  else if (!u.expires_at) return '';
+  else { var n = daysUntil(u.expires_at); if (n > 7) return ''; text = n > 0 ? tn('backup.reminderSoon', n) : T('backup.reminderDue'); }
+  return '<p class="tiny backup-reminder">' + text + ' <a href="#/datasets/' + esc(d.id) + '/backup">' + T('dataset.tabBackup') + '</a></p>';
 }
 // A dialog that asks before deleting: what goes, that it cannot be undone, Cancel first (it takes the focus).
 function confirmBody(lines, go) {
@@ -275,7 +304,8 @@ function renderDatasetPage(d, tab, extra) {
     '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>' + T('dataset.reExtract') + '</button>') +
     '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>' + T('dataset.delete') + '</button></div>' : '';
   var shared = (d.shared_with || []).length ? ' · ' + T('dataset.sharedWith', { list: d.shared_with.join(', ') }) : '';
-  var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load) : renderOverview(d);
+  var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load)
+    : tab === 'backup' ? (backupPanel(d) || '<div class="panel"><p class="tiny">' + T(d.status === 'uploading' ? 'backup.uploading' : 'backup.unknown') + '</p></div>') : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
     '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div></div>' + actions + '</div>' +
     renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';

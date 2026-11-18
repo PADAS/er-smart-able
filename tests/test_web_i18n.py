@@ -49,7 +49,7 @@ def test_the_page_carries_the_languages_the_message_script_and_the_shell_marks(c
     assert [l["code"] for l in langs] == ["en", "fr", "es", "pt", "sw"] and langs[1]["reviewed"] is False
     assert re.findall(r'<option value="(\w+)" lang="\1">', h) == ["en", "fr", "es", "pt", "sw"]
     assert re.search(r'<meta name="locales-v" content="\w{6,}">', h) and 'id="langNote"' in h
-    assert 'data-i18n="shell.sites"' in h and 'data-i18n="shell.signOut"' in h and 'data-i18n-aria="shell.help"' in h
+    assert 'id="menuSites"' not in h and 'data-i18n="shell.signOut"' in h and 'data-i18n-aria="shell.help"' in h
 
 
 def test_message_files_are_served(client):

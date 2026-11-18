@@ -2,9 +2,9 @@
 
 Un sitio es un host de EarthRanger, por ejemplo `example.pamdas.org`, y un token de API de un usuario de EarthRanger de ese sitio. Las cargas escriben en el sitio como ese usuario.
 
-**Registrar un sitio.** Escriba un nombre, el host y el token. smart-able llama a `/user/me` del sitio con el token antes de guardar nada, de modo que un host equivocado o un token que ya no es válido se rechaza en el momento. La fila del sitio en la página **Sitios de EarthRanger** muestra los últimos caracteres del token y el usuario con el que actúa.
+**Registrar un sitio.** Escriba un nombre, el host y el token. smart-able llama a `/user/me` del sitio con el token antes de guardar nada, de modo que un host equivocado o un token que ya no es válido se rechaza en el momento. La fila del sitio en **Sitios de EarthRanger**, en la página de inicio, muestra los últimos caracteres del token y el usuario con el que actúa.
 
-**Dónde se guarda el token.** En Google Secret Manager, en un secreto con el nombre del sitio. Nunca se almacena en la base de datos, nunca se escribe en un registro de actividad y nunca lo devuelve la API. Si el token se renueva o se revoca, quite el sitio y regístrelo de nuevo; las cargas que hacían referencia al sitio anterior siguen siendo legibles, pero no se pueden continuar.
+**Dónde se guarda el token.** En Google Secret Manager, en un secreto con el nombre del sitio. Nunca se almacena en la base de datos, nunca se escribe en un registro de actividad y nunca lo devuelve la API. Si el token se renueva o se revoca, haga clic en **Editar** en el sitio y escriba el nuevo: se comprueba igual que el primero, y las cargas del sitio siguen adelante con él. El propietario de un sitio también puede cambiarle el nombre ahí. La dirección del sitio no se puede cambiar; una dirección distinta es otro sitio. Quitar un sitio deja sus cargas legibles, pero no se pueden continuar.
 
 **Qué usuario usar.** La importación necesita un usuario que pueda gestionar los tipos de patrullaje, los sujetos, los grupos de sujetos, la configuración de patrullas y los campos universales de patrulla, y que pueda crear eventos en la categoría bajo la que se envía el modelo de datos. Un superusuario es la opción sencilla. El hallazgo *Al usuario del sitio le faltan permisos* nombra cada permiso que falta cuando se usa un usuario más limitado.
 

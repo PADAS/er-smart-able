@@ -22,7 +22,7 @@ Hakikisha kwamba hili ndilo eneo la hifadhi ulilolitarajia na kwamba idadi zinao
 
 ## 4. Ongeza tovuti
 
-1. Fungua menyu iliyo chini ya anwani yako ya barua pepe kisha chagua **Tovuti za EarthRanger**.
+1. Kwenye ukurasa wa mwanzo, tafuta **Tovuti za EarthRanger**, chini ya seti zako za data.
 2. Bonyeza **Ongeza tovuti**.
 3. Andika jina, anwani ya tovuti, na tokeni.
 

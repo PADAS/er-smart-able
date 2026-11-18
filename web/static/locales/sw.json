@@ -71,7 +71,8 @@
     "sharedWith": "imeshirikiwa na {{list}}",
     "uploaded": "ilipakiwa {{date}}",
     "ownedByYou": "ni yako",
-    "notFoundCrumb": "Haipatikani"
+    "notFoundCrumb": "Haipatikani",
+    "tabBackup": "Chelezo"
   },
   "backup": {
     "title": "Chelezo iliyopakiwa",
@@ -83,7 +84,13 @@
     "gone": "Haijahifadhiwa tena.",
     "reupload": "Ili kutoa data tena, pakia chelezo tena kama seti mpya ya data.",
     "extractedStays": "Data zilizotolewa haziathiriki. Zinabaki hadi utakapofuta seti ya data.",
-    "deleteNow": "Futa chelezo sasa"
+    "deleteNow": "Futa chelezo sasa",
+    "uploading": "Chelezo bado inapakiwa.",
+    "unknown": "Hakuna taarifa kuhusu chelezo iliyopakiwa.",
+    "reminderSoon_one": "Chelezo iliyopakiwa itafutwa baada ya siku {{count}}.",
+    "reminderSoon_other": "Chelezo iliyopakiwa itafutwa baada ya siku {{count}}.",
+    "reminderDue": "Chelezo iliyopakiwa inasubiri kufutwa kiotomatiki.",
+    "reminderGone": "Chelezo iliyopakiwa haijahifadhiwa tena."
   },
   "sites": {
     "add": "Ongeza tovuti",
@@ -96,7 +103,8 @@
     "colToken": "Tokeni",
     "colOwner": "Mmiliki",
     "colShared": "Imeshirikiwa na",
-    "empty": "Bado hakuna tovuti. Ongeza tovuti ya EarthRanger utakayoingiza data ndani yake."
+    "empty": "Bado hakuna tovuti. Ongeza tovuti ya EarthRanger utakayoingiza data ndani yake.",
+    "edit": "Hariri"
   },
   "rangers": {
     "title": "Askari",
@@ -486,6 +494,13 @@
     "submit": "Ongeza tovuti",
     "checking": "Inakagua tokeni…"
   },
+  "siteEdit": {
+    "title": "Hariri tovuti",
+    "hint": "Badilisha jina, au weka tokeni mpya. Anwani ya tovuti haiwezi kubadilishwa.",
+    "token": "Tokeni mpya",
+    "tokenKeep": "acha wazi ili kubaki na tokeni ya sasa",
+    "submit": "Hifadhi"
+  },
   "loadDialog": {
     "title": "Ingiza \"{{name}}\" kwenye EarthRanger",
     "intro": "Kwanza mpango unatengenezwa bila kuandika chochote. Wewe unauthibitisha kabla tovuti haijabadilishwa.",
@@ -589,6 +604,7 @@
     "site_host_only": "Andika jina la seva ya tovuti pekee, kama site.pamdas.org",
     "site_host_missing": "Andika jina la seva ya tovuti, kama site.pamdas.org",
     "site_unreachable": "{{reason}}",
-    "invalid_request": "Ombi halikuwa sahihi."
+    "invalid_request": "Ombi halikuwa sahihi.",
+    "site_busy": "Subiri uingizaji kwenye tovuti hii usimame kabla ya kubadilisha tokeni yake"
   }
 }

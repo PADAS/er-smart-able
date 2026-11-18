@@ -17,7 +17,7 @@ function showSignIn(err) {
   ME = null;       // signed out: Back, the lockup and Help do nothing until the next sign-in
   closeLayers();   // the form must not sit behind a dialog's scrim
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
-  listGen++; datasetGen++; loadGen++; sitesGen++;   // a page fetch still in flight cannot paint over the form
+  listGen++; datasetGen++; loadGen++;   // a page fetch still in flight cannot paint over the form
   mountHeader(false); setBreadcrumb(null);
   mountPage(renderSignIn(CONFIG));
   $('#signInBtn').onclick = signIn;
@@ -77,7 +77,7 @@ function renderRoute(route) {
   if (route.page === 'home') showHome();
   else if (route.page === 'dataset') showDataset(route);
   else if (route.page === 'load') showLoad(route);
-  else if (route.page === 'sites') showSites();
+  else if (route.page === 'sites') showHome(true);   // the sites are a section of the home page; the old address still opens them
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
 }
@@ -160,7 +160,6 @@ async function boot() {
   // an open dialog takes the keys first (it sits above the help drawer); Escape closes one layer at a time
   document.addEventListener('keydown', e => { if (!$('#modal').hidden) modalKeydown(e); else if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
   document.querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
-  $('#menuSites').onclick = () => { $('#account').open = false; navigate({ page: 'sites' }); };
   // the menu closes on a click outside it or Escape, like any menu
   document.addEventListener('click', e => { if ($('#account').open && !$('#account').contains(e.target)) $('#account').open = false; });
   $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
@@ -187,16 +186,35 @@ async function signIn() {
 let listGen = 0;   // which render of the home page is current
 
 // the home page's polling: a fetch is current only while its gen is, so a superseded response is dropped
-async function showHome() {
+// toSites: arrived by the sites' own address (#/sites), so the page opens at that section
+async function showHome(toSites) {
   clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++listGen;
   setBreadcrumb(null);
-  let list;
+  let list, sites = null, sitesError = '';
+  // the two lists are asked for together; the page shows the datasets even if the sites cannot be fetched
+  const sitesAsked = api('/api/sites').then(r => { sites = r; }, e => { sitesError = e.message; });
   try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  await sitesAsked;
   if (gen !== listGen) return;
-  mountPage(renderHome(list));
+  mountPage(renderHome(list, sites, sitesError));
   $('#uploadBtn').onclick = uploadDialog;
+  bindSites(sites || []);
+  if (toSites) { const sec = $('#sites'); if (sec) sec.scrollIntoView({ block: 'start' }); }
   pollHome(list, gen);
+}
+// the sites section's buttons: add, and for a site's owner edit, share and remove. Each change redraws the page.
+function bindSites(list) {
+  const add = $('#addSiteBtn'); if (add) add.onclick = () => siteDialog();
+  $('#page').querySelectorAll('#sites button[data-act]').forEach(b => b.onclick = async () => {
+    const s = list.find(x => x.id === b.dataset.id);
+    try {
+      if (b.dataset.act === 'siteEdit') return siteEditDialog(s);
+      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/');
+      if (!confirm(t('confirm.removeSite', { name: s.name }))) return;
+      await api('/api/sites/' + s.id, { method: 'DELETE' }); showHome();
+    } catch (e) { if (e.status !== 401) alert(e.message); }
+  });
 }
 // while any dataset is queued or running, refetch every 5 s and replace only the card list
 // ('uploading' is not polled: the tab doing the upload shows its own progress, and an abandoned one never changes)
@@ -265,7 +283,7 @@ function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus
 }
 
 function shareDialog(d, base = '/api/datasets/') {
-  const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
+  const refresh = () => { if (base === '/api/sites/') return showHome(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   const allowed = Array.isArray(CONFIG.allowed) ? CONFIG.allowed : CONFIG.allowed ? [CONFIG.allowed] : [];
   const domain = allowed.find(e => e.startsWith('@'));   // the placeholder's suggestion; whole addresses give none
   const render = shared => {
@@ -310,7 +328,7 @@ async function showDataset(route, poll) {
   }
   if (!current()) return;
   let tab = route.tab;
-  if (tab !== 'overview' && !hasLoadTabs(d)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
+  if (!tabAllowed(d, tab)) { tab = 'overview'; navigate({ page: 'dataset', id: d.id, tab }, 'replace'); return; }
   const extra = {};
   try {
     if (tab === 'loads') extra.loads = await api('/api/datasets/' + d.id + '/loads');
@@ -416,31 +434,6 @@ function uploadDialog() {
 }
 
 // ---- the sites page
-let sitesGen = 0;
-async function showSites() {
-  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
-  const gen = ++sitesGen, mine = routeHash({ page: 'sites' });
-  const current = () => gen === sitesGen && location.hash === mine;
-  let list;
-  try { list = await api('/api/sites'); }
-  catch (e) {
-    if (!current() || e.status === 401) return;
-    setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); return;
-  }
-  if (!current()) return;
-  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: t('shell.sites') }]);
-  mountPage(renderSites(list));
-  $('#addSiteBtn').onclick = () => siteDialog();
-  $('#page').querySelectorAll('button[data-act]').forEach(b => b.onclick = async () => {
-    const s = list.find(x => x.id === b.dataset.id);
-    try {
-      if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/');
-      if (!confirm(t('confirm.removeSite', { name: s.name }))) return;
-      await api('/api/sites/' + s.id, { method: 'DELETE' }); showSites();
-    } catch (e) { if (e.status !== 401) alert(e.message); }
-  });
-}
-
 // the add-site dialog. The token is read from the field on submit and goes only to the POST.
 // onCreated(site) runs after a successful save; onCancel runs when the reader closes the dialog instead.
 function siteDialog(onCreated, onCancel) {
@@ -460,8 +453,25 @@ function siteDialog(onCreated, onCancel) {
     try {
       const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
       closeDialog();
-      if (parseRoute(location.hash).page === 'sites') showSites();
+      if (['home', 'sites'].includes(parseRoute(location.hash).page)) showHome();
       if (onCreated) onCreated(site);
+    } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
+  };
+}
+
+// the edit-site dialog: rename, and replace the token if one is typed. The token is read from the
+// field on submit and goes only to the PATCH; an empty field sends none, and the stored one stays.
+function siteEditDialog(s) {
+  dialog(t('siteEdit.title'), siteEditBody(s));
+  $('#siteForm').onsubmit = async ev => {
+    ev.preventDefault();
+    const btn = $('#siteBtn'), err = $('#siteError'), token = $('#siteToken').value.trim();
+    btn.disabled = true; err.textContent = '';
+    if (token) err.textContent = t('siteDialog.checking');
+    try {
+      await api('/api/sites/' + s.id, { method: 'PATCH', body: JSON.stringify(token ? { name: $('#siteName').value, token: token } : { name: $('#siteName').value }) });
+      closeDialog();
+      if (['home', 'sites'].includes(parseRoute(location.hash).page)) showHome();
     } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
   };
 }

@@ -71,7 +71,8 @@
     "sharedWith": "partagé avec {{list}}",
     "uploaded": "téléversé le {{date}}",
     "ownedByYou": "vous appartient",
-    "notFoundCrumb": "Introuvable"
+    "notFoundCrumb": "Introuvable",
+    "tabBackup": "Sauvegarde"
   },
   "backup": {
     "title": "Sauvegarde téléversée",
@@ -83,7 +84,13 @@
     "gone": "N'est plus conservée.",
     "reupload": "Pour extraire de nouveau, téléversez de nouveau la sauvegarde comme nouveau jeu de données.",
     "extractedStays": "Les données extraites ne sont pas concernées. Elles restent jusqu'à ce que vous supprimiez le jeu de données.",
-    "deleteNow": "Supprimer la sauvegarde maintenant"
+    "deleteNow": "Supprimer la sauvegarde maintenant",
+    "uploading": "La sauvegarde est encore en cours de téléversement.",
+    "unknown": "Aucune information sur la sauvegarde téléversée.",
+    "reminderSoon_one": "La sauvegarde téléversée sera supprimée dans {{count}} jour.",
+    "reminderSoon_other": "La sauvegarde téléversée sera supprimée dans {{count}} jours.",
+    "reminderDue": "La sauvegarde téléversée est en attente de suppression automatique.",
+    "reminderGone": "La sauvegarde téléversée n'est plus conservée."
   },
   "sites": {
     "add": "Ajouter un site",
@@ -96,7 +103,8 @@
     "colToken": "Jeton",
     "colOwner": "Propriétaire",
     "colShared": "Partagé avec",
-    "empty": "Aucun site pour l'instant. Ajoutez le site EarthRanger dans lequel vous allez charger."
+    "empty": "Aucun site pour l'instant. Ajoutez le site EarthRanger dans lequel vous allez charger.",
+    "edit": "Modifier"
   },
   "rangers": {
     "title": "Écogardes",
@@ -486,6 +494,13 @@
     "submit": "Ajouter le site",
     "checking": "Vérification du jeton…"
   },
+  "siteEdit": {
+    "title": "Modifier le site",
+    "hint": "Changez le nom, ou remplacez le jeton. L'adresse du site ne peut pas être modifiée.",
+    "token": "Nouveau jeton",
+    "tokenKeep": "laissez vide pour garder le jeton actuel",
+    "submit": "Enregistrer"
+  },
   "loadDialog": {
     "title": "Charger « {{name}} » dans EarthRanger",
     "intro": "D'abord, un plan est établi sans rien écrire. Vous le confirmez avant que le site soit modifié.",
@@ -589,6 +604,7 @@
     "site_host_only": "Saisissez seulement le nom d'hôte du site, comme site.pamdas.org",
     "site_host_missing": "Saisissez le nom d'hôte du site, comme site.pamdas.org",
     "site_unreachable": "{{reason}}",
-    "invalid_request": "La requête n'était pas valide."
+    "invalid_request": "La requête n'était pas valide.",
+    "site_busy": "Attendez que le chargement dans ce site s'arrête avant de remplacer son jeton"
   }
 }
