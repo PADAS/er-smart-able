@@ -109,10 +109,8 @@ def _public(doc: dict, user: dict) -> dict:
 
 
 SUPPORT_LOG_EVERY_SECONDS = 600
-_support_log = logging.getLogger("support")
-_support_log.setLevel(logging.INFO)   # nothing else sets up logging, and the default drops INFO: the record must reach the service's output
-if not _support_log.handlers:
-    _support_log.addHandler(logging.StreamHandler())
+_support_log = logging.getLogger("support")   # printed by basicConfig's handler, above
+_support_log.setLevel(logging.INFO)   # the record is not to be lost to a level someone sets elsewhere
 _viewed: dict = {}   # (viewer, kind, id) -> when it was last logged, by this process's clock
 
 

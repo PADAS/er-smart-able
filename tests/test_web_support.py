@@ -230,11 +230,11 @@ def test_no_record_for_an_owner_a_reader_or_a_plain_list(client, tmp_path, caplo
 
 
 def test_the_record_reaches_the_service_output(client):
-    """Nothing configures logging for the service and the default drops INFO, so the record's logger
-    carries its own level and its own handler (to stderr, which the host collects)."""
+    """The record is logged at INFO, which Python drops unless asked: its logger asks, and the line is
+    printed once, by the handler the service sets up (logging.basicConfig in app.py)."""
     import logging
 
     app, _ = client
     log = logging.getLogger("support")
     assert log is app._support_log and log.isEnabledFor(logging.INFO)
-    assert [type(h) for h in log.handlers] == [logging.StreamHandler]
+    assert log.propagate and not log.handlers   # one line each, through the service's own handler

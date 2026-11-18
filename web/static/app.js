@@ -185,6 +185,15 @@ async function signIn() {
 // ---- datasets
 let listGen = 0;   // which render of the home page is current
 
+// Support staff (ME.support) may list every user's datasets and sites; the switch on the home page
+// says whether they are. The choice is kept in the browser. From anyone else it means nothing: the
+// stored choice is ignored here, and the server ignores ?all=1.
+function seesAll() {
+  if (!(ME && ME.support)) return false;
+  try { return localStorage.allUsers === '1'; } catch (e) { return false; }
+}
+function listQuery() { return seesAll() ? '?all=1' : ''; }
+
 // the home page's polling: a fetch is current only while its gen is, so a superseded response is dropped
 // toSites: arrived by the sites' own address (#/sites), so the page opens at that section
 async function showHome(toSites) {
@@ -193,12 +202,17 @@ async function showHome(toSites) {
   setBreadcrumb(null);
   let list, sites = null, sitesError = '';
   // the two lists are asked for together; the page shows the datasets even if the sites cannot be fetched
-  const sitesAsked = api('/api/sites').then(r => { sites = r; }, e => { sitesError = e.message; });
-  try { list = await api('/api/datasets'); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
+  const sitesAsked = api('/api/sites' + listQuery()).then(r => { sites = r; }, e => { sitesError = e.message; });
+  try { list = await api('/api/datasets' + listQuery()); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
   await sitesAsked;
   if (gen !== listGen) return;
-  mountPage(renderHome(list, sites, sitesError));
+  mountPage(renderHome(list, sites, sitesError, { support: !!(ME && ME.support), all: seesAll() }));
   $('#uploadBtn').onclick = uploadDialog;
+  const everyone = $('#allUsers');
+  if (everyone) everyone.onchange = () => {
+    try { if (everyone.checked) localStorage.allUsers = '1'; else localStorage.removeItem('allUsers'); } catch (e) { /* storage blocked: the switch cannot be kept, so it stays off */ }
+    showHome();
+  };
   bindSites(sites || []);
   if (toSites) { const sec = $('#sites'); if (sec) sec.scrollIntoView({ block: 'start' }); }
   pollHome(list, gen);
@@ -223,7 +237,7 @@ function pollHome(list, gen, fails = 0) {
   if (!list.some(d => ['queued', 'running'].includes(d.status))) return;
   pollTimer = setTimeout(async () => {
     let next;
-    try { next = await api('/api/datasets'); }
+    try { next = await api('/api/datasets' + listQuery()); }
     catch (e) {
       if (gen !== listGen || e.status === 401) return;
       retryNote($('#page .page-head'), fails + 1 >= 2);
