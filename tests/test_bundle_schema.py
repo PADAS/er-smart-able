@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 from export.bundle import validate_bundle_dir, write_bundle
 from export.smartdb import SmartDb
@@ -126,3 +127,38 @@ def test_a_version_1_directory_still_validates(smart_parquet, tmp_path):
     assert validate_bundle_dir(out) == []
     (out / "tracks.json").unlink()
     assert validate_bundle_dir(out) == ["tracks.json: missing"]
+
+
+@pytest.mark.parametrize("name", ["manifest.json", "reference.json", "patrols.json", "tracks.index.json"])
+@pytest.mark.parametrize("text", ["null", "[]", "3", '"x"'])
+def test_a_file_that_is_json_but_not_an_object_is_reported(smart_parquet, tmp_path, name, text):
+    """`null` is valid JSON: it must be checked against the schema like anything else, not taken for a file that could not be read."""
+    out = _bundle(smart_parquet, tmp_path)
+    (out / name).write_text(text)
+    errs = validate_bundle_dir(out)
+    assert any(e.startswith(f"{name}: (root): ") for e in errs), errs
+
+
+def test_a_null_index_does_not_hide_bad_tracks(smart_parquet, tmp_path):
+    out = _bundle(smart_parquet, tmp_path)
+    (out / "tracks.jsonl").write_text("not a track\n")
+    (out / "tracks.index.json").write_text("null")
+    errs = validate_bundle_dir(out)
+    assert any(e.startswith("tracks.index.json: (root): ") for e in errs)
+    assert any(e.startswith("tracks.jsonl: line 1: not valid JSON") for e in errs)
+    (out / "tracks.jsonl").write_text("null\n")
+    assert any(e.startswith("tracks.jsonl: line 1: (root): ") for e in validate_bundle_dir(out))   # a null line is not a track either
+    (out / "tracks.index.json").write_text(json.dumps({"patrols": {}}))
+    assert validate_bundle_dir(out) != []   # an index that says there are no tracks, over a file that has a line
+
+
+def test_a_null_version_1_tracks_file_is_reported(smart_parquet, tmp_path):
+    out = _bundle(smart_parquet, tmp_path)
+    (out / "tracks.jsonl").unlink()
+    (out / "tracks.index.json").unlink()
+    (out / "tracks.json").write_text("null")
+    m = json.loads((out / "manifest.json").read_text())
+    m["bundle_schema_version"] = 1
+    (out / "manifest.json").write_text(json.dumps(m))
+    errs = validate_bundle_dir(out)
+    assert len(errs) == 1 and errs[0].startswith("tracks.json: (root): ")

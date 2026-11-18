@@ -437,15 +437,19 @@ def _schema_errors(schema: dict, name: str, doc, label: str) -> List[str]:
             for e in sorted(v.iter_errors(doc), key=lambda e: list(e.path))]
 
 
+_UNREAD = object()   # the file is missing or is not JSON. Not None: `null` is valid JSON and is checked against the schema
+
+
 def _read_json(path: Path, errors: List[str]):
+    """The file's document, or _UNREAD with the reason added to errors."""
     if not path.exists():
         errors.append(f"{path.name}: missing")
-        return None
+        return _UNREAD
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except ValueError as e:
         errors.append(f"{path.name}: (root): not valid JSON ({e})")
-        return None
+        return _UNREAD
 
 
 def validate_bundle_dir(path: Path) -> List[str]:
@@ -457,25 +461,33 @@ def validate_bundle_dir(path: Path) -> List[str]:
     docs = {}
     for name in BUNDLE_FILES:
         docs[name] = _read_json(path / f"{name}.json", errors)
-        if docs[name] is not None:
+        if docs[name] is not _UNREAD:
             errors += _schema_errors(schema, name, docs[name], f"{name}.json")
     manifest = docs["manifest"]
     if isinstance(manifest, dict) and manifest.get("bundle_schema_version") == 1:
         doc = _read_json(path / "tracks.json", errors)
-        if doc is not None:
+        if doc is not _UNREAD:
             errors += _schema_errors(schema, "tracks", doc, "tracks.json")
         return errors
     index = _read_json(path / TRACKS_INDEX, errors)
-    if index is not None:
+    if index is not _UNREAD:
         found = _schema_errors(schema, "tracks_index", index, TRACKS_INDEX)
         errors += found
         if found:
-            index = None
+            index = _UNREAD
     jsonl = path / TRACKS_JSONL
     if not jsonl.exists():
         errors.append(f"{TRACKS_JSONL}: missing")
         return errors
-    if index is None:
+    if index is _UNREAD:
+        # no index to check the lines against: each line is still checked for what it is
+        with open(jsonl, "rb") as f:
+            for n, line in enumerate(f, 1):
+                where = f"{TRACKS_JSONL}: line {n}"
+                try:
+                    errors += _schema_errors(schema, "track", json.loads(line), where)
+                except ValueError as err:
+                    errors.append(f"{where}: not valid JSON ({err})")
         return errors
     at = 0
     with open(jsonl, "rb") as f:
