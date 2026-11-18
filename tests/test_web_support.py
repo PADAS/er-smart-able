@@ -182,3 +182,59 @@ def test_every_write_route_is_refused_through_support_view(client, tmp_path, mon
         assert r.status_code in (403, 404), (key, r.status_code, r.text)
         assert state() == before, key
     assert store.read_site_token(ids["site"]) == TOKEN
+
+
+# ---- the record: a support view of someone else's data is logged, once in ten minutes
+def records(caplog) -> list:
+    return [r.getMessage() for r in caplog.records if r.name == "support"]
+
+
+def test_a_support_view_is_recorded_once_in_ten_minutes(client, tmp_path, caplog, monkeypatch):
+    app, c = client
+    ids = seed(app, tmp_path)
+    with caplog.at_level("INFO", logger="support"):
+        for path in (f"/api/datasets/{ids['ds']}", f"/api/datasets/{ids['ds']}", f"/api/datasets/{ids['ds']}/loads"):
+            assert c.get(path, headers=SUP).status_code == 200
+        assert records(caplog) == [f"support_view viewer=sup@earthranger.com kind=dataset id={ids['ds']} owner=dev@earthranger.com"]
+        later = app.time.monotonic() + app.SUPPORT_LOG_EVERY_SECONDS + 1
+        monkeypatch.setattr(app.time, "monotonic", lambda: later)
+        c.get(f"/api/datasets/{ids['ds']}", headers=SUP)
+        assert len(records(caplog)) == 2
+
+
+def test_the_record_covers_each_kind(client, tmp_path, caplog):
+    app, c = client
+    ids = seed(app, tmp_path)
+    with caplog.at_level("INFO", logger="support"):
+        for path in ("/api/datasets?all=1", "/api/sites?all=1", "/api/datasets?all=1", f"/api/loads/{ids['load']}",
+                     f"/api/loads/{ids['load']}/files/plan.json", f"/d/{ids['ds']}/", f"/d/{ids['ds']}/index.html"):
+            assert c.get(path, headers=SUP).status_code == 200
+    kinds = [m.split()[2] for m in records(caplog)]
+    assert kinds == ["kind=list", "kind=list", "kind=load", "kind=load_file", "kind=browser"]
+    assert f"id={ids['load']}/plan.json" in records(caplog)[3]
+    assert TOKEN not in caplog.text and "1234" not in caplog.text
+
+
+def test_no_record_for_an_owner_a_reader_or_a_plain_list(client, tmp_path, caplog):
+    app, c = client
+    ids = seed(app, tmp_path)
+    c.post(f"/api/datasets/{ids['ds']}/share", json={"email": "sup@earthranger.com"})
+    with caplog.at_level("INFO", logger="support"):
+        for path in reads(ids):
+            assert c.get(path).status_code == 200                 # the owner
+            assert c.get(path, headers=SUP).status_code == 200    # support, but shared on this one
+        c.get("/api/datasets", headers=SUP)                       # their own list
+        c.get("/api/datasets?all=1", headers=OTHER)               # not support: the parameter is ignored
+        c.get(f"/api/datasets/{ids['ds']}", headers=OTHER)        # a stranger's 404
+    assert records(caplog) == []
+
+
+def test_the_record_reaches_the_service_output(client):
+    """Nothing configures logging for the service and the default drops INFO, so the record's logger
+    carries its own level and its own handler (to stderr, which the host collects)."""
+    import logging
+
+    app, _ = client
+    log = logging.getLogger("support")
+    assert log is app._support_log and log.isEnabledFor(logging.INFO)
+    assert [type(h) for h in log.handlers] == [logging.StreamHandler]

@@ -35,6 +35,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -107,6 +108,34 @@ def _public(doc: dict, user: dict) -> dict:
         "mine": is_owner(doc, user), "access": access(doc, user), "extract_held": extract_in_progress(doc)}
 
 
+SUPPORT_LOG_EVERY_SECONDS = 600
+_support_log = logging.getLogger("support")
+_support_log.setLevel(logging.INFO)   # nothing else sets up logging, and the default drops INFO: the record must reach the service's output
+if not _support_log.handlers:
+    _support_log.addHandler(logging.StreamHandler())
+_viewed: dict = {}   # (viewer, kind, id) -> when it was last logged, by this process's clock
+
+
+def _record_view(user: dict, kind: str, id: str = "", owner: str = ""):
+    """The record of a support view: who looked at whose what. Once per viewer, kind and id in ten
+    minutes, because the dataset and load pages poll. Never a token, a file's contents or a name from
+    the data."""
+    key, at = (user["email"].lower(), kind, id), time.monotonic()
+    last = _viewed.get(key)
+    if last is not None and at - last < SUPPORT_LOG_EVERY_SECONDS:
+        return
+    if len(_viewed) > 10000:
+        _viewed.clear()
+    _viewed[key] = at
+    _support_log.info("support_view viewer=%s kind=%s id=%s owner=%s", user["email"], kind, id, owner)
+
+
+def _viewing(doc: dict, user: dict, kind: str, id: str | None = None):
+    """Record it if this user reaches the dataset only through support view."""
+    if access(doc, user) == "support":
+        _record_view(user, kind, id or doc["id"], doc.get("owner_email") or "")
+
+
 def _load(id: str, user: dict, owner: bool = False, view: bool = False) -> dict:
     """The dataset, if this user may read it. view=True also admits the support staff, who may look and
     nothing else: only routes that read pass it, so a route that writes stays closed to them."""
@@ -162,6 +191,8 @@ def help_sections(lang: str = "en", user=Depends(current_user)):   # a plain def
 @app.get("/api/datasets")
 async def list_datasets(everyone: bool = Query(False, alias="all"), user=Depends(current_user)):
     see = can_view if everyone and user.get("support") else can_read   # ?all=1 means nothing from anyone else
+    if see is can_view:
+        _record_view(user, "list", "datasets")
     docs = [d for d in get_store().list_datasets() if see(d, user)]
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     return [_public(d, user) for d in docs]
@@ -222,6 +253,7 @@ async def extract(id: str, user=Depends(current_user)):
 @app.get("/api/datasets/{id}")
 async def get_dataset(id: str, user=Depends(current_user)):
     doc = _load(id, user, view=True)
+    _viewing(doc, user, "dataset")
     out = _public(doc, user)
     # the uploaded backup is stored apart from what was extracted, and for a limited time: say so (one
     # storage lookup, so on this page only, not for every dataset in the list)
@@ -312,6 +344,8 @@ def _load_site(id: str, user: dict, owner: bool = False) -> dict:
 @app.get("/api/sites")
 async def list_sites(everyone: bool = Query(False, alias="all"), user=Depends(current_user)):
     see = can_view if everyone and user.get("support") else can_read
+    if see is can_view:
+        _record_view(user, "list", "sites")
     docs = [d for d in get_store().list_sites() if see(d, user)]
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     return [_site_public(d, user) for d in docs]
@@ -514,6 +548,7 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
 @app.get("/api/datasets/{id}/loads")
 async def list_loads(id: str, user=Depends(current_user)):
     dataset = _load(id, user, view=True)
+    _viewing(dataset, user, "dataset")
     docs = get_store().list_loads(id)
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     # the list shows a line per load: the page-sized fields stay with GET /api/loads/{id}
@@ -522,7 +557,11 @@ async def list_loads(id: str, user=Depends(current_user)):
 
 @app.get("/api/loads/{id}")
 async def get_load(id: str, user=Depends(current_user)):
-    return _load_public(_load_load(id, user, view=True), user)
+    doc = _load_load(id, user, view=True)
+    out = _load_public(doc, user)
+    if out["access"] == "support":
+        _record_view(user, "load", id, doc.get("owner_email") or "")
+    return out
 
 
 def _stale(doc: dict) -> bool:
@@ -578,6 +617,9 @@ async def load_file(id: str, name: str, user=Depends(current_user)):
         raise ApiError(400, "bad_path", "Bad path")
     if not found:
         raise ApiError(404, "not_found", "Not found")
+    dataset = get_store().get(doc["dataset_id"])
+    if dataset and access(dataset, user) == "support":   # the name is one the store found, not the caller's text
+        _record_view(user, "load_file", f"{id}/{name}", doc.get("owner_email") or "")
     chunks, size, ctype = found
     return StreamingResponse(chunks, media_type=ctype, headers={"Content-Length": str(size)})
 
@@ -590,6 +632,7 @@ async def site_root_redirect(id: str):
 @app.get("/d/{id}/")
 async def site_index(id: str, user=Depends(current_user)):
     doc = _load(id, user, view=True)
+    _viewing(doc, user, "browser")
     if doc.get("status") != "ready":
         raise ApiError(409, "dataset_status", f"Dataset is {doc.get('status')}", status=doc.get("status"))
     return FileResponse(BROWSER, media_type="text/html")
@@ -597,7 +640,7 @@ async def site_index(id: str, user=Depends(current_user)):
 
 @app.get("/d/{id}/{path:path}")
 async def site_file(id: str, path: str, user=Depends(current_user)):
-    _load(id, user, view=True)
+    _viewing(_load(id, user, view=True), user, "browser")
     if path in ("", "index.html"):
         return FileResponse(BROWSER, media_type="text/html")
     if path == "quirks.html" and QUIRKS.is_file():
