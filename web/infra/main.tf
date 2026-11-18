@@ -182,7 +182,7 @@ resource "google_storage_bucket" "data" {
   lifecycle_rule {
     # an uploaded backup is only needed until it has been extracted
     condition {
-      age            = 30
+      age            = var.upload_retention_days
       matches_prefix = ["datasets/"]
       matches_suffix = [".zip", ".bak"]
     }

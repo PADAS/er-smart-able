@@ -207,9 +207,36 @@ function renderOverview(d) {
     (d.error ? '<p class="card-error">' + esc(d.error) + '</p>' : '') +
     (lapsed ? '<p class="tiny">' + T('dataset.lapsed') + (d.mine ? ' ' + T('dataset.lapsedRetry', {}, { action: T('dataset.reExtract') }) : '') + '</p>' : '') +
     (d.log_tail ? '<details' + (running ? ' open' : '') + '><summary class="tiny">' + T(running ? 'dataset.logLive' : 'dataset.logTail') + '</summary><pre class="log">' + esc(d.log_tail) + '</pre></details>' : '') + '</div>' +
+    backupPanel(d) +
     (!rows && d.status === 'ready' ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><p class="tiny">' + T('dataset.noAreas') + '</p>' + browseLink(d) + '</div>' : '') +
     (rows ? '<div class="panel"><h2>' + T('dataset.areas') + '</h2><table><thead><tr><th>' + T('dataset.colName') + '</th><th>' + T('dataset.colSmartId') + '</th><th>' + T('dataset.colVersion') + '</th><th>' + T('dataset.colContents') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '');
 }
+
+// ---- the uploaded backup: stored apart from what was extracted from it, and only for a time. The panel
+// says when it goes and that the extracted data does not go with it; the owner can delete it at once.
+function daysUntil(iso) { return Math.ceil((Date.parse(iso) - now()) / 86400000); }
+function backupPanel(d) {
+  var u = d.upload;
+  if (!u || d.status === 'uploading') return '';   // not asked for (the list), or still arriving
+  var state;
+  if (!u.present) state = u.deleted_at ? T('backup.deletedOn', { date: fmtDate(u.deleted_at) }) : T('backup.gone');
+  else if (!u.expires_at) state = T('backup.kept');
+  else { var n = daysUntil(u.expires_at); state = n > 0 ? tn('backup.expires', n, { date: fmtDate(u.expires_at) }) : T('backup.expiresSoon'); }
+  return '<div class="panel" id="backup"><h2>' + T('backup.title') + '</h2>' +
+    '<p><span class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + '</span></p>' +
+    '<p>' + state + (u.present ? '' : ' ' + T('backup.reupload')) + '</p>' +
+    '<p class="tiny">' + T('backup.extractedStays') + '</p>' +
+    (u.present && d.mine ? '<button id="deleteBackupBtn" class="danger"' + (d.extract_held ? ' disabled' : '') + '><span class="mi" aria-hidden="true">delete</span>' + T('backup.deleteNow') + '</button>' : '') +
+    '</div>';
+}
+// A dialog that asks before deleting: what goes, that it cannot be undone, Cancel first (it takes the focus).
+function confirmBody(lines, go) {
+  return lines.map(l => '<p>' + l + '</p>').join('') + '<p><b>' + T('confirm.cannotUndo') + '</b></p>' +
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('confirm.cancel') + '</button>' +
+    '<button type="button" class="danger" id="confirmGo"><span class="mi" aria-hidden="true">delete</span>' + go + '</button></div>';
+}
+function deleteDatasetBody() { return confirmBody([T('confirm.deleteDatasetWhat'), T('confirm.nothingInEr')], T('confirm.deleteDatasetGo')); }
+function deleteBackupBody(d) { return confirmBody([T('confirm.deleteBackupWhat', { file: d.source_name }), T('confirm.deleteBackupAfter')], T('confirm.deleteBackupGo')); }
 
 function renderLoadsTab(d, loads) {
   var list = (loads || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
@@ -235,7 +262,8 @@ function renderDatasetPage(d, tab, extra) {
   var dis = d.extract_held ? ' disabled' : '';
   var actions = d.mine ? '<div class="actions row">' +
     '<button id="shareBtn"><span class="mi" aria-hidden="true">share</span>' + T('dataset.share') + '</button>' +
-    '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>' + T('dataset.reExtract') + '</button>' +
+    (d.upload && !d.upload.present && d.status !== 'uploading' ? '' :   // nothing to extract from once the backup has gone
+    '<button id="extractBtn"' + dis + '><span class="mi" aria-hidden="true">refresh</span>' + T('dataset.reExtract') + '</button>') +
     '<button id="deleteBtn" class="danger"' + dis + '><span class="mi" aria-hidden="true">delete</span>' + T('dataset.delete') + '</button></div>' : '';
   var shared = (d.shared_with || []).length ? ' · ' + T('dataset.sharedWith', { list: d.shared_with.join(', ') }) : '';
   var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load) : renderOverview(d);

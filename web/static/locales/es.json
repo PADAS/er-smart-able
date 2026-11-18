@@ -73,6 +73,18 @@
     "ownedByYou": "de su propiedad",
     "notFoundCrumb": "No encontrado"
   },
+  "backup": {
+    "title": "Copia de seguridad subida",
+    "expires_one": "Se elimina automáticamente el {{date}} (en {{count}} día).",
+    "expires_other": "Se elimina automáticamente el {{date}} (en {{count}} días).",
+    "expiresSoon": "Pendiente de eliminación automática; puede desaparecer en cualquier momento.",
+    "kept": "Se conserva hasta que usted la elimine.",
+    "deletedOn": "Eliminada el {{date}}.",
+    "gone": "Ya no está almacenada.",
+    "reupload": "Para extraer de nuevo, suba otra vez la copia de seguridad como un conjunto de datos nuevo.",
+    "extractedStays": "Los datos extraídos no se ven afectados. Se conservan hasta que usted elimine el conjunto de datos.",
+    "deleteNow": "Eliminar la copia de seguridad ahora"
+  },
   "sites": {
     "add": "Agregar un sitio",
     "you": "usted",
@@ -340,9 +352,18 @@
     "none": "Todavía no se comparte con nadie."
   },
   "confirm": {
-    "deleteDataset": "¿Eliminar «{{name}}» y todos sus datos extraídos, paquetes y registros de carga? No se elimina nada en EarthRanger.",
     "removeSite": "¿Quitar «{{name}}»? Las cargas que hacen referencia a este sitio siguen siendo legibles, pero no se pueden continuar; registre el sitio de nuevo para cargar en él.",
-    "deleteLoad": "¿Eliminar los registros de esta carga? No se elimina nada en EarthRanger."
+    "deleteLoad": "¿Eliminar los registros de esta carga? No se elimina nada en EarthRanger.",
+    "cancel": "Cancelar",
+    "deleteDatasetTitle": "¿Eliminar «{{name}}»?",
+    "deleteDatasetWhat": "Esto elimina la copia de seguridad subida, los datos extraídos, los paquetes de migración y los registros de carga.",
+    "cannotUndo": "Esta acción no se puede deshacer.",
+    "nothingInEr": "No se elimina nada de EarthRanger.",
+    "deleteDatasetGo": "Eliminar el conjunto de datos",
+    "deleteBackupTitle": "¿Eliminar la copia de seguridad subida?",
+    "deleteBackupWhat": "Esto elimina ahora el archivo {{file}}. Los datos extraídos, los paquetes y las cargas se conservan.",
+    "deleteBackupAfter": "Para extraer de nuevo tendrá que subirla otra vez.",
+    "deleteBackupGo": "Eliminar la copia de seguridad"
   },
   "csv": {
     "name": "name",

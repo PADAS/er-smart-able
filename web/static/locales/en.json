@@ -73,6 +73,18 @@
     "ownedByYou": "owned by you",
     "notFoundCrumb": "Not found"
   },
+  "backup": {
+    "title": "Uploaded backup",
+    "expires_one": "Deleted automatically on {{date}} (in {{count}} day).",
+    "expires_other": "Deleted automatically on {{date}} (in {{count}} days).",
+    "expiresSoon": "Due for automatic deletion; it can go at any time.",
+    "kept": "Stored until you delete it.",
+    "deletedOn": "Deleted on {{date}}.",
+    "gone": "No longer stored.",
+    "reupload": "To extract again, upload the backup again as a new dataset.",
+    "extractedStays": "The extracted data is not affected. It stays until you delete the dataset.",
+    "deleteNow": "Delete the backup now"
+  },
   "sites": {
     "add": "Add a site",
     "you": "you",
@@ -340,9 +352,18 @@
     "none": "Not shared with anyone yet."
   },
   "confirm": {
-    "deleteDataset": "Delete \"{{name}}\" and all its extracted data, bundles and load records? Nothing in EarthRanger is removed.",
     "removeSite": "Remove \"{{name}}\"? Loads that reference this site stay readable but cannot be continued; register the site again to load into it.",
-    "deleteLoad": "Delete this load's records? Nothing in EarthRanger is removed."
+    "deleteLoad": "Delete this load's records? Nothing in EarthRanger is removed.",
+    "cancel": "Cancel",
+    "deleteDatasetTitle": "Delete \"{{name}}\"?",
+    "deleteDatasetWhat": "This deletes the uploaded backup, the extracted data, the migration bundles and the load records.",
+    "cannotUndo": "This cannot be undone.",
+    "nothingInEr": "Nothing in EarthRanger is removed.",
+    "deleteDatasetGo": "Delete dataset",
+    "deleteBackupTitle": "Delete the uploaded backup?",
+    "deleteBackupWhat": "This deletes the file {{file}} now. The extracted data, the bundles and the loads stay.",
+    "deleteBackupAfter": "To extract again you will have to upload it again.",
+    "deleteBackupGo": "Delete backup"
   },
   "csv": {
     "name": "name",

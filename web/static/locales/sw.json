@@ -73,6 +73,18 @@
     "ownedByYou": "ni yako",
     "notFoundCrumb": "Haipatikani"
   },
+  "backup": {
+    "title": "Chelezo iliyopakiwa",
+    "expires_one": "Itafutwa kiotomatiki tarehe {{date}} (baada ya siku {{count}}).",
+    "expires_other": "Itafutwa kiotomatiki tarehe {{date}} (baada ya siku {{count}}).",
+    "expiresSoon": "Inasubiri kufutwa kiotomatiki; inaweza kuondolewa wakati wowote.",
+    "kept": "Inahifadhiwa hadi utakapoifuta.",
+    "deletedOn": "Ilifutwa tarehe {{date}}.",
+    "gone": "Haijahifadhiwa tena.",
+    "reupload": "Ili kutoa data tena, pakia chelezo tena kama seti mpya ya data.",
+    "extractedStays": "Data zilizotolewa haziathiriki. Zinabaki hadi utakapofuta seti ya data.",
+    "deleteNow": "Futa chelezo sasa"
+  },
   "sites": {
     "add": "Ongeza tovuti",
     "you": "wewe",
@@ -340,9 +352,18 @@
     "none": "Bado haijashirikiwa na mtu yeyote."
   },
   "confirm": {
-    "deleteDataset": "Je, unataka kufuta \"{{name}}\" pamoja na data zote zilizotokana na utoaji wa data, vifurushi na rekodi za uingizaji? Hakuna kitakachoondolewa kwenye EarthRanger.",
     "removeSite": "Je, unataka kuondoa \"{{name}}\"? Uingizaji unaohusu tovuti hii utaendelea kusomeka lakini hauwezi kuendelezwa; sajili tovuti tena ili kuingiza data kwenye tovuti hiyo.",
-    "deleteLoad": "Je, unataka kufuta rekodi za uingizaji huu? Hakuna kitakachoondolewa kwenye EarthRanger."
+    "deleteLoad": "Je, unataka kufuta rekodi za uingizaji huu? Hakuna kitakachoondolewa kwenye EarthRanger.",
+    "cancel": "Ghairi",
+    "deleteDatasetTitle": "Futa \"{{name}}\"?",
+    "deleteDatasetWhat": "Hatua hii inafuta chelezo iliyopakiwa, data zilizotolewa, vifurushi vya uhamishaji na kumbukumbu za uingizaji.",
+    "cannotUndo": "Hatua hii haiwezi kutenduliwa.",
+    "nothingInEr": "Hakuna kitakachoondolewa kwenye EarthRanger.",
+    "deleteDatasetGo": "Futa seti ya data",
+    "deleteBackupTitle": "Futa chelezo iliyopakiwa?",
+    "deleteBackupWhat": "Hatua hii inafuta faili {{file}} sasa. Data zilizotolewa, vifurushi na uingizaji vinabaki.",
+    "deleteBackupAfter": "Ili kutoa data tena, itabidi uipakie tena.",
+    "deleteBackupGo": "Futa chelezo"
   },
   "csv": {
     "name": "name",

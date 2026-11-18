@@ -97,3 +97,48 @@ test('the Browse link says the data browser is in English when the language is n
   assert.doesNotMatch(ld().renderOverview(d), /in English/);
   assert.match(ld({ lang: 'xx', messages: { dataset: { browseInEnglish: 'EN' } } }).renderOverview(d), />Browse<\/a> <span class="tiny">EN<\/span>/);
 });
+
+// ---- the uploaded backup
+const DAY = 86400000, T0 = Date.parse('2026-11-18T00:00:00Z');
+function at(P) { P.now = () => T0; return P; }
+const own = { id: 'a1', name: 'North', source_name: 'north.zip', source_size: 5000000, status: 'ready', mine: true, created_at: '2026-11-01T00:00:00+00:00', export: [] };
+test('the backup panel says when the backup goes and that the extracted data stays', () => {
+  const P = at(load());
+  const h = P.backupPanel({ ...own, upload: { present: true, expires_at: '2026-12-01T00:00:00+00:00', deleted_at: null } });
+  assert.match(h, /<h2>Uploaded backup<\/h2>/); assert.match(h, /north\.zip · 5 MB/);
+  assert.match(h, /Deleted automatically on 2026-12-01 \(in 13 days\)\./);
+  assert.match(h, /The extracted data is not affected\. It stays until you delete the dataset\./);
+  assert.match(h, /<button id="deleteBackupBtn" class="danger">.*Delete the backup now<\/button>/);
+  assert.match(P.backupPanel({ ...own, upload: { present: true, expires_at: new Date(T0 + DAY - 1000).toISOString() } }), /\(in 1 day\)/);
+  assert.match(P.backupPanel({ ...own, upload: { present: true, expires_at: new Date(T0 - 1000).toISOString() } }), /Due for automatic deletion/);
+  assert.match(P.backupPanel({ ...own, upload: { present: true, expires_at: null } }), /Stored until you delete it\./);
+});
+test('a backup that has gone says so, offers no delete, and the page offers no re-extract', () => {
+  const P = at(load());
+  const gone = { ...own, upload: { present: false, expires_at: '2026-12-01T00:00:00+00:00', deleted_at: '2026-11-10T08:00:00+00:00' } };
+  const h = P.backupPanel(gone);
+  assert.match(h, /Deleted on 2026-11-10\. To extract again, upload the backup again as a new dataset\./);
+  assert.match(h, /The extracted data is not affected/); assert.doesNotMatch(h, /deleteBackupBtn/);
+  assert.match(P.backupPanel({ ...gone, upload: { present: false } }), /No longer stored\./);
+  assert.doesNotMatch(P.renderDatasetPage(gone, 'overview'), /id="extractBtn"/);
+  assert.match(P.renderDatasetPage({ ...own, upload: { present: true } }, 'overview'), /id="extractBtn"/);
+  assert.match(P.renderDatasetPage(own, 'overview'), /id="extractBtn"/, 'no word about the backup: the button stays');
+});
+test('only the owner is offered the delete, not while it is being extracted, and nothing shows while it is uploading', () => {
+  const P = at(load()), up = { present: true, expires_at: '2026-12-01T00:00:00+00:00' };
+  assert.doesNotMatch(P.backupPanel({ ...own, mine: false, upload: up }), /deleteBackupBtn/);
+  assert.match(P.backupPanel({ ...own, extract_held: true, upload: up }), /id="deleteBackupBtn" class="danger" disabled/);
+  assert.equal(P.backupPanel({ ...own, status: 'uploading', upload: { present: false } }), '');
+  assert.equal(P.backupPanel(own), '');
+  assert.match(P.renderOverview({ ...own, upload: up }), /id="backup"/);
+});
+test('the delete dialogs say what goes and that it cannot be undone, with Cancel first', () => {
+  const P = load();
+  const ds = P.deleteDatasetBody();
+  assert.match(ds, /uploaded backup, the extracted data, the migration bundles and the load records/);
+  assert.match(ds, /<b>This cannot be undone\.<\/b>/); assert.match(ds, /Nothing in EarthRanger is removed\./);
+  assert.match(ds, /<button type="button" class="ghost" data-close>Cancel<\/button><button type="button" class="danger" id="confirmGo">.*Delete dataset<\/button>/);
+  const b = P.deleteBackupBody({ source_name: 'a<b>.zip' });
+  assert.match(b, /deletes the file a&lt;b&gt;\.zip now\. The extracted data, the bundles and the loads stay\./);
+  assert.match(b, /This cannot be undone/); assert.match(b, /Delete backup<\/button>/);
+});

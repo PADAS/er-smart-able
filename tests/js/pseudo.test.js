@@ -102,7 +102,10 @@ const CALLS = {
   renderNotFound: [['load'], ['dataset'], []],
   renderSites: [[SITES], [[]]],
   renderTabs: [[ownDs, 'overview'], [DATASETS[0], 'loads'], [ownDs, 'rangers']],
-  renderOverview: [...DATASETS.map(d => [d]), [ownDs], [{ ...DATASETS[2], export: [], cas: [] }], [{ ...DATASETS[2], export: [], cas: [{ id: 'c1', n: 'Old area' }] }]],
+  renderOverview: [...DATASETS.map(d => [d]), [ownDs],
+    // the uploaded backup: expiring, about to go, kept for good, deleted by the owner, gone by the rule
+    [{ ...ownDs, upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } }], [{ ...ownDs, upload: { present: true, expires_at: '2001-01-01T00:00:00+00:00' } }],
+    [{ ...ownDs, upload: { present: true, expires_at: null } }], [{ ...ownDs, upload: { present: false, deleted_at: '2026-11-10T08:00:00+00:00' } }], [{ ...ownDs, upload: { present: false } }], [{ ...DATASETS[2], export: [], cas: [] }], [{ ...DATASETS[2], export: [], cas: [{ id: 'c1', n: 'Old area' }] }]],
   renderLoadsTab: [[ownDs, LOADS], [ownDs, []], [DATASETS[1], []]],
   renderRangersTab: [[{ ...LOAD, rangers: RANGERS }], [{ ...LOAD, site: null, rangers: RANGERS }], [null], [{ ...LOAD, rangers: [] }]],
   renderDatasetPage: [[ownDs, 'overview'], [ownDs, 'loads', { loads: LOADS }], [DATASETS[1], 'rangers', { load: { ...LOAD, rangers: RANGERS } }], [DATASETS[0], 'overview']],
