@@ -95,12 +95,14 @@ new one is added without deciding what support gets. A support person
 still has an owner's or a reader's rights on what they own or were shared.
 No part of a site's token is shown through support view.
 
-An address must also pass `ALLOWED_EMAILS` to sign in. The list is read on
-every request and stored nowhere, so removing an address ends that
-person's support view when the change is deployed.
+An address must also pass `ALLOWED_EMAILS` to sign in, and the sign-in
+provider must have verified it (Google does). The role is worked out on
+every request from the variable and stored nowhere, so removing an address
+ends that person's support view when the change is deployed.
 
 Each view of someone else's data is written to the service's log, at most
-once per person and item in ten minutes:
+once per person and item in ten minutes by each running instance (so a few
+lines for one view are normal, and a restart starts the count again):
 
 ```
 support_view viewer=<email> kind=<dataset|load|load_file|browser|list> id=<id> owner=<owner's email>

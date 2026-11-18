@@ -194,6 +194,7 @@
     "extractingTitle": "Le jeu de données est en cours d'extraction",
     "extractingNote": "Le jeu de données est en cours d'extraction ; le chargement pourra continuer une fois l'extraction terminée.",
     "stale": "La tâche s'est arrêtée sans rendre compte ; continuez pour reprendre au dernier point de contrôle.",
+    "staleView": "La tâche s'est arrêtée sans rendre compte.",
     "statusesHelp": "Ce que signifient les statuts",
     "eventCategory": "catégorie d'événements {{value}}",
     "language": "langue {{value}}",

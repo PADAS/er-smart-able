@@ -194,6 +194,7 @@
     "extractingTitle": "Utoaji wa data wa seti hii unaendelea",
     "extractingNote": "Utoaji wa data wa seti hii unaendelea; uingizaji utaweza kuendelea utoaji huo ukikamilika.",
     "stale": "Kazi ilisimama bila kutoa taarifa; bonyeza Endelea ili kuanza tena kutoka mahali pa mwisho palipohifadhiwa.",
+    "staleView": "Kazi ilisimama bila kutoa taarifa.",
     "statusesHelp": "Maana ya hali",
     "eventCategory": "kategoria ya matukio {{value}}",
     "language": "lugha {{value}}",

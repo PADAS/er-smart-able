@@ -194,6 +194,7 @@
     "extractingTitle": "Se está extrayendo el conjunto de datos",
     "extractingNote": "Se está extrayendo el conjunto de datos; la carga podrá seguir cuando termine la extracción.",
     "stale": "El trabajo se detuvo sin informar; continúe para reanudar desde el último punto de control.",
+    "staleView": "El trabajo se detuvo sin informar.",
     "statusesHelp": "Qué significan los estados",
     "eventCategory": "categoría de eventos {{value}}",
     "language": "idioma {{value}}",

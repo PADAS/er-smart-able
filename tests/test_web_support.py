@@ -238,3 +238,45 @@ def test_the_record_reaches_the_service_output(client):
     log = logging.getLogger("support")
     assert log is app._support_log and log.isEnabledFor(logging.INFO)
     assert log.propagate and not log.handlers   # one line each, through the service's own handler
+
+
+# ---- a support user's own rights do not combine with support view into something stronger
+def test_support_cannot_load_their_own_dataset_into_a_site_they_only_see(client, tmp_path, monkeypatch):
+    """?all=1 shows support every site's id. Seeing a site is not reading it: loading needs the owner's sharing."""
+    app, c = client
+    ids = seed(app, tmp_path)
+    store = app.get_store()
+    monkeypatch.setattr(store, "start_load", lambda *a, **k: pytest.fail("a load was started"))
+    mine = {"owner_email": "sup@earthranger.com", "owner_uid": "dev_sup_at_earthranger_com", "shared_with": []}
+    own = store.create({"name": "mine", "source_name": "b.zip", "status": "ready", "export": EXPORT, **WHEN, **mine})
+    b = store._p(own) / "export" / "ALPHA" / "bundle"
+    b.mkdir(parents=True)
+    (b / "manifest.json").write_text("{}")
+    assert ids["site"] in [s["id"] for s in c.get("/api/sites?all=1", headers=SUP).json()]
+    r = c.post(f"/api/datasets/{own}/loads", json={"ca_id": "ALPHA", "site_id": ids["site"], "options": {}}, headers=SUP)
+    assert r.status_code == 404 and r.json()["code"] == "site_not_found"
+    assert store.list_loads(own) == [] and store.read_site_token(ids["site"]) == TOKEN
+
+
+def test_support_shared_on_a_dataset_still_cannot_use_a_site_they_only_see(client, tmp_path, monkeypatch):
+    app, c = client
+    ids = seed(app, tmp_path)
+    store = app.get_store()
+    monkeypatch.setattr(store, "start_load", lambda *a, **k: pytest.fail("a load was started"))
+    assert c.post(f"/api/datasets/{ids['ds']}/share", json={"email": "sup@earthranger.com"}).status_code == 200
+    before = store.get_load(ids["load"])
+    assert c.post(f"/api/loads/{ids['load']}/run", headers=SUP).status_code == 403
+    assert c.post(f"/api/loads/{ids['load']}/replan", headers=SUP).status_code == 403
+    assert c.post(f"/api/datasets/{ids['ds']}/loads", json={"ca_id": "ALPHA", "site_id": ids["site"], "options": {}}, headers=SUP).status_code == 404
+    assert c.patch(f"/api/sites/{ids['site']}", json={"name": "taken"}, headers=SUP).status_code == 404
+    assert c.delete(f"/api/sites/{ids['site']}", headers=SUP).status_code == 404
+    assert store.get_load(ids["load"]) == before and store.read_site_token(ids["site"]) == TOKEN
+
+
+def test_the_record_names_a_load_file_one_way_however_it_is_asked_for(client, tmp_path, caplog):
+    app, c = client
+    ids = seed(app, tmp_path)
+    with caplog.at_level("INFO", logger="support"):
+        for name in ("plan.json", "%5Cplan.json", ".%5Cplan.json"):
+            assert c.get(f"/api/loads/{ids['load']}/files/{name}", headers=SUP).status_code == 200
+    assert [m.split()[3] for m in records(caplog)] == [f"id={ids['load']}/plan.json"]

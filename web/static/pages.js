@@ -360,7 +360,7 @@ function renderLoadTitle(l) {
   let notes = '';
   if (!active && l.site && l.status === 'planned' && blocking) notes += '<div class="tiny">' + tn('load.stopsAt', blocking) + '</div>';
   if (busy && !active && l.site && !viewing) notes += '<div class="tiny">' + T('load.extractingNote') + '</div>';
-  if (stale) notes += '<div class="tiny">' + T('load.stale') + '</div>';
+  if (stale) notes += '<div class="tiny">' + T(viewing ? 'load.staleView' : 'load.stale') + '</div>';   // a viewer has no Continue to press
   if (l.error) notes += '<div class="tiny card-error">' + esc(l.error) + '</div>';
   return '<div class="title-block"><div><h1>' + esc(loadName(l)) + ' ' + pill(l.status) +
     ' <button class="help" data-help="help-statuses" title="' + T('load.statusesHelp') + '"><span class="mi" aria-hidden="true">help</span></button></h1>' +

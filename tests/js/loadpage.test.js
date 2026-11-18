@@ -132,4 +132,7 @@ test('a load in support view says so and has no run, plan-again or delete', () =
     assert.doesNotMatch(P.renderLoadPage({ ...l, access: 'shared' }, false), /support-line/);
   }
   assert.match(P.renderLoadPage({ ...base, site: null, status: 'failed', error: 'Site was removed', access: 'support' }, false), /Site was removed/);
+  const h = P.renderLoadPage({ ...stale, access: 'support' }, false);   // told what happened, not what to press
+  assert.match(h, /The job stopped without reporting\.</); assert.doesNotMatch(h, /continue to resume/);
+  assert.match(P.renderLoadPage({ ...stale, access: 'shared' }, false), /continue to resume/);
 });

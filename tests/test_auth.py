@@ -72,3 +72,12 @@ def test_support_is_whole_addresses_only(support):
 def test_nobody_is_support_when_unset(support):
     auth = support()
     assert auth.support_entries() == [] and not auth.is_support("dev@earthranger.com")
+
+
+def test_support_needs_a_verified_address(support):
+    auth = support("sup@earthranger.com")
+    who = {"uid": "u1", "email": "sup@earthranger.com"}
+    assert auth._from_decoded({**who, "email_verified": True})["support"] is True
+    assert auth._from_decoded({**who, "email_verified": False})["support"] is False
+    assert auth._from_decoded(who)["support"] is False
+    assert auth._from_decoded({"uid": "u2", "email": "other@earthranger.com", "email_verified": True})["support"] is False

@@ -51,7 +51,7 @@ from er_site import HostError, SiteUnreachable, TokenRejected, check_token, norm
 from errors import ApiError
 from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, access, can_read, can_view, extract_in_progress, get_store, is_owner,
-                   load_in_progress, now, stored_name, upload_expires_at)
+                   load_in_progress, now, safe_relpath, stored_name, upload_expires_at)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -616,8 +616,8 @@ async def load_file(id: str, name: str, user=Depends(current_user)):
     if not found:
         raise ApiError(404, "not_found", "Not found")
     dataset = get_store().get(doc["dataset_id"])
-    if dataset and access(dataset, user) == "support":   # the name is one the store found, not the caller's text
-        _record_view(user, "load_file", f"{id}/{name}", doc.get("owner_email") or "")
+    if dataset and access(dataset, user) == "support":   # the file as the store resolved it, not as the caller spelled it
+        _record_view(user, "load_file", f"{id}/{safe_relpath(name)}", doc.get("owner_email") or "")
     chunks, size, ctype = found
     return StreamingResponse(chunks, media_type=ctype, headers={"Content-Length": str(size)})
 

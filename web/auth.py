@@ -8,8 +8,9 @@ comma-separated emails or @domains):
 - an "Authorization: Bearer <id token>" header, for scripts.
 
 SUPPORT_EMAILS names the support staff: whole addresses that, once signed in, may also view every
-dataset, site and load, read-only (store.can_view). It is read on every request and stored nowhere,
-so removing an address ends that person's support view on the next deploy.
+dataset, site and load, read-only (store.can_view). It is read when the service starts and the role is worked out on
+every request, stored nowhere, so removing an address ends that person's support view on the next deploy.
+It also needs an address the sign-in provider has verified.
 
 AUTH_DISABLED=true (local development) trusts an X-Dev-User header or a
 dev_user cookie and never talks to Firebase.
@@ -87,7 +88,9 @@ def _from_decoded(decoded: dict) -> dict:
     email = decoded.get("email", "")
     if not email_allowed(email):
         raise ApiError(403, "email_not_allowed", "This email is not allowed to use smart-able")
-    return {"uid": decoded["uid"], "email": email, "name": decoded.get("name") or email, "support": is_support(email)}
+    # support view shows every user's data, so it needs an address the sign-in provider vouches for
+    support = is_support(email) and decoded.get("email_verified") is True
+    return {"uid": decoded["uid"], "email": email, "name": decoded.get("name") or email, "support": support}
 
 
 async def current_user(request: Request) -> dict:
