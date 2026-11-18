@@ -556,9 +556,8 @@ class ErSmartSyncMigration:
         if not (w["since"] or w["until"]):
             return self.bundle
         from dataclasses import replace
-        selected = self._selected()
-        keep = {p["uuid"] for p in selected}
-        return replace(self.bundle, patrols=selected, tracks=[t for t in self.bundle.tracks if t.get("patrol_uuid") in keep])
+        # the tracks are not filtered: they are read a patrol at a time, so those of a patrol left out are never read
+        return replace(self.bundle, patrols=self._selected())
 
     def patrols(self) -> list:
         return [{"uuid": p["uuid"], "id": p.get("id"), "start_date": p.get("start_date")} for p in self._selected()]
@@ -570,8 +569,7 @@ class ErSmartSyncMigration:
         selected = {p["uuid"] for p in self._selected()}
         obs = sum(len(g.get("observations") or []) for p in self.bundle.patrols if p["uuid"] in selected
                   for leg in p["legs"] for wp in leg.get("waypoints") or [] for g in wp.get("observation_groups") or [])
-        points = sum(len(c) for t in self.bundle.tracks if t.get("patrol_uuid") in selected
-                     for part in t.get("parts") or [] for c in [part.get("coordinates") or []])
+        points = sum(self.bundle.tracks.points(u) for u in selected)   # from the bundle's index: no track is read to count
         return {"observations": obs, "track_points": points}
 
     def ledger_done(self) -> set:
