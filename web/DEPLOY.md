@@ -324,8 +324,15 @@ uv venv .venv-load && uv pip install --python .venv-load/bin/python \
 The bucket is private with public access prevention enforced; only the
 runtime service account reads it, and every request to a dataset's files is
 checked against its owner and `shared_with`. Uploaded backups are deleted
-after 30 days by lifecycle rule; the extracted site stays until the owner
-deletes the dataset. The job does write Parquet, including the credential
+by lifecycle rule after `upload_retention_days` (30 by default; see below), or
+sooner by the dataset's owner from the dataset page; the extracted site stays
+until the owner deletes the dataset. The dataset page shows the date the
+backup goes. That date comes from `UPLOAD_RETENTION_DAYS` on the service,
+which the deploy sets from the repository variable of the same name (30 if
+unset): if you change the rule's `upload_retention_days` in
+`web/infra/terraform.tfvars`, set the repository variable to the same number,
+or the page will show the wrong date. Locally there is no rule and the
+variable is unset, so the page says the backup is kept until deleted. The job does write Parquet, including the credential
 columns, but only to its temporary disk, which is discarded when it ends:
 only the browser's data and photos (`work/site/`) are uploaded. The site's JSON
 still holds ranger names and the photos are plaintext: treat the bucket as

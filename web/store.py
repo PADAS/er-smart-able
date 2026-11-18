@@ -51,6 +51,23 @@ EXTRACT_STALE_AFTER = timedelta(seconds=int(os.environ.get("EXTRACT_STALE_AFTER_
 NEW_RUN = {"log_tail": "", "started_at": None, "finished_at": None}
 
 
+# How long an uploaded backup is stored. In production a storage rule deletes it this many days after
+# upload (web/infra: var.upload_retention_days; the deploy passes the same number here), so the app can
+# say when. The local backend has no such rule: unset, the backup is kept until someone deletes it.
+_days = os.environ.get("UPLOAD_RETENTION_DAYS", "30" if BACKEND == "gcp" else "")
+UPLOAD_RETENTION_DAYS = int(_days) if _days.strip() else None
+
+
+def upload_expires_at(doc: dict):
+    """When the storage rule deletes this dataset's uploaded backup: an ISO time, or None when nothing does."""
+    if UPLOAD_RETENTION_DAYS is None:
+        return None
+    try:
+        return (datetime.fromisoformat(doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def extract_in_progress(doc: dict) -> bool:
     status = doc.get("status")
     if status not in EXTRACT_ACTIVE:
@@ -275,6 +292,10 @@ class LocalStore:
     def upload_exists(self, id: str, filename: str) -> bool:
         p = self.upload_path(id, filename)
         return p.is_file() and p.stat().st_size > 0
+
+    def delete_upload(self, id: str, filename: str):
+        """The uploaded backup only; what was extracted from it stays."""
+        self.upload_path(id, filename).unlink(missing_ok=True)
 
     def fetch_upload(self, id: str, filename: str, dest_dir: Path) -> Path:
         return self._p(id) / "upload" / Path(filename).name  # already local
@@ -571,6 +592,12 @@ class GcpStore:
 
     def upload_exists(self, id: str, filename: str) -> bool:
         return self.bucket.blob(f"datasets/{id}/upload/{Path(filename).name}").exists()
+
+    def delete_upload(self, id: str, filename: str):
+        """The uploaded backup only; what was extracted from it stays."""
+        blob = self.bucket.blob(f"datasets/{id}/upload/{Path(filename).name}")
+        if blob.exists():
+            blob.delete()
 
     def fetch_upload(self, id: str, filename: str, dest_dir: Path) -> Path:
         dest = Path(dest_dir) / Path(filename).name

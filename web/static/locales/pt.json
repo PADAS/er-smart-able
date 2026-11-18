@@ -73,6 +73,18 @@
     "ownedByYou": "pertence a você",
     "notFoundCrumb": "Não encontrado"
   },
+  "backup": {
+    "title": "Backup enviado",
+    "expires_one": "Excluído automaticamente em {{date}} (em {{count}} dia).",
+    "expires_other": "Excluído automaticamente em {{date}} (em {{count}} dias).",
+    "expiresSoon": "Aguardando exclusão automática; pode ser removido a qualquer momento.",
+    "kept": "Guardado até você excluí-lo.",
+    "deletedOn": "Excluído em {{date}}.",
+    "gone": "Não está mais guardado.",
+    "reupload": "Para extrair de novo, envie o backup novamente como um novo conjunto de dados.",
+    "extractedStays": "Os dados extraídos não são afetados. Eles ficam até você excluir o conjunto de dados.",
+    "deleteNow": "Excluir o backup agora"
+  },
   "sites": {
     "add": "Adicionar um site",
     "you": "você",
@@ -340,9 +352,18 @@
     "none": "Ainda não compartilhado com ninguém."
   },
   "confirm": {
-    "deleteDataset": "Excluir \"{{name}}\" e todos os seus dados extraídos, pacotes e registros de carga? Nada é removido do EarthRanger.",
     "removeSite": "Remover \"{{name}}\"? As cargas que fazem referência a este site continuam legíveis, mas não podem ser continuadas; cadastre o site de novo para carregar nele.",
-    "deleteLoad": "Excluir os registros desta carga? Nada é removido do EarthRanger."
+    "deleteLoad": "Excluir os registros desta carga? Nada é removido do EarthRanger.",
+    "cancel": "Cancelar",
+    "deleteDatasetTitle": "Excluir \"{{name}}\"?",
+    "deleteDatasetWhat": "Isto exclui o backup enviado, os dados extraídos, os pacotes de migração e os registros de carga.",
+    "cannotUndo": "Esta ação não pode ser desfeita.",
+    "nothingInEr": "Nada é removido do EarthRanger.",
+    "deleteDatasetGo": "Excluir o conjunto de dados",
+    "deleteBackupTitle": "Excluir o backup enviado?",
+    "deleteBackupWhat": "Isto exclui agora o arquivo {{file}}. Os dados extraídos, os pacotes e as cargas ficam.",
+    "deleteBackupAfter": "Para extrair de novo, você terá de enviá-lo novamente.",
+    "deleteBackupGo": "Excluir o backup"
   },
   "csv": {
     "name": "name",

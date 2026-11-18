@@ -73,6 +73,18 @@
     "ownedByYou": "vous appartient",
     "notFoundCrumb": "Introuvable"
   },
+  "backup": {
+    "title": "Sauvegarde téléversée",
+    "expires_one": "Supprimée automatiquement le {{date}} (dans {{count}} jour).",
+    "expires_other": "Supprimée automatiquement le {{date}} (dans {{count}} jours).",
+    "expiresSoon": "En attente de suppression automatique ; elle peut disparaître à tout moment.",
+    "kept": "Conservée jusqu'à ce que vous la supprimiez.",
+    "deletedOn": "Supprimée le {{date}}.",
+    "gone": "N'est plus conservée.",
+    "reupload": "Pour extraire de nouveau, téléversez de nouveau la sauvegarde comme nouveau jeu de données.",
+    "extractedStays": "Les données extraites ne sont pas concernées. Elles restent jusqu'à ce que vous supprimiez le jeu de données.",
+    "deleteNow": "Supprimer la sauvegarde maintenant"
+  },
   "sites": {
     "add": "Ajouter un site",
     "you": "vous",
@@ -340,9 +352,18 @@
     "none": "Pas encore partagé."
   },
   "confirm": {
-    "deleteDataset": "Supprimer « {{name}} » et toutes ses données extraites, ses paquets et ses enregistrements de chargement ? Rien n'est supprimé dans EarthRanger.",
     "removeSite": "Retirer « {{name}} » ? Les chargements qui font référence à ce site restent lisibles mais ne peuvent plus être continués ; enregistrez de nouveau le site pour y charger.",
-    "deleteLoad": "Supprimer les enregistrements de ce chargement ? Rien n'est supprimé dans EarthRanger."
+    "deleteLoad": "Supprimer les enregistrements de ce chargement ? Rien n'est supprimé dans EarthRanger.",
+    "cancel": "Annuler",
+    "deleteDatasetTitle": "Supprimer « {{name}} » ?",
+    "deleteDatasetWhat": "Cela supprime la sauvegarde téléversée, les données extraites, les lots de migration et les enregistrements de chargement.",
+    "cannotUndo": "Cette action est irréversible.",
+    "nothingInEr": "Rien n'est supprimé dans EarthRanger.",
+    "deleteDatasetGo": "Supprimer le jeu de données",
+    "deleteBackupTitle": "Supprimer la sauvegarde téléversée ?",
+    "deleteBackupWhat": "Cela supprime maintenant le fichier {{file}}. Les données extraites, les lots et les chargements restent.",
+    "deleteBackupAfter": "Pour extraire de nouveau, vous devrez la téléverser de nouveau.",
+    "deleteBackupGo": "Supprimer la sauvegarde"
   },
   "csv": {
     "name": "name",

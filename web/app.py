@@ -47,7 +47,7 @@ from er_site import HostError, SiteUnreachable, TokenRejected, check_token, norm
 from errors import ApiError
 from findings import EVENT_CATEGORY, ca_identifier
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
-                   load_in_progress, now)
+                   load_in_progress, now, upload_expires_at)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -216,9 +216,27 @@ async def extract(id: str, user=Depends(current_user)):
 async def get_dataset(id: str, user=Depends(current_user)):
     doc = _load(id, user)
     out = _public(doc, user)
+    # the uploaded backup is stored apart from what was extracted, and for a limited time: say so (one
+    # storage lookup, so on this page only, not for every dataset in the list)
+    out["upload"] = {"present": bool(doc.get("source_name")) and get_store().upload_exists(id, doc["source_name"]),
+                     "expires_at": upload_expires_at(doc), "deleted_at": doc.get("upload_deleted_at")}
     if is_owner(doc, user):
         out["log_tail"] = doc.get("log_tail")
     return out
+
+
+@app.delete("/api/datasets/{id}/upload")
+def delete_upload(id: str, user=Depends(current_user)):   # a plain def: the storage call is off the event loop
+    """The owner removes the uploaded backup ahead of its expiry. The extracted data, bundles and loads stay."""
+    doc = _load(id, user, owner=True)
+    if extract_in_progress(doc):   # the extraction is reading it
+        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
+    store = get_store()
+    if doc.get("source_name"):
+        store.delete_upload(id, doc["source_name"])
+    if not doc.get("upload_deleted_at"):
+        store.update(id, upload_deleted_at=now())
+    return {"ok": True}
 
 
 @app.delete("/api/datasets/{id}")

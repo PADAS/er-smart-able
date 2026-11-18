@@ -76,6 +76,7 @@ jobs:
             GOOGLE_CLOUD_PROJECT=${{ env.GCP_PROJECT_ID }}
             GCP_REGION=${{ env.GCP_REGION }}
             GCS_BUCKET=${{ vars.GCS_BUCKET }}
+            UPLOAD_RETENTION_DAYS=${{ vars.UPLOAD_RETENTION_DAYS || 30 }}
             EXTRACT_JOB=${{ env.JOB }}
             LOAD_JOB=${{ env.LOAD_JOB }}
             LOAD_STALE_AFTER_SECONDS=90000

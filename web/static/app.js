@@ -352,9 +352,20 @@ function bindDataset(d, tab, route, extra) {
   const ex = $('#extractBtn'); if (ex) ex.onclick = async () => {
     try { await api('/api/datasets/' + d.id + '/extract', { method: 'POST' }); showDataset(route); } catch (e) { oops(e); }
   };
-  const del = $('#deleteBtn'); if (del) del.onclick = async () => {
-    if (!confirm(t('confirm.deleteDataset', { name: d.name }))) return;
-    try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { oops(e); }
+  // deleting asks first, in the app's own dialog: what goes, and that it cannot be undone
+  const del = $('#deleteBtn'); if (del) del.onclick = () => {
+    dialog(t('confirm.deleteDatasetTitle', { name: d.name }), deleteDatasetBody());
+    $('#confirmGo').onclick = async () => {
+      closeDialog();
+      try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { oops(e); }
+    };
+  };
+  const delBackup = $('#deleteBackupBtn'); if (delBackup) delBackup.onclick = () => {
+    dialog(t('confirm.deleteBackupTitle'), deleteBackupBody(d));
+    $('#confirmGo').onclick = async () => {
+      closeDialog();
+      try { await api('/api/datasets/' + d.id + '/upload', { method: 'DELETE' }); showDataset(route); } catch (e) { oops(e); }
+    };
   };
   document.querySelectorAll('[data-act="load"]').forEach(b => { b.onclick = () => loadDialog(d, b.dataset.ca); });
   const lb = $('#loadBtn'); if (lb) lb.onclick = () => loadDialog(d, (d.export.find(hasBundle) || {}).dir);

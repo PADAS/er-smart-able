@@ -9,3 +9,5 @@ smart-able inachukua chelezo au faili iliyohamishwa (export) ya eneo la hifadhi 
 5. **Ingiza** eneo la hifadhi kwenye tovuti kutoka kwenye ukurasa wa seti ya data, kwenye kichupo chake cha **Muhtasari** au **Uingizaji**. Uingizaji kwanza unatoa mpango wa kila kitu ambacho ungeandika; wewe unauthibitisha mpango, kisha utekelezaji unaandika. Pale ambapo tovuti inahitaji jambo ambalo ni mtu tu anayeweza kulifanya, utekelezaji unasimama na kukuambia ni nini. Angalia *Kuingiza seti ya data* na *Uingizaji unaposimama*.
 
 Kila unachopakia, kutoa na kuingiza kinashirikishwa tu na watu unaowashirikisha. Kufuta seti ya data kunafuta data zake zilizotolewa, vifurushi vyake na kumbukumbu zake za uingizaji; hakuondoi kamwe chochote kwenye EarthRanger.
+
+Chelezo iliyopakiwa yenyewe inahifadhiwa kwa muda maalum (siku 30 kwenye programu ya mtandaoni), kisha inafutwa kiotomatiki. Ukurasa wa seti ya data unaonyesha tarehe, na mmiliki wa seti ya data anaweza kuifuta chelezo mapema. Data zilizotolewa haziathiriki: zinabaki hadi seti ya data itakapofutwa. Ili kutoa data tena baada ya chelezo kuondoka, ipakie tena.

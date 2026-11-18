@@ -9,3 +9,5 @@ O smart-able recebe um backup ou uma exportação de uma área de conservação 
 5. **Carregar** uma área de conservação em um site pela página do conjunto de dados, na aba **Visão geral** ou **Cargas**. Uma carga produz primeiro um plano de tudo o que gravaria; você confirma o plano, e a execução o grava. Onde o site precisa de algo que só uma pessoa pode fazer, a execução para e diz o quê. Consulte *Carregar um conjunto de dados* e *Quando uma carga para*.
 
 Tudo o que você envia, extrai e carrega é compartilhado apenas com as pessoas com quem você compartilha. Excluir um conjunto de dados exclui os dados extraídos, os pacotes e os registros de carga dele; nunca remove nada do EarthRanger.
+
+O backup enviado fica guardado por um tempo limitado (30 dias no aplicativo hospedado) e depois é excluído automaticamente. A página do conjunto de dados mostra a data, e o dono do conjunto de dados pode excluir o backup antes. Os dados extraídos não são afetados: eles ficam até o conjunto de dados ser excluído. Para extrair de novo depois que o backup não existir mais, envie-o novamente.
