@@ -189,7 +189,16 @@ less. Raise `--memory` in the workflow if a job dies with an out-of-memory
 error; lower it to save cost if only exports are uploaded.
 
 The load job (`smart-able-load`) is deployed from the same image with a
-command override, 2 GiB of memory and a 24-hour timeout.
+command override, 8 GiB of memory, 2 CPUs (Cloud Run requires two above
+4 GiB) and a 24-hour timeout.
+
+Its memory is for the conservation area's tracks. The job copies the export
+to its in-memory `/tmp` and then reads `bundle/tracks.json` whole, which
+takes about 4.4 times the file's size: an 800 MiB track file needs about
+4.5 GiB in all, and 8 GiB carries a track file of about 1.4 GiB. A load
+whose job dies with "The configured memory limit was reached" within a
+minute of starting has a track file too big for the limit; raise `--memory`
+in the workflow (and `--cpu` with it: 4 CPUs above 8 GiB).
 
 Starting an extraction claims the dataset first (a Firestore transaction),
 so while it is `queued` or `running` a second request gets 409 instead of

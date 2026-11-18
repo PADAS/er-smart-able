@@ -60,7 +60,7 @@ jobs:
             --region ${{ env.GCP_REGION }} \
             --service-account ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }} \
             --command /opt/load/bin/python --args web/load_job.py \
-            --memory 2Gi --cpu 1 --task-timeout 24h --max-retries 0 \
+            --memory 8Gi --cpu 2 --task-timeout 24h --max-retries 0 \
             --set-env-vars "BACKEND=gcp,GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},GCP_REGION=${{ env.GCP_REGION }},GCS_BUCKET=${{ vars.GCS_BUCKET }},LOAD_JOB=${{ env.LOAD_JOB }},LOAD_SOFT_DEADLINE_SECONDS=79200,LOAD_MAX_CONTINUATIONS=10"
 
       - name: Deploy the service
