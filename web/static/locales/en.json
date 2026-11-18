@@ -26,7 +26,12 @@
     "upload": "Upload a backup or export",
     "empty": "No datasets yet. Upload a backup or export to begin.",
     "you": "you",
-    "shared": "shared"
+    "shared": "shared",
+    "allUsers": "All users",
+    "allUsersTitle": "Show every user's datasets and sites (support view)"
+  },
+  "support": {
+    "line": "Support view: read-only. Owned by {{owner}}."
   },
   "dataset": {
     "browse": "Browse",
@@ -96,6 +101,7 @@
     "add": "Add a site",
     "you": "you",
     "tokenAs": "…{{hint}} as {{user}}",
+    "checkedAs": "checked as {{user}}",
     "share": "Share",
     "remove": "Remove",
     "removeTitle": "Remove this site and its token",
@@ -188,6 +194,7 @@
     "extractingTitle": "The dataset is being extracted",
     "extractingNote": "The dataset is being extracted; the load can go on when that finishes.",
     "stale": "The job stopped without reporting; continue to resume from the last checkpoint.",
+    "staleView": "The job stopped without reporting.",
     "statusesHelp": "What the statuses mean",
     "eventCategory": "event category {{value}}",
     "language": "language {{value}}",

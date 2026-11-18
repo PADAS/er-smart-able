@@ -121,3 +121,18 @@ test('the translated path is the one taken for a named finding in another langua
   const h = load({ lang: 'fr', messages: {} }).renderFindings([TEAM], 'needs_attention');   // the real French messages are not loaded here: English is the fallback text
   assert.match(h, /class="original"/, 'a named finding with its message and values is shown from the message file');
 });
+// ---- support view
+test('a load in support view says so and has no run, plan-again or delete', () => {
+  const stale = { ...base, status: 'running', held: false };
+  for (const l of [base, { ...base, status: 'needs_attention' }, { ...base, status: 'failed' }, { ...base, status: 'done' }, stale, { ...base, site: null, status: 'failed', error: 'Site was removed' }, { ...base, dataset_extracting: true }]) {
+    const h = P.renderLoadPage({ ...l, access: 'support' }, false);
+    assert.match(h, /class="support-line">.*Owned by ops@earthranger\.com\./, l.status);
+    assert.doesNotMatch(h, /data-run|data-replan|data-del/, l.status);
+    assert.match(P.renderLoadPage({ ...l, access: 'shared' }, false), /data-del/, l.status);
+    assert.doesNotMatch(P.renderLoadPage({ ...l, access: 'shared' }, false), /support-line/);
+  }
+  assert.match(P.renderLoadPage({ ...base, site: null, status: 'failed', error: 'Site was removed', access: 'support' }, false), /Site was removed/);
+  const h = P.renderLoadPage({ ...stale, access: 'support' }, false);   // told what happened, not what to press
+  assert.match(h, /The job stopped without reporting\.</); assert.doesNotMatch(h, /continue to resume/);
+  assert.match(P.renderLoadPage({ ...stale, access: 'shared' }, false), /continue to resume/);
+});

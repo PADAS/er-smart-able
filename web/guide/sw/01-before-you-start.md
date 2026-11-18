@@ -36,7 +36,7 @@ Programu iko kwenye [https://smart-able-977100970772.us-central1.run.app/](https
 
 Ingia kwa akaunti yako ya Google ya EarthRanger. Ukiona "Barua pepe hii hairuhusiwi kutumia smart-able", iombe timu ya uhandisi ya EarthRanger iongeze anwani yako.
 
-Unachopakia ni mali yako. Hakuna mtu mwingine anayeona seti ya data au tovuti hadi utakapomshirikisha.
+Unachopakia ni mali yako. Hakuna mtu mwingine anayeona seti ya data au tovuti hadi utakapomshirikisha, isipokuwa timu ya usaidizi ya EarthRanger, ambayo inaweza kuziona ili kusaidia katika uhamishaji lakini haiwezi kuzibadilisha wala kuingiza data.
 
 ## Inachukua muda gani
 

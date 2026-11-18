@@ -7,6 +7,11 @@ comma-separated emails or @domains):
   plain requests, so the credential has to be a cookie, not a header.
 - an "Authorization: Bearer <id token>" header, for scripts.
 
+SUPPORT_EMAILS names the support staff: whole addresses that, once signed in, may also view every
+dataset, site and load, read-only (store.can_view). It is read when the service starts and the role is worked out on
+every request, stored nowhere, so removing an address ends that person's support view on the next deploy.
+It also needs an address the sign-in provider has verified.
+
 AUTH_DISABLED=true (local development) trusts an X-Dev-User header or a
 dev_user cookie and never talks to Firebase.
 """
@@ -23,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 AUTH_DISABLED = os.environ.get("AUTH_DISABLED", "").lower() == "true"
 ALLOWED_EMAILS = os.environ.get("ALLOWED_EMAILS", "@earthranger.com")
+SUPPORT_EMAILS = os.environ.get("SUPPORT_EMAILS", "")
 SESSION_COOKIE = "session"
 SESSION_DAYS = 5
 
@@ -53,17 +59,38 @@ def email_allowed(email: str) -> bool:
     return any(email.endswith(e) if e.startswith("@") else email == e for e in entries)
 
 
+def _support_listed() -> list[str]:
+    return [e.lower() for e in re.split(r"[,;\s]+", SUPPORT_EMAILS) if e]
+
+
+def support_entries() -> list[str]:
+    """The support staff as written in SUPPORT_EMAILS: whole addresses, lower-cased. An @domain entry
+    is dropped: a whole domain is never support."""
+    return [e for e in _support_listed() if not e.startswith("@")]
+
+
+def is_support(email: str) -> bool:
+    return (email or "").lower() in support_entries()
+
+
+if len(_support_listed()) != len(support_entries()):
+    logger.warning("SUPPORT_EMAILS: ignored %d @domain entries; support is whole addresses only",
+                   len(_support_listed()) - len(support_entries()))
+
+
 def _dev_user(request: Request) -> dict:
     email = request.headers.get("X-Dev-User") or request.cookies.get("dev_user") or "dev@earthranger.com"
     uid = "dev_" + email.replace("@", "_at_").replace(".", "_")
-    return {"uid": uid, "email": email, "name": email.split("@")[0]}
+    return {"uid": uid, "email": email, "name": email.split("@")[0], "support": is_support(email)}
 
 
 def _from_decoded(decoded: dict) -> dict:
     email = decoded.get("email", "")
     if not email_allowed(email):
         raise ApiError(403, "email_not_allowed", "This email is not allowed to use smart-able")
-    return {"uid": decoded["uid"], "email": email, "name": decoded.get("name") or email}
+    # support view shows every user's data, so it needs an address the sign-in provider vouches for
+    support = is_support(email) and decoded.get("email_verified") is True
+    return {"uid": decoded["uid"], "email": email, "name": decoded.get("name") or email, "support": support}
 
 
 async def current_user(request: Request) -> dict:

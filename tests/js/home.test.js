@@ -25,3 +25,9 @@ test('the sign-in sentence is the language\'s own, with the domain as data', () 
   const P = load({ lang: 'xx', messages: { signin: { yourDomainAccount: 'COMPTE {{domain}}' } } });
   assert.match(P.renderSignIn({ allowed: ['@a<b>.org'] }), /COMPTE @a&lt;b&gt;\.org/);
 });
+test('only support staff are shown the all-users switch', () => {
+  assert.ok(!P.renderHome([d], []).includes('id="allUsers"'));
+  assert.ok(!P.renderHome([d], [], null, { support: false, all: true }).includes('id="allUsers"'));
+  assert.match(P.renderHome([d], [], null, { support: true, all: false }), /<input type="checkbox" id="allUsers">All users/);
+  assert.match(P.renderHome([d], [], null, { support: true, all: true }), /id="allUsers" checked>/);
+});

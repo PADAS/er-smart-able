@@ -146,6 +146,22 @@ def can_read(doc: dict, user: dict) -> bool:
     return is_owner(doc, user) or (user.get("email") or "").lower() in [e.lower() for e in doc.get("shared_with", [])]
 
 
+def can_view(doc: dict, user: dict) -> bool:
+    """Read-only sight of a dataset, site or load: its readers, and the support staff (auth.is_support).
+    Weaker than can_read, which also lets a reader start, run and delete loads; only routes that read
+    accept it."""
+    return can_read(doc, user) or bool(user.get("support"))
+
+
+def access(doc: dict, user: dict):
+    """How this user reaches the doc: "owner", "shared", "support" (view only), or None."""
+    if is_owner(doc, user):
+        return "owner"
+    if can_read(doc, user):
+        return "shared"
+    return "support" if user.get("support") else None
+
+
 def site_content_type(relpath: str) -> str:
     ct, _ = mimetypes.guess_type(relpath)
     return ct or "application/octet-stream"

@@ -81,6 +81,7 @@ jobs:
             LOAD_JOB=${{ env.LOAD_JOB }}
             LOAD_STALE_AFTER_SECONDS=90000
             ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS || '@earthranger.com' }}
+            SUPPORT_EMAILS=${{ vars.SUPPORT_EMAILS }}
             FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
             FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}

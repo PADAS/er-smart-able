@@ -79,6 +79,39 @@ limits:
 Deleting a dataset deletes its loads, their plans and reports. It never
 deletes anything already written to EarthRanger.
 
+## Support view
+
+The addresses in `SUPPORT_EMAILS` are the support staff. Signed in, each
+may also see what they neither own nor were given: the home page has an
+"All users" switch that lists every dataset and site, and they can open any
+dataset's page, its browser, and its loads with their plans, findings,
+reports and logs. Such a page says "Support view: read-only".
+
+That is all it grants. Sharing lets a person start, run and delete loads,
+which write to EarthRanger with the site owner's token; support view lets
+them do none of it. Every route that writes keeps the check it had, and
+`tests/test_web_support.py` tries each one as a support user and fails if a
+new one is added without deciding what support gets. A support person
+still has an owner's or a reader's rights on what they own or were shared.
+No part of a site's token is shown through support view.
+
+An address must also pass `ALLOWED_EMAILS` to sign in, and the sign-in
+provider must have verified it (Google does). The role is worked out on
+every request from the variable and stored nowhere, so removing an address
+ends that person's support view when the change is deployed.
+
+Each view of someone else's data is written to the service's log, at most
+once per person and item in ten minutes by each running instance (so a few
+lines for one view are normal, and a restart starts the count again):
+
+```
+support_view viewer=<email> kind=<dataset|load|load_file|browser|list> id=<id> owner=<owner's email>
+```
+
+To read the record, search the `smart-able` service's logs in Cloud
+Logging for `support_view`. Owners are not shown it in the app; the help
+and the guide tell them support staff can view.
+
 ## 1. Provision
 
 Prerequisites: `tofu`, `gcloud` authenticated with access to the project,
@@ -119,6 +152,7 @@ Variables:
 | `GCP_SERVICE_ACCOUNT` | `tofu output deploy_service_account` |
 | `GCP_RUNTIME_SERVICE_ACCOUNT` | `tofu output runtime_service_account` |
 | `GCS_BUCKET` | `tofu output bucket` |
+| `SUPPORT_EMAILS` | the support staff, who may view every dataset, site and load but change none (see "Support view"): whole addresses separated by spaces, for example `ana@earthranger.com ben@earthranger.com`. An `@domain` entry is ignored. Unset, nobody is support. Keep it to the people who help users migrate. |
 | `ALLOWED_EMAILS` | who may sign in and be shared with: whole addresses and `@domain` suffixes, separated by spaces, commas or semicolons, for example `@earthranger.com @partner.org`. Unset, the deploy uses `@earthranger.com`; an empty value allows any Google account. |
 
 Secrets:
@@ -334,7 +368,8 @@ uv venv .venv-load && uv pip install --python .venv-load/bin/python \
 
 The bucket is private with public access prevention enforced; only the
 runtime service account reads it, and every request to a dataset's files is
-checked against its owner and `shared_with`. Uploaded backups are deleted
+checked against its owner and `shared_with`; the support staff ("Support
+view", above) may also read them, and each such read is logged. Uploaded backups are deleted
 by lifecycle rule after `upload_retention_days` (30 by default; see below), or
 sooner by the dataset's owner from the dataset page; the extracted site stays
 until the owner deletes the dataset. The dataset page shows the date the

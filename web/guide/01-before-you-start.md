@@ -36,7 +36,7 @@ The app is at [https://smart-able-977100970772.us-central1.run.app/](https://sma
 
 Sign in with your EarthRanger Google account. If you see "This email is not allowed", ask the EarthRanger engineering team to add your address.
 
-What you upload belongs to you. Nobody else sees a dataset or a site until you share it with them.
+What you upload belongs to you. Nobody else sees a dataset or a site until you share it with them, except EarthRanger support staff, who can view them to help with a migration but cannot change them or load data.
 
 ## How long it takes
 

@@ -37,3 +37,9 @@ test('the edit form is filled from the site, shows its address as fixed, and ask
 test('#/sites is still an address: it is the home page', () => {
   assert.equal(P.parseRoute('#/sites').page, 'sites');
 });
+test('a site seen through support view shows whose token it is, not its hint, and no actions', () => {
+  const h = P.renderSites([{ id: 's9', name: 'theirs', url: 'example.pamdas.org', token_hint: null, checked_as: 'migration', mine: false, access: 'support', owner_email: 'owner@example.org', shared_with: [] }]);
+  assert.match(h, /checked as migration/); assert.match(h, /owner@example\.org/);
+  assert.doesNotMatch(h, /undefined|null|…/); assert.doesNotMatch(h, /data-act=/);
+  assert.doesNotMatch(P.renderSites([{ id: 's9', name: 'n', url: 'u', mine: false, access: 'support', shared_with: [] }]), /undefined|null/);
+});

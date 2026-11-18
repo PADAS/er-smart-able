@@ -156,6 +156,9 @@ admin shows them, in English.
 | log | journal | registro de actividad | registro | kumbukumbu | not from a product |
 | getting started | premiers pas | primeros pasos | primeiros passos | kuanza | not from a product |
 | reference | référence | referencia | referência | marejeo | not from a product |
+| support staff | l'équipe d'assistance | el equipo de soporte | a equipe de suporte | timu ya usaidizi | not from a product |
+| support view | vue d'assistance | vista de soporte | visualização de suporte | mwonekano wa usaidizi | not from a product |
+| read-only | lecture seule | solo lectura | somente leitura | kusoma tu | not from a product |
 
 In French, *étape* is SMART's word for a patrol's leg and this tool's word
 for a stage of a load. The pages say *étape de patrouille* for the first.

@@ -26,7 +26,12 @@
     "upload": "Téléverser une sauvegarde ou un export",
     "empty": "Aucun jeu de données pour l'instant. Téléversez une sauvegarde ou un export pour commencer.",
     "you": "vous",
-    "shared": "partagé"
+    "shared": "partagé",
+    "allUsers": "Tous les utilisateurs",
+    "allUsersTitle": "Afficher les jeux de données et les sites de tous les utilisateurs (vue d'assistance)"
+  },
+  "support": {
+    "line": "Vue d'assistance : lecture seule. Propriétaire : {{owner}}."
   },
   "dataset": {
     "browse": "Parcourir",
@@ -96,6 +101,7 @@
     "add": "Ajouter un site",
     "you": "vous",
     "tokenAs": "…{{hint}} en tant que {{user}}",
+    "checkedAs": "vérifié en tant que {{user}}",
     "share": "Partager",
     "remove": "Retirer",
     "removeTitle": "Retirer ce site et son jeton",
@@ -188,6 +194,7 @@
     "extractingTitle": "Le jeu de données est en cours d'extraction",
     "extractingNote": "Le jeu de données est en cours d'extraction ; le chargement pourra continuer une fois l'extraction terminée.",
     "stale": "La tâche s'est arrêtée sans rendre compte ; continuez pour reprendre au dernier point de contrôle.",
+    "staleView": "La tâche s'est arrêtée sans rendre compte.",
     "statusesHelp": "Ce que signifient les statuts",
     "eventCategory": "catégorie d'événements {{value}}",
     "language": "langue {{value}}",

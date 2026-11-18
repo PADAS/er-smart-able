@@ -26,7 +26,12 @@
     "upload": "Enviar um backup ou uma exportação",
     "empty": "Ainda não há conjuntos de dados. Envie um backup ou uma exportação para começar.",
     "you": "você",
-    "shared": "compartilhado"
+    "shared": "compartilhado",
+    "allUsers": "Todos os usuários",
+    "allUsersTitle": "Mostrar os conjuntos de dados e os sites de todos os usuários (visualização de suporte)"
+  },
+  "support": {
+    "line": "Visualização de suporte: somente leitura. Proprietário: {{owner}}."
   },
   "dataset": {
     "browse": "Explorar",
@@ -96,6 +101,7 @@
     "add": "Adicionar um site",
     "you": "você",
     "tokenAs": "…{{hint}} como {{user}}",
+    "checkedAs": "verificado como {{user}}",
     "share": "Compartilhar",
     "remove": "Remover",
     "removeTitle": "Remover este site e o token dele",
@@ -188,6 +194,7 @@
     "extractingTitle": "O conjunto de dados está sendo extraído",
     "extractingNote": "O conjunto de dados está sendo extraído; a carga poderá seguir quando a extração terminar.",
     "stale": "O trabalho parou sem informar; continue para retomar do último ponto de controle.",
+    "staleView": "O trabalho parou sem informar.",
     "statusesHelp": "O que significam os status",
     "eventCategory": "categoria de eventos {{value}}",
     "language": "idioma {{value}}",

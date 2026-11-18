@@ -7,14 +7,16 @@ Routes:
   POST /api/session           id token -> session cookie;  POST /api/signout
   GET  /api/me
   GET  /api/help              the help drawer's sections (web/help/*.md and the quirks doc)
-  GET  /api/datasets          datasets the user owns or is shared on
+  GET  /api/datasets          datasets the user owns or is shared on; ?all=1 from support staff: everyone's
+                              (support staff, auth.is_support, may open every GET below on any dataset,
+                              site or load, and nothing that writes)
   POST /api/datasets          create one; returns where to PUT the file
   PUT  /api/datasets/{id}/upload    (local backend only; GCS takes signed PUTs)
   POST /api/datasets/{id}/extract   start the extraction job
   GET  /api/datasets/{id}     status, counts, log tail
   DELETE /api/datasets/{id}   owner only
   POST /api/datasets/{id}/share {email};  DELETE /api/datasets/{id}/share/{email}
-  GET  /api/sites             sites (EarthRanger targets) the user owns or is shared on
+  GET  /api/sites             sites (EarthRanger targets) the user owns or is shared on; ?all=1 as above
   POST /api/sites             {name, url, token}; checks the token, stores it as a secret
   PATCH  /api/sites/{id}       the owner renames it or replaces its token (checked first)
   DELETE /api/sites/{id}      owner only
@@ -33,10 +35,11 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -47,8 +50,8 @@ from auth import AUTH_DISABLED, allowed_entries, current_user, email_allowed, en
 from er_site import HostError, SiteUnreachable, TokenRejected, check_token, normalize_host
 from errors import ApiError
 from findings import EVENT_CATEGORY, ca_identifier
-from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, can_read, extract_in_progress, get_store, is_owner,
-                   load_in_progress, now, stored_name, upload_expires_at)
+from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, access, can_read, can_view, extract_in_progress, get_store, is_owner,
+                   load_in_progress, now, safe_relpath, stored_name, upload_expires_at)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -102,12 +105,40 @@ class SessionRequest(BaseModel):
 def _public(doc: dict, user: dict) -> dict:
     return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at", "started_at", "finished_at",
                                     "source_name", "source_size", "cas", "db_version", "counts", "error", "export")} | {
-        "mine": is_owner(doc, user), "extract_held": extract_in_progress(doc)}
+        "mine": is_owner(doc, user), "access": access(doc, user), "extract_held": extract_in_progress(doc)}
 
 
-def _load(id: str, user: dict, owner: bool = False) -> dict:
+SUPPORT_LOG_EVERY_SECONDS = 600
+_support_log = logging.getLogger("support")   # printed by basicConfig's handler, above
+_support_log.setLevel(logging.INFO)   # the record is not to be lost to a level someone sets elsewhere
+_viewed: dict = {}   # (viewer, kind, id) -> when it was last logged, by this process's clock
+
+
+def _record_view(user: dict, kind: str, id: str = "", owner: str = ""):
+    """The record of a support view: who looked at whose what. Once per viewer, kind and id in ten
+    minutes, because the dataset and load pages poll. Never a token, a file's contents or a name from
+    the data."""
+    key, at = (user["email"].lower(), kind, id), time.monotonic()
+    last = _viewed.get(key)
+    if last is not None and at - last < SUPPORT_LOG_EVERY_SECONDS:
+        return
+    if len(_viewed) > 10000:
+        _viewed.clear()
+    _viewed[key] = at
+    _support_log.info("support_view viewer=%s kind=%s id=%s owner=%s", user["email"], kind, id, owner)
+
+
+def _viewing(doc: dict, user: dict, kind: str, id: str | None = None):
+    """Record it if this user reaches the dataset only through support view."""
+    if access(doc, user) == "support":
+        _record_view(user, kind, id or doc["id"], doc.get("owner_email") or "")
+
+
+def _load(id: str, user: dict, owner: bool = False, view: bool = False) -> dict:
+    """The dataset, if this user may read it. view=True also admits the support staff, who may look and
+    nothing else: only routes that read pass it, so a route that writes stays closed to them."""
     doc = get_store().get(id)
-    if not doc or not can_read(doc, user):
+    if not doc or not (can_view if view else can_read)(doc, user):
         raise ApiError(404, "dataset_not_found", "Dataset not found")
     if owner and not is_owner(doc, user):
         raise ApiError(403, "owner_only", "Only the owner can do that")
@@ -156,8 +187,11 @@ def help_sections(lang: str = "en", user=Depends(current_user)):   # a plain def
 
 # ---------------------------------------------------------------- datasets
 @app.get("/api/datasets")
-async def list_datasets(user=Depends(current_user)):
-    docs = [d for d in get_store().list_datasets() if can_read(d, user)]
+async def list_datasets(everyone: bool = Query(False, alias="all"), user=Depends(current_user)):
+    see = can_view if everyone and user.get("support") else can_read   # ?all=1 means nothing from anyone else
+    if see is can_view:
+        _record_view(user, "list", "datasets")
+    docs = [d for d in get_store().list_datasets() if see(d, user)]
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     return [_public(d, user) for d in docs]
 
@@ -216,13 +250,14 @@ async def extract(id: str, user=Depends(current_user)):
 
 @app.get("/api/datasets/{id}")
 async def get_dataset(id: str, user=Depends(current_user)):
-    doc = _load(id, user)
+    doc = _load(id, user, view=True)
+    _viewing(doc, user, "dataset")
     out = _public(doc, user)
     # the uploaded backup is stored apart from what was extracted, and for a limited time: say so (one
     # storage lookup, so on this page only, not for every dataset in the list)
     out["upload"] = {"present": bool(doc.get("source_name")) and get_store().upload_exists(id, doc["source_name"]),
                      "expires_at": upload_expires_at(doc), "deleted_at": doc.get("upload_deleted_at")}
-    if is_owner(doc, user):
+    if out["access"] in ("owner", "support"):
         out["log_tail"] = doc.get("log_tail")
     return out
 
@@ -288,8 +323,11 @@ class SiteEdit(BaseModel):
 
 
 def _site_public(doc: dict, user: dict) -> dict:
-    return {k: doc.get(k) for k in ("id", "name", "url", "owner_email", "shared_with", "token_hint", "checked_at",
-                                    "checked_as", "created_at")} | {"mine": is_owner(doc, user)}
+    out = {k: doc.get(k) for k in ("id", "name", "url", "owner_email", "shared_with", "token_hint", "checked_at",
+                                   "checked_as", "created_at")} | {"mine": is_owner(doc, user), "access": access(doc, user)}
+    if out["access"] == "support":
+        out["token_hint"] = None   # a viewer has no use for any part of the token
+    return out
 
 
 def _load_site(id: str, user: dict, owner: bool = False) -> dict:
@@ -302,8 +340,11 @@ def _load_site(id: str, user: dict, owner: bool = False) -> dict:
 
 
 @app.get("/api/sites")
-async def list_sites(user=Depends(current_user)):
-    docs = [d for d in get_store().list_sites() if can_read(d, user)]
+async def list_sites(everyone: bool = Query(False, alias="all"), user=Depends(current_user)):
+    see = can_view if everyone and user.get("support") else can_read
+    if see is can_view:
+        _record_view(user, "list", "sites")
+    docs = [d for d in get_store().list_sites() if see(d, user)]
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     return [_site_public(d, user) for d in docs]
 
@@ -414,17 +455,19 @@ def _load_public(doc: dict, user: dict, dataset: Optional[dict] = None) -> dict:
     out = {k: doc.get(k) for k in LOAD_FIELDS}
     # loads made before event_category existed run with the default (load_job's fallback)
     out["options"] = {"event_category": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
+    # a load is reached through its dataset: seen through support view if the dataset is
+    reach = "support" if dataset and access(dataset, user) == "support" else "owner" if is_owner(doc, user) else "shared"
     return out | {
-        "id": doc["id"], "mine": is_owner(doc, user), "held": load_in_progress(doc),
+        "id": doc["id"], "mine": is_owner(doc, user), "access": reach, "held": load_in_progress(doc),
         "dataset_extracting": bool(dataset and extract_in_progress(dataset)),   # run and plan-again are refused meanwhile
         "site": {"id": site["id"], "name": site.get("name"), "url": site.get("url")} if site else None}
 
 
-def _load_load(id: str, user: dict) -> dict:
+def _load_load(id: str, user: dict, view: bool = False) -> dict:
     doc = get_store().get_load(id)
     if not doc:
         raise ApiError(404, "load_not_found", "Load not found")
-    _load(doc["dataset_id"], user)   # read on the dataset is the permission
+    _load(doc["dataset_id"], user, view=view)   # read on the dataset is the permission
     return doc
 
 
@@ -502,7 +545,8 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
 
 @app.get("/api/datasets/{id}/loads")
 async def list_loads(id: str, user=Depends(current_user)):
-    dataset = _load(id, user)
+    dataset = _load(id, user, view=True)
+    _viewing(dataset, user, "dataset")
     docs = get_store().list_loads(id)
     docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
     # the list shows a line per load: the page-sized fields stay with GET /api/loads/{id}
@@ -511,7 +555,11 @@ async def list_loads(id: str, user=Depends(current_user)):
 
 @app.get("/api/loads/{id}")
 async def get_load(id: str, user=Depends(current_user)):
-    return _load_public(_load_load(id, user), user)
+    doc = _load_load(id, user, view=True)
+    out = _load_public(doc, user)
+    if out["access"] == "support":
+        _record_view(user, "load", id, doc.get("owner_email") or "")
+    return out
 
 
 def _stale(doc: dict) -> bool:
@@ -560,13 +608,16 @@ async def delete_load(id: str, user=Depends(current_user)):
 
 @app.get("/api/loads/{id}/files/{name}")
 async def load_file(id: str, name: str, user=Depends(current_user)):
-    doc = _load_load(id, user)
+    doc = _load_load(id, user, view=True)
     try:
         found = get_store().get_load_file(doc["dataset_id"], id, name)
     except ValueError:
         raise ApiError(400, "bad_path", "Bad path")
     if not found:
         raise ApiError(404, "not_found", "Not found")
+    dataset = get_store().get(doc["dataset_id"])
+    if dataset and access(dataset, user) == "support":   # the file as the store resolved it, not as the caller spelled it
+        _record_view(user, "load_file", f"{id}/{safe_relpath(name)}", doc.get("owner_email") or "")
     chunks, size, ctype = found
     return StreamingResponse(chunks, media_type=ctype, headers={"Content-Length": str(size)})
 
@@ -578,7 +629,8 @@ async def site_root_redirect(id: str):
 
 @app.get("/d/{id}/")
 async def site_index(id: str, user=Depends(current_user)):
-    doc = _load(id, user)
+    doc = _load(id, user, view=True)
+    _viewing(doc, user, "browser")
     if doc.get("status") != "ready":
         raise ApiError(409, "dataset_status", f"Dataset is {doc.get('status')}", status=doc.get("status"))
     return FileResponse(BROWSER, media_type="text/html")
@@ -586,7 +638,7 @@ async def site_index(id: str, user=Depends(current_user)):
 
 @app.get("/d/{id}/{path:path}")
 async def site_file(id: str, path: str, user=Depends(current_user)):
-    _load(id, user)
+    _viewing(_load(id, user, view=True), user, "browser")
     if path in ("", "index.html"):
         return FileResponse(BROWSER, media_type="text/html")
     if path == "quirks.html" and QUIRKS.is_file():
