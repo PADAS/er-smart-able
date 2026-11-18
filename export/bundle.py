@@ -1,5 +1,6 @@
-"""The migration bundle: reference.json, patrols.json, tracks.json and
-manifest.json for one conservation area, plus copied attachments.
+"""The migration bundle: reference.json, patrols.json, the tracks (tracks.jsonl
+and its index, tracks.index.json) and manifest.json for one conservation area,
+plus copied attachments.
 
 Everything here is plain dicts ready for json.dump; the contract is
 export/bundle.schema.json.
@@ -22,7 +23,7 @@ from .smartdb import CA, Labels, SmartDb, hyphenate
 from .timezone import localize, plausible_epoch_ms, track_ms_iso
 from .wkb import parse_track_wkb
 
-BUNDLE_SCHEMA_VERSION = 1
+BUNDLE_SCHEMA_VERSION = 2
 
 
 def H(u: Optional[str]) -> Optional[str]:
@@ -390,28 +391,122 @@ def write_bundle(db: SmartDb, ca: CA, out_dir: Path, zone_name: str, zone_source
         warnings.append(f"{coverage['date_only']} of {coverage['leg_days']} leg days have no times at all (no track, no start/end, no timed waypoint); "
                         f"ER will get whole-day ranges for them")
     manifest = build_manifest(db, ca, zone_name, zone_source, source, counts, coverage, warnings)
-    for name, doc in (("reference.json", reference), ("patrols.json", patrols), ("tracks.json", tracks), ("manifest.json", manifest)):
+    for name, doc in (("reference.json", reference), ("patrols.json", patrols), ("manifest.json", manifest)):
         (out_dir / name).write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    write_tracks(tracks["tracks"], out_dir)
     return manifest
 
 
+TRACKS_JSONL, TRACKS_INDEX = "tracks.jsonl", "tracks.index.json"
+
+
+def track_points(track: dict) -> int:
+    return sum(len(p["coordinates"]) for p in track["parts"])
+
+
+def write_tracks(tracks: List[dict], out_dir: Path) -> dict:
+    """The tracks, one per line with a patrol's lines together (tracks.jsonl), and where each patrol's
+    lines are (tracks.index.json: byte offset and length, and its track and point counts). Tracks are
+    most of a bundle, hundreds of megabytes for a large conservation area; a load reads them a patrol
+    at a time through the index and never holds them all. A patrol with no tracks has no entry."""
+    index: dict = {}
+    at = 0
+    with open(out_dir / TRACKS_JSONL, "wb") as f:
+        for t in sorted(tracks, key=lambda t: (t["patrol_uuid"], t["leg_day_uuid"], t["uuid"])):
+            raw = (json.dumps(t, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+            f.write(raw)
+            e = index.setdefault(t["patrol_uuid"], {"offset": at, "length": 0, "tracks": 0, "points": 0})
+            e["length"] += len(raw)   # bytes, not characters
+            e["tracks"] += 1
+            e["points"] += track_points(t)
+            at += len(raw)
+    doc = {"patrols": index}
+    (out_dir / TRACKS_INDEX).write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return doc
+
+
 SCHEMA_PATH = Path(__file__).with_name("bundle.schema.json")
-BUNDLE_FILES = ("manifest", "reference", "patrols", "tracks")
+BUNDLE_FILES = ("manifest", "reference", "patrols")
+
+
+def _schema_errors(schema: dict, name: str, doc, label: str) -> List[str]:
+    import jsonschema
+    v = jsonschema.Draft202012Validator({"$ref": f"#/$defs/{name}", "$defs": schema["$defs"]})
+    return [f"{label}: {'/'.join(str(p) for p in e.path) or '(root)'}: {e.message}"
+            for e in sorted(v.iter_errors(doc), key=lambda e: list(e.path))]
+
+
+def _read_json(path: Path, errors: List[str]):
+    if not path.exists():
+        errors.append(f"{path.name}: missing")
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as e:
+        errors.append(f"{path.name}: (root): not valid JSON ({e})")
+        return None
 
 
 def validate_bundle_dir(path: Path) -> List[str]:
-    """Validate the four files against bundle.schema.json; [] when all pass."""
-    import jsonschema
+    """Validate a bundle's files against bundle.schema.json; [] when all pass. A version 2 bundle's
+    tracks are tracks.jsonl and tracks.index.json: every line is checked, and that the index covers
+    the file exactly and describes each patrol's lines. A version 1 bundle has tracks.json."""
     schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     errors: List[str] = []
+    docs = {}
     for name in BUNDLE_FILES:
-        f = path / f"{name}.json"
-        if not f.exists():
-            errors.append(f"{name}.json: missing")
-            continue
-        sub = {"$ref": f"#/$defs/{name}", "$defs": schema["$defs"]}
-        v = jsonschema.Draft202012Validator(sub)
-        for e in sorted(v.iter_errors(json.loads(f.read_text(encoding="utf-8"))), key=lambda e: list(e.path)):
-            where = "/".join(str(p) for p in e.path) or "(root)"
-            errors.append(f"{name}.json: {where}: {e.message}")
+        docs[name] = _read_json(path / f"{name}.json", errors)
+        if docs[name] is not None:
+            errors += _schema_errors(schema, name, docs[name], f"{name}.json")
+    manifest = docs["manifest"]
+    if isinstance(manifest, dict) and manifest.get("bundle_schema_version") == 1:
+        doc = _read_json(path / "tracks.json", errors)
+        if doc is not None:
+            errors += _schema_errors(schema, "tracks", doc, "tracks.json")
+        return errors
+    index = _read_json(path / TRACKS_INDEX, errors)
+    if index is not None:
+        found = _schema_errors(schema, "tracks_index", index, TRACKS_INDEX)
+        errors += found
+        if found:
+            index = None
+    jsonl = path / TRACKS_JSONL
+    if not jsonl.exists():
+        errors.append(f"{TRACKS_JSONL}: missing")
+        return errors
+    if index is None:
+        return errors
+    at = 0
+    with open(jsonl, "rb") as f:
+        for uuid, e in sorted(index["patrols"].items(), key=lambda kv: kv[1]["offset"]):
+            if e["offset"] != at:
+                errors.append(f"{TRACKS_INDEX}: patrols/{uuid}: offset {e['offset']} where {at} was expected (the ranges must cover {TRACKS_JSONL} in order, with no gap)")
+                return errors
+            raw = f.read(e["length"])
+            at += e["length"]
+            if len(raw) != e["length"] or not raw.endswith(b"\n"):
+                errors.append(f"{TRACKS_INDEX}: patrols/{uuid}: its range does not end at the end of a line of {TRACKS_JSONL}")
+                return errors
+            lines, points = raw[:-1].split(b"\n"), 0
+            for n, line in enumerate(lines, 1):
+                where = f"{TRACKS_JSONL}: patrols/{uuid}/line {n}"
+                try:
+                    t = json.loads(line)
+                except ValueError as err:
+                    errors.append(f"{where}: not valid JSON ({err})")
+                    continue
+                found = _schema_errors(schema, "track", t, where)
+                errors += found
+                if found:
+                    continue
+                if t["patrol_uuid"] != uuid:
+                    errors.append(f"{where}: belongs to patrol {t['patrol_uuid']}")
+                points += track_points(t)
+            if len(lines) != e["tracks"]:
+                errors.append(f"{TRACKS_INDEX}: patrols/{uuid}: says {e['tracks']} tracks; {TRACKS_JSONL} has {len(lines)}")
+            elif points != e["points"] and not any(x.startswith(f"{TRACKS_JSONL}: patrols/{uuid}/") for x in errors):
+                errors.append(f"{TRACKS_INDEX}: patrols/{uuid}: says {e['points']} points; {TRACKS_JSONL} has {points}")
+    size = jsonl.stat().st_size
+    if at != size:
+        errors.append(f"{TRACKS_INDEX}: (root): covers {at} bytes; {TRACKS_JSONL} is {size}")
     return errors

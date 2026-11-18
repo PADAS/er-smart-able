@@ -161,8 +161,8 @@ def test_write_bundle(smart_parquet, tmp_path):
     ca = db.cas()[0]
     out = tmp_path / "bundle"
     m = write_bundle(db, ca, out, "Asia/Manila", "inferred", None, {"kind": "backup", "file": "x.zip"})
-    assert sorted(p.name for p in out.iterdir()) == ["manifest.json", "patrols.json", "reference.json", "tracks.json"]
-    assert m["bundle_schema_version"] == 1 and m["conservation_area"]["uuid"] == hyphenate(CA_A) and m["conservation_area"]["id"] == "ALPHA"
+    assert sorted(p.name for p in out.iterdir()) == ["manifest.json", "patrols.json", "reference.json", "tracks.index.json", "tracks.jsonl"]
+    assert m["bundle_schema_version"] == 2 and m["conservation_area"]["uuid"] == hyphenate(CA_A) and m["conservation_area"]["id"] == "ALPHA"
     assert m["source"] == {"kind": "backup", "file": "x.zip", "smart_version": "7.5.4"}
     assert m["timezone"] == {"name": "Asia/Manila", "source": "inferred"}
     assert m["default_language"] == "en" and m["languages"][1] == {"code": "fr", "default": False, "labels": 3, "missing": 23}
@@ -235,3 +235,66 @@ def test_attachment_filename_with_windows_path_parts_is_refused(smart_parquet, t
     warnings = []
     build_patrols(SmartDb(smart_parquet), CA_A, MANILA, tmp_path / "att", tmp_path / "bundle", warnings)
     assert len(warnings) == 1 and "has a path in its name" in warnings[0]
+
+
+# ---- bundle version 2: the tracks are one per line, a patrol's together, with an index of byte ranges
+from export.bundle import write_tracks  # noqa: E402
+
+
+def _track(patrol: str, day: str, uuid: str, points: int = 2, **extra) -> dict:
+    return {"uuid": uuid, "leg_day_uuid": day, "leg_uuid": "leg-" + patrol, "patrol_uuid": patrol, "distance_km": 1.0, "start": None, "end": None,
+            "parts": [{"coordinates": [[1.0 + i, 2.0] for i in range(points)]}], **extra}
+
+
+def _runs(out):
+    """(patrol uuid, its index entry, its parsed lines) in file order; asserts the index tiles the file."""
+    raw = (out / "tracks.jsonl").read_bytes()
+    index = json.loads((out / "tracks.index.json").read_text())["patrols"]
+    at, runs = 0, []
+    for uuid, e in sorted(index.items(), key=lambda kv: kv[1]["offset"]):
+        assert e["offset"] == at
+        chunk = raw[at:at + e["length"]]
+        assert chunk.endswith(b"\n")
+        runs.append((uuid, e, [json.loads(l) for l in chunk[:-1].split(b"\n")]))
+        at += e["length"]
+    assert at == len(raw)
+    return runs
+
+
+def test_tracks_are_one_per_line_grouped_by_patrol(tmp_path):
+    tracks = [_track("p2", "d1", "t5", 3), _track("p1", "d2", "t4"), _track("p2", "d0", "t9"), _track("p1", "d1", "t3", 5), _track("p1", "d1", "t1"),
+              _track("p3", "d1", "t0", 0)]
+    doc = write_tracks(tracks, tmp_path)
+    raw = (tmp_path / "tracks.jsonl").read_bytes()
+    assert raw.count(b"\n") == 6 and b": " not in raw and b", " not in raw   # one line each, nothing spent on spacing
+    runs = _runs(tmp_path)
+    assert [(u, [t["uuid"] for t in lines]) for u, _, lines in runs] == [("p1", ["t1", "t3", "t4"]), ("p2", ["t9", "t5"]), ("p3", ["t0"])]
+    assert [(e["tracks"], e["points"]) for _, e, _ in runs] == [(3, 9), (2, 5), (1, 0)]
+    assert doc == json.loads((tmp_path / "tracks.index.json").read_text())
+    assert sorted((t["uuid"] for _, _, lines in runs for t in lines)) == sorted(t["uuid"] for t in tracks)
+
+
+def test_write_tracks_counts_bytes_not_characters(tmp_path):
+    first = _track("a", "d1", "tré", note="é—ñ")
+    doc = write_tracks([_track("b", "d1", "t2"), first], tmp_path)
+    line = (json.dumps(first, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    assert len(line) > len(line.decode("utf-8"))
+    assert doc["patrols"]["a"] == {"offset": 0, "length": len(line), "tracks": 1, "points": 2}
+    assert doc["patrols"]["b"]["offset"] == len(line)
+    assert [u for u, _, _ in _runs(tmp_path)] == ["a", "b"]
+
+
+def test_no_tracks_is_an_empty_file_and_an_empty_index(tmp_path):
+    assert write_tracks([], tmp_path) == {"patrols": {}}
+    assert (tmp_path / "tracks.jsonl").read_bytes() == b"" and _runs(tmp_path) == []
+
+
+def test_write_bundle_writes_the_tracks_by_patrol(smart_parquet, tmp_path):
+    db = SmartDb(smart_parquet)
+    out = tmp_path / "bundle"
+    m = write_bundle(db, db.cas()[0], out, "Asia/Manila", "inferred", None, {"kind": "backup", "file": "x.zip"})
+    [(uuid, e, lines)] = _runs(out)
+    assert uuid == hyphenate(PATROL_1) and e == {"offset": 0, "length": (out / "tracks.jsonl").stat().st_size, "tracks": 1, "points": 2}
+    assert lines == build_tracks(db, CA_A, MANILA, [])["tracks"]
+    assert m["counts"]["tracks"] == e["tracks"] and m["counts"]["track_points"] == e["points"]
+    assert not (out / "tracks.json").exists()
