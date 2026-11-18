@@ -79,7 +79,7 @@ Una copia de seguridad con fotos puede ser grande, porque contiene las fotos de 
 
 La aplicación escribe en EarthRanger como un usuario de EarthRanger, mediante el token de API de ese usuario. Necesita:
 
-- **El host del sitio**, por ejemplo `example.pamdas.org`. Dé solo el host, sin `https://` ni ruta.
+- **La dirección del sitio**, por ejemplo `example.pamdas.org`. Puede pegarla tal como la muestra el navegador; la aplicación conserva solo el host.
 - **Un token de API** de un usuario de ese sitio. Pídaselo al administrador de EarthRanger del sitio.
 
 El usuario al que pertenece el token debe poder gestionar los tipos de patrullaje, los sujetos, los grupos de sujetos, la configuración de patrullas y los campos de patrulla, y crear eventos. Un superusuario es la opción sencilla. Con un usuario más limitado, la carga le indica cada permiso que falta.

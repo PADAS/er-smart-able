@@ -10,4 +10,4 @@ A site is an EarthRanger host, such as `example.pamdas.org`, and an API token fo
 
 **Sharing a site.** Sharing lets that person start loads into the site with your token. Only you can share or remove a site. Someone with access to a dataset but not to the site cannot load into it.
 
-**The URL.** Give the host only, without `https://` or a path. Ports, IP addresses and credentials in the URL are refused.
+**The URL.** Enter the site's address in any form: the host alone, or the address copied from the browser. The app keeps the host and drops the rest. Ports, IP addresses and credentials in the URL are refused.

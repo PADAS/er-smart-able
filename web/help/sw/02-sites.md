@@ -10,4 +10,4 @@ Tovuti ni anwani ya seva (host) ya EarthRanger, kwa mfano `example.pamdas.org`, 
 
 **Kushirikisha tovuti.** Kushirikisha kunamruhusu mtu huyo kuanzisha uingizaji kwenye tovuti kwa tokeni yako. Ni wewe tu unayeweza kushirikisha au kuondoa tovuti. Mtu mwenye ufikiaji wa seti ya data lakini si wa tovuti hawezi kuingiza ndani yake.
 
-**URL.** Andika anwani ya seva pekee, bila `https://` wala njia. Namba za lango (ports), anwani za IP na vitambulisho vya kuingia ndani ya URL vinakataliwa.
+**URL.** Andika anwani ya tovuti kwa namna yoyote: anwani ya seva pekee, au anwani uliyoinakili kutoka kwenye kivinjari. Programu inabakiza anwani ya seva na kuacha sehemu nyingine. Namba za lango (ports), anwani za IP na vitambulisho vya kuingia ndani ya URL vinakataliwa.

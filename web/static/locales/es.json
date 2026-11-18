@@ -298,7 +298,7 @@
     "title": "Agregar un sitio de EarthRanger",
     "hint": "El token se comprueba con el sitio antes de guardarse.",
     "name": "Nombre",
-    "host": "Host",
+    "host": "Dirección del sitio",
     "token": "Token",
     "submit": "Agregar sitio",
     "checking": "Comprobando el token…"

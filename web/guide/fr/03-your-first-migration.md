@@ -24,7 +24,7 @@ Vérifiez qu'il s'agit bien de la zone de conservation attendue et que les nombr
 
 1. Ouvrez le menu sous votre adresse e-mail et choisissez **Sites EarthRanger**.
 2. Appuyez sur **Ajouter un site**.
-3. Saisissez un nom, l'hôte et le jeton.
+3. Saisissez un nom, l'adresse du site et le jeton.
 
 L'application vérifie le jeton auprès du site avant de l'enregistrer. Un mauvais hôte ou un jeton qui n'est plus valable est refusé immédiatement. Voir [Sites et jetons](../../help/fr/02-sites.md).
 

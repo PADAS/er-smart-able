@@ -24,7 +24,7 @@ Confira se esta é a área de conservação que você esperava e se os números 
 
 1. Abra o menu embaixo do seu endereço de e-mail e escolha **Sites do EarthRanger**.
 2. Pressione **Adicionar um site**.
-3. Digite um nome, o host e o token.
+3. Digite um nome, o endereço do site e o token.
 
 O aplicativo confere o token com o site antes de salvá-lo. Um host errado ou um token que não vale mais é recusado na hora. Consulte [Sites e tokens](../../help/pt/02-sites.md).
 

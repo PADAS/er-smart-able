@@ -298,7 +298,7 @@
     "title": "Adicionar um site do EarthRanger",
     "hint": "O token é verificado no site antes de ser salvo.",
     "name": "Nome",
-    "host": "Host",
+    "host": "Endereço do site",
     "token": "Token",
     "submit": "Adicionar site",
     "checking": "Verificando o token…"

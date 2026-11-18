@@ -24,7 +24,7 @@ Hakikisha kwamba hili ndilo eneo la hifadhi ulilolitarajia na kwamba idadi zinao
 
 1. Fungua menyu iliyo chini ya anwani yako ya barua pepe kisha chagua **Tovuti za EarthRanger**.
 2. Bonyeza **Ongeza tovuti**.
-3. Andika jina, anwani ya seva (host), na tokeni.
+3. Andika jina, anwani ya tovuti, na tokeni.
 
 Programu inahakiki tokeni kwenye tovuti kabla ya kuihifadhi. Anwani ya seva isiyo sahihi au tokeni isiyotumika tena inakataliwa papo hapo. Angalia [Tovuti na tokeni](../../help/sw/02-sites.md).
 

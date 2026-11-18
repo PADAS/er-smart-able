@@ -298,7 +298,7 @@
     "title": "Add an EarthRanger site",
     "hint": "The token is checked against the site before it is saved.",
     "name": "Name",
-    "host": "Host",
+    "host": "Site address",
     "token": "Token",
     "submit": "Add site",
     "checking": "Checking the token…"

@@ -10,4 +10,4 @@ Un site est un hôte EarthRanger, par exemple `example.pamdas.org`, et un jeton 
 
 **Partager un site.** Le partage permet à cette personne de lancer des chargements dans le site avec votre jeton. Vous seul pouvez partager ou retirer un site. Une personne qui a accès à un jeu de données mais pas au site ne peut pas y charger.
 
-**L'URL.** Donnez l'hôte seul, sans `https://` ni chemin. Les ports, les adresses IP et les identifiants dans l'URL sont refusés.
+**L'URL.** Saisissez l'adresse du site sous n'importe quelle forme : l'hôte seul, ou l'adresse copiée depuis le navigateur. L'application garde l'hôte et ignore le reste. Les ports, les adresses IP et les identifiants dans l'URL sont refusés.

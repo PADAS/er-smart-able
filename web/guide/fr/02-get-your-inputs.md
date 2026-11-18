@@ -79,7 +79,7 @@ Une sauvegarde avec photos peut être volumineuse, car elle contient les photos 
 
 L'application écrit dans EarthRanger en tant qu'un utilisateur EarthRanger, au moyen du jeton d'API de cet utilisateur. Il vous faut :
 
-- **L'hôte du site**, par exemple `example.pamdas.org`. Donnez l'hôte seul, sans `https://` ni chemin.
+- **L'adresse du site**, par exemple `example.pamdas.org`. Vous pouvez la coller telle que le navigateur l'affiche ; l'application ne garde que l'hôte.
 - **Un jeton d'API** pour un utilisateur de ce site. Demandez-en un à l'administrateur EarthRanger du site.
 
 L'utilisateur auquel appartient le jeton doit pouvoir gérer les types de patrouille, les sujets, les groupes de sujets, la configuration des patrouilles et les champs de patrouille, et créer des événements. Un superutilisateur est le choix le plus simple. Avec un utilisateur plus restreint, le chargement vous indique chaque autorisation manquante.

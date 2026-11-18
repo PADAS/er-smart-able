@@ -298,7 +298,7 @@
     "title": "Ajouter un site EarthRanger",
     "hint": "Le jeton est vérifié auprès du site avant d'être enregistré.",
     "name": "Nom",
-    "host": "Hôte",
+    "host": "Adresse du site",
     "token": "Jeton",
     "submit": "Ajouter le site",
     "checking": "Vérification du jeton…"

@@ -10,4 +10,4 @@ Um site é um host do EarthRanger, por exemplo `example.pamdas.org`, e um token 
 
 **Compartilhar um site.** Compartilhar permite que essa pessoa inicie cargas no site com o seu token. Só você pode compartilhar ou remover um site. Quem tem acesso a um conjunto de dados mas não ao site não pode carregar nele.
 
-**A URL.** Informe só o host, sem `https://` nem caminho. Portas, endereços IP e credenciais na URL são recusados.
+**A URL.** Digite o endereço do site em qualquer formato: só o host, ou o endereço copiado do navegador. O aplicativo mantém o host e descarta o resto. Portas, endereços IP e credenciais na URL são recusados.
