@@ -200,6 +200,8 @@
     "language": "langue {{value}}",
     "configurableModel": "modèle configurable {{value}}",
     "eventTypeSet": "ensemble de types d'événement {{value}}",
+    "setCategory": "types d'événement dans la catégorie {{value}}",
+    "oldSet": "ses propres types d'événement, issus d'un chargement fait avant que les zones de conservation ne les partagent",
     "startedBy": "lancé par {{who}}",
     "startedByWhen": "lancé par {{who}}, {{when}}"
   },
@@ -428,6 +430,10 @@
       "site_token_rejected": {
         "title": "Le jeton du site ne fonctionne plus",
         "fix": "Rien n'a été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement."
+      },
+      "shared_set_changes": {
+        "title": "Ce chargement modifie des types d'événement ou des listes d'options que le site a déjà",
+        "fix": "D'autres zones de conservation chargées sur ce site les utilisent peut-être. Chaque type d'événement indiqué reçoit les champs et le nom de cette zone ; rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
       }
     }
   },

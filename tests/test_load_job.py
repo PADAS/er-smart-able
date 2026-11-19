@@ -41,8 +41,11 @@ class FakeMigration:
         if self.raise_in == name:
             raise RuntimeError(f"boom in {name}")
 
+    def resolve_set(self):
+        return {"name": None, "prefix": "smart-ca-import", "old": False}
+
     def push_datamodel(self):
-        self._call("push_datamodel"); return {"event_types_created": 2, "event_types_unchanged": 0}
+        self._call("push_datamodel"); return {"event_types_created": 2, "event_types_unchanged": 0, "event_category": "smart_x"}
 
     def patrol_datamodel(self, out_dir):
         self._call("patrol_datamodel")
@@ -473,7 +476,7 @@ def test_stages_record_status_times_and_metrics(env):
     st = load["stages"]
     assert list(st) == ["datamodel", "patrol_datamodel", "preflight", "import"]
     assert all(r["status"] == "done" and r["started_at"] <= r["finished_at"] for r in st.values())
-    assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0}
+    assert st["datamodel"]["metrics"] == {"event_types_created": 2, "event_types_unchanged": 0, "event_category": "smart_x"}
     assert st["patrol_datamodel"]["metrics"] == {"schema_written": True, "subjects_grouped": 1}
     assert st["preflight"]["metrics"] == {"blocking": 0, "warnings": 0, "patrols": 3}
     assert st["import"]["metrics"] == {"imported": 3, "failed": 0, "skipped": 0, "events_written": 9,

@@ -34,6 +34,11 @@ test('the title block names the host, options, window and who started it', () =>
   assert.doesNotMatch(h, /event type set/);
   const shared = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region <5>' } });
   assert.match(shared, /event type set Region &lt;5&gt;/);
+  // what the job found on the site replaces what was asked for
+  const found = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region 5' }, event_type_set: { name: 'Region 5', prefix: 'p', old: false, category: 'smart_r5' } });
+  assert.match(found, /event types in category smart_r5/); assert.match(found, /event type set Region 5/); assert.doesNotMatch(found, /event category/);
+  const old = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region 5' }, event_type_set: { name: null, prefix: 'p', old: true, category: 'smart_050500' } });
+  assert.match(old, /its own event types, from a load made before/); assert.doesNotMatch(old, /event type set Region 5/);
   assert.match(P.renderLoadTitle({ ...base, site: null }), /050500 → removed site/);
   assert.doesNotMatch(P.renderLoadTitle({ ...base, site: null }), /data-run|data-replan/);
 });

@@ -32,7 +32,7 @@ STAGES = ("datamodel", "patrol_datamodel", "preflight", "import")
 LOG_TAIL = 60
 RANGERS_CAP = 500   # rows kept on the load document; rangers.json has them all
 TAIL_LINE = 500   # characters per tail line: the tail lives on the load doc (Firestore: 1 MiB a document)
-FILE_BASED_CA_UUID = "smart-ca-import"
+FILE_BASED_CA_UUID = F.FILE_BASED_CA_UUID
 QUIET_LOGGERS = ("httpx", "httpcore", "urllib3")
 
 
@@ -219,8 +219,17 @@ class Runner:
             self._log(f"setup took {self.clock() - self.started:.0f} s")
             self.stages[stage]["started_at"] = now()   # the row times the push, not the export download
             self._update(stages=self.stages)
+            # which event types this load shares with other areas' loads into the site (a read, so a plan makes it too)
+            event_set = dict(m.resolve_set())
+            self._log(f"event type set: {event_set}")
             dm_stats = m.push_datamodel()
             self._log(f"datamodel: {dm_stats}")
+            event_set["category"] = dm_stats.get("event_category") or None
+            self._update(event_type_set=event_set)
+            if dry:
+                changes = F.shared_set_changes(datamodel_stats=dm_stats, dry_calls=m.dry_calls)
+                if changes:
+                    findings.append(changes)
             self._end(stage, dm_stats)
 
             stage = "patrol_datamodel"
@@ -246,6 +255,7 @@ class Runner:
                     plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
                                         roster_group=load["options"].get("roster_group"), patrols=None,
                                         ledger_done=set(), counts={})
+                    plan["event_type_set"] = event_set
                     (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
                     (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
                     self._finish("planned", stage=stage, findings=findings, plan=plan)
@@ -273,6 +283,7 @@ class Runner:
                 plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
                                     roster_group=load["options"].get("roster_group"), patrols=patrols,
                                     ledger_done=m.ledger_done(), counts=m.counts())
+                plan["event_type_set"] = event_set
                 (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
                 (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
                 self.stages[stage]["metrics"] = {"planned": len(patrols), "already_done": plan["patrols"]["already_done"]}
@@ -429,7 +440,38 @@ class ErSmartSyncMigration:
         self.ledger = ImportLedger(self.load_dir / "import-ledger.json",
                                    f"{host}|{self.bundle.ca_uuid}", read_only=dry_run)
         self.ns = namespace(self.endpoint, self.bundle.ca_uuid, None)
-        self.event_type_prefix = f"{FILE_BASED_CA_UUID}_{self.cm_uuid}" if self.cm_uuid else FILE_BASED_CA_UUID
+        self.set_name = (options.get("event_type_set") or self._model_label() or self.cm_uuid) if self.cm_uuid else None
+        self._set = None
+
+    def _model_label(self):
+        """The chosen configurable model's name, as the export's datamodel.json has it: the set name of a
+        load made before set names existed."""
+        try:
+            models = json.loads((self.bundle_dir.parent / "datamodel.json").read_text(encoding="utf-8")).get("configurable_models") or []
+        except (OSError, ValueError):
+            return None
+        return next((m.get("label") for m in models if m.get("uuid") == self.cm_uuid), None)
+
+    def resolve_set(self) -> dict:
+        """Which set of event types and choice lists this load writes: {"name", "prefix", "old"}.
+
+        A load with a configurable model shares the set of its set name with every other load of that name
+        into the site. A site loaded before sets were shared has this area's event types under the model's
+        own uuid; if it does, the load stays with them (old), so what it imported stays valid."""
+        if self._set is None:
+            if not self.cm_uuid:
+                self._set_key, self._set = None, {"name": None, "prefix": FILE_BASED_CA_UUID, "old": False}
+            else:
+                old_prefix = f"{FILE_BASED_CA_UUID}_{self.cm_uuid}".lower()
+                on_site = self.client.get_event_types(include_inactive=True, include_schema=True, version="v2") or []
+                old = any(str(t.get("value") or "").lower().startswith(old_prefix + "_") for t in on_site if isinstance(t, dict))
+                self._set_key = self.cm_uuid if old else F.set_key(self.set_name)
+                self._set = {"name": None if old else self.set_name, "prefix": old_prefix if old else F.set_prefix(self.set_name), "old": old}
+        return self._set
+
+    @property
+    def event_type_prefix(self) -> str:
+        return self.resolve_set()["prefix"]
 
     def _cm_file(self):
         """The configurable model's XML beside the bundle (named as smart-able's
@@ -446,8 +488,9 @@ class ErSmartSyncMigration:
     def push_datamodel(self) -> dict:
         from er_smart_sync.datamodel_push import push_datamodel_files
         return push_datamodel_files(self.client, endpoint=self.endpoint, datamodel_file=str(self.bundle_dir.parent / "datamodel.xml"),
-                                    ca_identifier=self.ca_identifier, cm_file=self._cm_file(), cm_uuid=self.cm_uuid,
-                                    language=self.language or "en", bundle_dir=str(self.bundle_dir))
+                                    ca_identifier=self.ca_identifier, cm_file=self._cm_file(),
+                                    cm_uuid=self._set_key if self.resolve_set() and self.cm_uuid else None,   # the set's key, not the model's own uuid
+                                    language=self.language or "en", bundle_dir=str(self.bundle_dir), additive=True)
 
     def patrol_datamodel(self, out_dir):
         from er_smart_sync.patrol_datamodel import render_checklist, run_patrol_datamodel, write_run_record

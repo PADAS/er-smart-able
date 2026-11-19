@@ -318,3 +318,173 @@ def test_an_exported_bundle_imports_its_tracks(smart_parquet, tmp_path):
     assert by_day == {hyphenate(DAY_1): build_tracks(db, CA_A, ZoneInfo("Asia/Manila"), [])["tracks"]}
     other = next(p["uuid"] for p in b.patrols if p["uuid"] != hyphenate(PATROL_1))
     assert b.tracks.for_patrol(other) == [] and b.tracks.points(hyphenate(PATROL_1)) == 2
+
+
+# ---- several conservation areas into one site (GUNDI-5946)
+
+CM = "00000000000000000000000000000600"
+OTHER_CM = "00000000000000000000000000000777"
+
+
+def _export(smart_parquet):
+    """The synthetic dataset's export folder for ALPHA: the bundle, its data model and its configurable model."""
+    from export.__main__ import main as export_main
+
+    work = smart_parquet.parent
+    site_data = work / "site" / "data"
+    site_data.mkdir(parents=True)
+    (site_data / "timezones.json").write_text(json.dumps({"default": "Asia/Manila", "byCa": {"ALPHA": "Asia/Manila"}}))
+    assert export_main(["--work", str(work), "--site-data", str(site_data), "--source-kind", "backup", "--source-file", "x.zip"]) == 0
+    return work / "export" / "ALPHA"
+
+
+def _another_area(src: Path, dst: Path, *, differs=False) -> Path:
+    """A second conservation area's export of the same data: its copy of the configurable model has its
+    own uuid, as every area's does, and the same name. With differs, its list offers lion where the first
+    offers elephant, and its Species field has another title."""
+    import shutil
+
+    shutil.copytree(src, dst)
+    (dst / f"configurable_model_{CM}.xml").rename(dst / f"configurable_model_{OTHER_CM}.xml")
+    dm = dst / "datamodel.json"
+    dm.write_text(dm.read_text().replace(CM, OTHER_CM))
+    if differs:
+        cm = dst / f"configurable_model_{OTHER_CM}.xml"
+        text = cm.read_text()
+        assert 'keyRef="elephant"' in text
+        cm.write_text(text.replace('keyRef="elephant"', 'keyRef="lion"').replace('value="Elephant"', 'value="Lion"').replace('value="Éléphant"', 'value="Lion"'))
+        xml = dst / "datamodel.xml"
+        assert '<names language_code="en" value="Species"/>' in xml.read_text()
+        xml.write_text(xml.read_text().replace('<names language_code="en" value="Species"/>', '<names language_code="en" value="Species seen"/>'))
+    return dst
+
+
+@pytest.fixture
+def load_job(monkeypatch, tmp_path):
+    monkeypatch.setenv("BACKEND", "local")
+    monkeypatch.setenv("LOCAL_DIR", str(tmp_path / "data"))
+    monkeypatch.syspath_prepend(str(ROOT / "web"))
+    for m in ("store", "job", "load_job", "findings", "er_site"):
+        sys.modules.pop(m, None)
+    return importlib.import_module("load_job")
+
+
+def _migration(load_job, export_dir, site, tmp_path, *, cm=CM, dry_run=False, category="smart-a", **options):
+    return load_job.ErSmartSyncMigration(er_client=site, bundle_dir=export_dir / "bundle", load_dir=tmp_path / f"ld-{export_dir.name}",
+                                         host="fake.pamdas.org", token="tok", dry_run=dry_run, ca_identifier=category,
+                                         options={"language": "en", "configurable_model": cm, **options})
+
+
+def _active(site):
+    return {(f, v) for f in site.choice_fields() for v, c in site.choices(f).items() if c["is_active"]}
+
+
+def test_two_copies_of_one_model_write_one_prefix(smart_parquet, tmp_path, load_job):
+    from tests.fake_site import FakeSite
+
+    a = _export(smart_parquet)
+    b = _another_area(a, tmp_path / "BETA")
+    F = sys.modules["findings"]
+    sets = [_migration(load_job, d, FakeSite(), tmp_path, cm=cm).resolve_set() for d, cm in ((a, CM), (b, OTHER_CM))]
+    assert sets[0] == sets[1] == {"name": "Alpha mobile model", "prefix": F.set_prefix("Alpha mobile model"), "old": False}
+    assert CM not in sets[0]["prefix"] and OTHER_CM not in sets[0]["prefix"]
+    # the operator's set name decides, whatever the model is called
+    named = _migration(load_job, a, FakeSite(), tmp_path, event_type_set="Region 5").resolve_set()
+    assert named == {"name": "Region 5", "prefix": F.set_prefix("region  5"), "old": False}
+
+
+def test_a_site_with_the_old_set_keeps_it(smart_parquet, tmp_path, load_job):
+    from tests.fake_site import FakeSite
+
+    a = _export(smart_parquet)
+    site = FakeSite()
+    site.post_event_type(event_type={"value": f"smart-ca-import_{CM}_animals_liveanimals", "display": "Live animals",
+                                     "category": "smart_050500", "schema": {}, "is_active": False}, version="v2")
+    site.post_event_category(data={"value": "smart_050500", "display": "x"})
+    m = _migration(load_job, a, site, tmp_path, event_type_set="Region 5")
+    assert m.resolve_set() == {"name": None, "prefix": f"smart-ca-import_{CM}", "old": True}
+    assert m.event_type_prefix == f"smart-ca-import_{CM}"
+    stats = m.push_datamodel()
+    assert all(v.startswith(f"smart-ca-import_{CM}_") for v in site.event_types())
+    assert stats["event_category"] == "smart_050500"   # and its types stay where they were
+    # another area, whose model has another uuid, is not held back by it
+    other = _migration(load_job, _another_area(a, tmp_path / "BETA"), site, tmp_path, cm=OTHER_CM)
+    assert other.resolve_set()["old"] is False
+
+
+def test_a_load_made_before_set_names_gets_the_models_label(smart_parquet, tmp_path, load_job):
+    from tests.fake_site import FakeSite
+
+    m = _migration(load_job, _export(smart_parquet), FakeSite(), tmp_path)   # options carry no event_type_set
+    assert m.set_name == "Alpha mobile model" and m.resolve_set()["name"] == "Alpha mobile model"
+
+
+def test_a_load_without_a_model_reads_nothing_to_resolve_its_set(smart_parquet, tmp_path, load_job):
+    class NoReads:
+        def __getattr__(self, name):
+            raise AssertionError(f"{name} was called to resolve the set of a load with no configurable model")
+
+    m = _migration(load_job, _export(smart_parquet), NoReads(), tmp_path, cm=None)
+    assert m.resolve_set() == {"name": None, "prefix": "smart-ca-import", "old": False}
+    assert m.set_name is None and m.event_type_prefix == "smart-ca-import"
+
+
+def test_the_job_records_the_set_and_its_category(smart_parquet, tmp_path, monkeypatch):
+    load = _plan(smart_parquet, tmp_path, monkeypatch, scope="datamodel", configurable_model=CM, event_type_set="Region 5")
+    F = sys.modules["findings"]
+    recorded = load["event_type_set"]
+    assert recorded["name"] == "Region 5" and recorded["prefix"] == F.set_prefix("Region 5") and recorded["old"] is False
+    assert recorded["category"] and load["plan"]["event_type_set"] == recorded
+    assert all(e["value"].startswith(recorded["prefix"] + "_") for e in load["plan"]["event_types"]["create"])
+    assert not [f for f in load["findings"] if f["code"] == "shared_set_changes"]   # an empty site: nothing is shared yet
+
+
+@pytest.mark.parametrize("differs", [False, True])
+def test_the_plan_warns_when_a_shared_set_would_change(smart_parquet, tmp_path, load_job, differs):
+    from tests.fake_site import FakeSite
+
+    F = sys.modules["findings"]
+    a = _export(smart_parquet)
+    site = FakeSite()
+    _migration(load_job, a, site, tmp_path).push_datamodel()
+    before = site.event_types()
+    b = _migration(load_job, _another_area(a, tmp_path / "BETA", differs=differs), site, tmp_path, cm=OTHER_CM, dry_run=True)
+    b.resolve_set()
+    f = F.shared_set_changes(datamodel_stats=b.push_datamodel(), dry_calls=b.dry_calls)
+    assert site.event_types() == before   # a plan writes nothing
+    if differs:
+        assert f["severity"] == "warning" and f["values"] == [F.set_prefix("Alpha mobile model") + "_animals_liveanimals"]
+        assert "adds: 1" in f["detail"]
+    else:
+        assert f is None
+
+
+@pytest.mark.parametrize("order", ["a_then_b", "b_then_a"])
+def test_two_areas_share_one_set_and_take_nothing_from_each_other(smart_parquet, tmp_path, load_job, order):
+    from tests.fake_site import FakeSite
+
+    F = sys.modules["findings"]
+    a = _export(smart_parquet)
+    b = _another_area(a, tmp_path / "BETA", differs=True)
+    areas = [(a, CM, "smart-a"), (b, OTHER_CM, "smart-b")]
+    if order == "b_then_a":
+        areas.reverse()
+    site = FakeSite()
+    (d1, cm1, cat1), (d2, cm2, cat2) = areas
+    _migration(load_job, d1, site, tmp_path, cm=cm1, category=cat1).push_datamodel()
+    first_types, first_active, first_categories = site.event_types(), _active(site), site.categories()
+    alone = FakeSite()
+    _migration(load_job, d2, alone, tmp_path, cm=cm2, category=cat2).push_datamodel()
+
+    _migration(load_job, d2, site, tmp_path, cm=cm2, category=cat2).push_datamodel()
+
+    types = site.event_types()
+    prefix = F.set_prefix("Alpha mobile model") + "_"
+    # one set: each event type once, all under the name's prefix, none under either model's uuid
+    assert set(types) == set(first_types) | set(alone.event_types()) and all(v.startswith(prefix) for v in types)
+    # nothing taken from the first area
+    for v, t in first_types.items():
+        assert types[v]["category"] == t["category"] and (types[v]["is_active"] or not t["is_active"]), v
+    assert first_active <= _active(site) and _active(alone) <= _active(site)
+    assert {v for _, v in _active(site)} >= {"elephant", "lion"}
+    assert site.categories() == first_categories and len(first_categories) == 1

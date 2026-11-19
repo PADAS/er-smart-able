@@ -89,7 +89,7 @@ FINDING_KEYS = frozenset(
     + [f"preflight.{c}" for c in _PREFLIGHT_COUNTED] + ["preflight.leg_span", "preflight.timezone"]
     + ["preflight.inactive_members.retired", "preflight.inactive_members.stranded"]
     + [f"preflight.event_types.{v}" for _, v in _EVENT_TYPE_VARIANTS]
-    + ["import.patrols_failed", "datamodel.site_token_rejected"])
+    + ["import.patrols_failed", "datamodel.site_token_rejected", "datamodel.shared_set_changes"])
 
 
 def _count(f: dict) -> int:
@@ -234,6 +234,21 @@ def token_rejected(detail: str) -> dict:
     return finding("datamodel", "site_token_rejected", "blocking", "The site's token no longer works", detail=detail,
                    fix="Register the site again with a working token, then start a new load.",
                    key="datamodel.site_token_rejected")
+
+
+def shared_set_changes(*, datamodel_stats: dict, dry_calls: list):
+    """A plan's warning that this load would change event types the site already has: other conservation
+    areas' loads may share them. None when the set is new to the site or nothing in it would change."""
+    on_site = (datamodel_stats.get("event_types_unchanged") or 0) + (datamodel_stats.get("event_types_updated") or 0)
+    updated = [(kw.get("event_type") or {}).get("value") for name, _, kw in dry_calls if name == "patch_event_type"]
+    updated = [v for v in updated if v]
+    added = datamodel_stats.get("choices_created") or 0
+    if not on_site or not (updated or added):
+        return None
+    return finding("datamodel", "shared_set_changes", "warning", "This load changes event types or dropdown lists the site already has",
+                   detail=f"Event types it changes: {len(updated)}. Dropdown options it adds: {added}.",
+                   fix="Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name.",
+                   values=updated, key="datamodel.shared_set_changes")
 
 
 def has_blocking(findings: list) -> bool:

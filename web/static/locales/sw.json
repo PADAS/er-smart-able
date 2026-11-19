@@ -200,6 +200,8 @@
     "language": "lugha {{value}}",
     "configurableModel": "moduli inayosanidika {{value}}",
     "eventTypeSet": "kundi la aina za matukio {{value}}",
+    "setCategory": "aina za matukio katika kategoria {{value}}",
+    "oldSet": "aina zake za matukio, kutoka kwa uingizaji uliofanywa kabla maeneo ya hifadhi hayajaanza kuzishiriki",
     "startedBy": "mwanzilishi: {{who}}",
     "startedByWhen": "mwanzilishi: {{who}}, {{when}}"
   },
@@ -428,6 +430,10 @@
       "site_token_rejected": {
         "title": "Tokeni ya tovuti haifanyi kazi tena",
         "fix": "Hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya."
+      },
+      "shared_set_changes": {
+        "title": "Uingizaji huu unabadilisha aina za matukio au orodha za machaguo ambazo tovuti tayari inazo",
+        "fix": "Huenda maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti hii yanazitumia. Kila aina ya tukio iliyoorodheshwa inapata sehemu za kujaza na jina la eneo hili; hakuna kinachozimwa. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya wenye jina jingine la kundi la aina za matukio."
       }
     }
   },

@@ -200,6 +200,8 @@
     "language": "language {{value}}",
     "configurableModel": "configurable model {{value}}",
     "eventTypeSet": "event type set {{value}}",
+    "setCategory": "event types in category {{value}}",
+    "oldSet": "its own event types, from a load made before conservation areas shared them",
     "startedBy": "started by {{who}}",
     "startedByWhen": "started by {{who}}, {{when}}"
   },
@@ -428,6 +430,10 @@
       "site_token_rejected": {
         "title": "The site's token no longer works",
         "fix": "Nothing was written. Remove the site, register it again with a working token, and start a new load."
+      },
+      "shared_set_changes": {
+        "title": "This load changes event types or dropdown lists the site already has",
+        "fix": "Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name."
       }
     }
   },

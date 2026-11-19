@@ -132,3 +132,7 @@ Kila doria iliyoshindwa inaorodheshwa pamoja na hitilafu yake. Hitilafu nyingi z
 ### Tokeni ya tovuti haifanyi kazi tena {#finding-site_token_rejected}
 
 Tovuti ilikataa tokeni, kwa hiyo hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya.
+
+### Uingizaji huu unabadilisha kile ambacho tovuti tayari inacho {#finding-shared_set_changes}
+
+Mpango umekuta aina za matukio za uingizaji huu tayari zipo kwenye tovuti, na moduli ya eneo hili la hifadhi inatofautiana nazo: ungebadilisha aina za matukio zilizoorodheshwa, au kuongeza machaguo ya orodha. Huenda maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti yanazishiriki. Kuendesha uingizaji kunaipa kila aina ya tukio iliyoorodheshwa sehemu za kujaza na jina la eneo hili, na kuongeza machaguo; hakuzimi chochote. Ikiwa tofauti hiyo inatarajiwa, endesha uingizaji. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya na uupe jina jingine la kundi la aina za matukio.

@@ -200,6 +200,8 @@
     "language": "idioma {{value}}",
     "configurableModel": "modelo configurable {{value}}",
     "eventTypeSet": "grupo de tipos de evento {{value}}",
+    "setCategory": "tipos de evento en la categoría {{value}}",
+    "oldSet": "sus propios tipos de evento, de una carga hecha antes de que las áreas de conservación los compartieran",
     "startedBy": "iniciada por {{who}}",
     "startedByWhen": "iniciada por {{who}}, {{when}}"
   },
@@ -428,6 +430,10 @@
       "site_token_rejected": {
         "title": "El token del sitio ya no funciona",
         "fix": "No se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva."
+      },
+      "shared_set_changes": {
+        "title": "Esta carga cambia tipos de evento o listas de opciones que el sitio ya tiene",
+        "fix": "Puede que otras áreas de conservación cargadas en este sitio los usen. Cada tipo de evento indicado recibe los campos y el nombre de esta área; no se desactiva nada. Para mantener aparte el modelo de esta área, haga un plan nuevo con otro nombre de grupo de tipos de evento."
       }
     }
   },
