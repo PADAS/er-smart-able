@@ -27,7 +27,20 @@ Les patrouilles qui échouent pendant l'import n'arrêtent pas les autres. À la
 
 ## Catégorie d'événements
 
-La catégorie d'événements est l'identifiant EarthRanger sous lequel le modèle de données est envoyé. Par défaut, c'est `smart-<conservation area id>`. Si un modèle de données de cette zone de conservation a déjà été envoyé au site, par exemple avec l'outil en ligne de commande, utilisez l'identifiant de cet envoi, afin que les types d'événement soient mis à jour plutôt que créés une seconde fois sous une nouvelle catégorie.
+La catégorie d'événements est la catégorie EarthRanger où vont les types d'événement que ce chargement crée. Par défaut, c'est `smart-<conservation area id>`, ou `smart-<event type set name>` pour un chargement avec un modèle configurable. Quand le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent, quoi qu'on saisisse ici. La page du chargement nomme cette catégorie une fois le plan établi.
+
+## Plusieurs zones de conservation sur un même site
+
+Les zones de conservation qui utilisent le même modèle de données partagent ses types d'événement sur un site ; une seule requête les couvre donc toutes.
+
+- **Sans modèle configurable**, chaque chargement sur le site écrit le même ensemble de types d'événement et de listes d'options.
+- **Avec un modèle configurable**, les chargements qui ont le même nom d'**ensemble de types d'événement** partagent un seul ensemble. Ce nom est celui du modèle configurable, sauf si vous le changez. Donnez-lui un autre nom pour garder les types d'événement d'un modèle à part de ceux d'un autre modèle du même nom. Donnez un même nom à deux modèles pour les réunir.
+
+Un chargement ne fait qu'ajouter à un ensemble. Il crée les types d'événement et les options de liste qui manquent au site et met à jour les champs de ceux qu'il a. Il ne désactive jamais une option ni un type d'événement, et ne déplace jamais un type d'événement vers une autre catégorie. Une option ou un type d'événement retiré de SMART reste donc actif sur le site jusqu'à ce qu'un administrateur le désactive.
+
+Si le modèle de cette zone de conservation diffère de ce que le site a déjà sous le même nom, le plan le signale par un avertissement qui liste les types d'événement que le chargement modifierait.
+
+Une zone de conservation chargée avant le partage des types d'événement garde ses propres types d'événement sur ce site. La page du chargement le dit, et le nom de l'ensemble ne s'applique pas.
 
 ## Charger une partie d'un jeu de données
 

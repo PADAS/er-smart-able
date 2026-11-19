@@ -27,7 +27,20 @@ Las patrullas que fallan durante la importación no detienen a las demás. Al fi
 
 ## Categoría de eventos
 
-La categoría de eventos es el identificador de EarthRanger bajo el que se envía el modelo de datos. El valor predeterminado es `smart-<conservation area id>`. Si ya se envió al sitio un modelo de datos de esta área de conservación, por ejemplo con la herramienta de línea de comandos, use el identificador que usó ese envío, para que los tipos de evento se actualicen en lugar de crearse por segunda vez bajo una categoría nueva.
+La categoría de eventos es la categoría de EarthRanger a la que van los tipos de evento que crea esta carga. El valor predeterminado es `smart-<conservation area id>`, o `smart-<event type set name>` en una carga con un modelo configurable. Cuando el sitio ya tiene los tipos de evento de esta carga, se quedan en su categoría y los nuevos se unen a ellos allí, sea cual sea el valor escrito aquí. La página de la carga nombra esa categoría una vez hecho el plan.
+
+## Varias áreas de conservación en un mismo sitio
+
+Las áreas de conservación que usan el mismo modelo de datos comparten sus tipos de evento en un sitio, de modo que una sola consulta las abarca todas.
+
+- **Sin modelo configurable**, cada carga en el sitio escribe el mismo grupo de tipos de evento y de listas de opciones.
+- **Con un modelo configurable**, las cargas con el mismo nombre de **grupo de tipos de evento** comparten un solo grupo. El nombre es el del modelo configurable, salvo que usted lo cambie. Dele otro nombre para mantener los tipos de evento de un modelo aparte de los de otro modelo con el mismo nombre. Dé un mismo nombre a dos modelos para reunirlos.
+
+Una carga solo añade a un grupo. Crea los tipos de evento y las opciones de lista que le faltan al sitio y actualiza los campos de los que ya tiene. Nunca desactiva una opción ni un tipo de evento, y nunca mueve un tipo de evento a otra categoría. Por eso una opción o un tipo de evento quitado de SMART sigue activo en el sitio hasta que un administrador lo desactive allí.
+
+Si el modelo de esta área de conservación difiere de lo que el sitio ya tiene bajo el mismo nombre, el plan lo indica con una advertencia que enumera los tipos de evento que la carga cambiaría.
+
+Un área de conservación cargada antes de que se compartieran los tipos de evento conserva sus propios tipos de evento en ese sitio. La página de la carga lo dice, y el nombre del grupo no se aplica.
 
 ## Cargar parte de un conjunto de datos
 
