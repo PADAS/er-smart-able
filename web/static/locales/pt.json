@@ -531,7 +531,7 @@
     "roster": "Grupo de guarda-parques",
     "rosterPlaceholder": "opcional; padrão: o primeiro grupo de membros da configuração de patrulhas",
     "category": "Categoria de eventos",
-    "categoryHint": "Use o identificador que um envio anterior pela ferramenta de linha de comando usou, se houver (por exemplo, site-xyz).",
+    "categoryHint": "Para onde vão os tipos de evento que esta carga cria. Se o site já tem os tipos de evento desta carga, eles ficam na sua categoria e os novos se juntam a eles ali.",
     "what": "O que carregar",
     "modelAndPatrols": "O modelo de dados e as patrulhas",
     "modelOnly": "Só o modelo de dados",

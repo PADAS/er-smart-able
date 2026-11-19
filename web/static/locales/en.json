@@ -531,7 +531,7 @@
     "roster": "Roster group",
     "rosterPlaceholder": "optional; default: the patrol configuration's first member group",
     "category": "Event category",
-    "categoryHint": "Use the identifier an earlier CLI push used, if any (for example, site-xyz).",
+    "categoryHint": "Where the event types this load creates go. If the site already has this load's event types, they stay in their category and new ones join them there.",
     "what": "What to load",
     "modelAndPatrols": "The data model and patrols",
     "modelOnly": "The data model only",

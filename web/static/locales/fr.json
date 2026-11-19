@@ -531,7 +531,7 @@
     "roster": "Groupe des écogardes",
     "rosterPlaceholder": "facultatif ; par défaut : le premier groupe de membres de la configuration des patrouilles",
     "category": "Catégorie d'événements",
-    "categoryHint": "Utilisez l'identifiant d'un envoi antérieur fait avec l'outil en ligne de commande, s'il y en a eu un (par exemple, site-xyz).",
+    "categoryHint": "Là où vont les types d'événement que ce chargement crée. Si le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent.",
     "what": "Que charger",
     "modelAndPatrols": "Le modèle de données et les patrouilles",
     "modelOnly": "Le modèle de données seulement",
