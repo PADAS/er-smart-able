@@ -31,6 +31,9 @@ test('the title block names the host, options, window and who started it', () =>
   const h = P.renderLoadTitle({ ...base, options: { ...base.options, since: '2024-01-01', configurable_model: 'cm-uuid' } });
   assert.match(h, /p\.pamdas\.org/); assert.match(h, /language en/); assert.match(h, /Patrols from 2024-01-01/); assert.match(h, /configurable model cm-uuid/);
   assert.match(h, /started by ops@earthranger\.com, 2026-11-13 10:00/);
+  assert.doesNotMatch(h, /event type set/);
+  const shared = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region <5>' } });
+  assert.match(shared, /event type set Region &lt;5&gt;/);
   assert.match(P.renderLoadTitle({ ...base, site: null }), /050500 → removed site/);
   assert.doesNotMatch(P.renderLoadTitle({ ...base, site: null }), /data-run|data-replan/);
 });

@@ -49,7 +49,7 @@ from pydantic import BaseModel
 from auth import AUTH_DISABLED, allowed_entries, current_user, email_allowed, end_session, start_session
 from er_site import HostError, SiteUnreachable, TokenRejected, check_token, normalize_host
 from errors import ApiError
-from findings import EVENT_CATEGORY, ca_identifier
+from findings import EVENT_CATEGORY, SET_NAME_MAX, ca_identifier, set_category
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, access, can_read, can_view, extract_in_progress, get_store, is_owner,
                    load_in_progress, now, safe_relpath, stored_name, upload_expires_at)
 
@@ -454,7 +454,7 @@ def _load_public(doc: dict, user: dict, dataset: Optional[dict] = None) -> dict:
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
     out = {k: doc.get(k) for k in LOAD_FIELDS}
     # loads made before event_category existed run with the default (load_job's fallback)
-    out["options"] = {"event_category": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
+    out["options"] = {"event_category": None, "event_type_set": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
     # a load is reached through its dataset: seen through support view if the dataset is
     reach = "support" if dataset and access(dataset, user) == "support" else "owner" if is_owner(doc, user) else "shared"
     return out | {
@@ -522,16 +522,27 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     cm = req.options.get("configurable_model") or None
     if cm and cm not in [c["uuid"] for c in entry.get("configurable_models", [])]:
         raise ApiError(400, "unknown_model", "Unknown configurable model")
+    # the set: which event types and lists this load shares with other areas' loads into the site
+    set_name = req.options.get("event_type_set")
+    if set_name is not None and not isinstance(set_name, str):
+        raise ApiError(400, "event_type_set_invalid", f"The event type set's name must be 1-{SET_NAME_MAX} characters")
+    set_name = (set_name or "").strip() or None
+    if set_name and not cm:
+        raise ApiError(400, "set_without_model", "Only a load with a configurable model has an event type set")
+    if cm and not set_name:
+        set_name = (next(c.get("label") for c in entry["configurable_models"] if c["uuid"] == cm) or cm).strip()[:SET_NAME_MAX]
+    if set_name and len(set_name) > SET_NAME_MAX:
+        raise ApiError(400, "event_type_set_invalid", f"The event type set's name must be 1-{SET_NAME_MAX} characters")
     category = req.options.get("event_category")
     if category is None or (isinstance(category, str) and not category.strip()):
-        category = ca_identifier(entry.get("ca_id"))
+        category = set_category(set_name) if set_name else ca_identifier(entry.get("ca_id"))
     elif not isinstance(category, str) or not EVENT_CATEGORY.fullmatch(category.strip()):
         raise ApiError(400, "event_category_invalid", "The event category must be 2-30 letters, digits, '-' or '_'")
     category = category.strip()
     store = get_store()
     load_id = store.create_load({
         "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
-        "options": {"language": language, "configurable_model": cm,
+        "options": {"language": language, "configurable_model": cm, "event_type_set": set_name,
                     "roster_group": (req.options.get("roster_group") or "").strip() or None,
                     "event_category": category, "scope": scope, "since": since, "until": until},
         "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race

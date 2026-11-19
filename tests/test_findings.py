@@ -266,3 +266,28 @@ def test_every_key_a_rule_assigns_is_one_the_module_lists(findings):
     keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"]]
     assert None not in keys and set(keys) == set(findings.FINDING_KEYS)
     assert cl[1]["params"] == {"group": "A`b"}, "the whole name between the outer backticks"
+
+
+def test_one_set_name_one_key(findings):
+    F = findings
+    assert F.set_key("R5 Model") == F.set_key("  r5   model ") == F.set_key("Ｒ５ Model")
+    assert F.set_key("R5 Model") != F.set_key("R6 Model")
+    assert len(F.set_key("R5 Model")) == 32 and int(F.set_key("R5 Model"), 16) >= 0
+
+
+def test_the_set_key_is_pinned(findings):
+    # the namespace must never change: a changed key orphans every set already on a site
+    assert findings.set_key("R5 Model") == "04768b84429f56a7a491f88351f55a03"
+
+
+def test_the_set_prefix(findings):
+    F = findings
+    assert F.set_prefix(None) == "smart-ca-import"
+    assert F.set_prefix("R5 Model") == "smart-ca-import_" + F.set_key("R5 Model")
+
+
+def test_the_default_category_of_a_set(findings):
+    F = findings
+    assert F.set_category("R5 Model") == "smart-r5-model"
+    for name in ("A very long configurable model name indeed", "模型", "-", "x"):
+        assert F.EVENT_CATEGORY.fullmatch(F.set_category(name)), name
