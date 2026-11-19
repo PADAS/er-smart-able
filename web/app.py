@@ -529,9 +529,12 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     set_name = (set_name or "").strip() or None
     if set_name and not cm:
         raise ApiError(400, "set_without_model", "Only a load with a configurable model has an event type set")
+    # the default is the model's name, whole: the job gives a load made before set names the same one, and a
+    # name cut short would be another set
+    label = (next(c.get("label") for c in entry["configurable_models"] if c["uuid"] == cm) or cm).strip() if cm else None
     if cm and not set_name:
-        set_name = (next(c.get("label") for c in entry["configurable_models"] if c["uuid"] == cm) or cm).strip()[:SET_NAME_MAX]
-    if set_name and len(set_name) > SET_NAME_MAX:
+        set_name = label
+    if set_name and len(set_name) > SET_NAME_MAX and set_name != label:
         raise ApiError(400, "event_type_set_invalid", f"The event type set's name must be 1-{SET_NAME_MAX} characters")
     category = req.options.get("event_category")
     if category is None or (isinstance(category, str) and not category.strip()):

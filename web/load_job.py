@@ -440,7 +440,7 @@ class ErSmartSyncMigration:
         self.ledger = ImportLedger(self.load_dir / "import-ledger.json",
                                    f"{host}|{self.bundle.ca_uuid}", read_only=dry_run)
         self.ns = namespace(self.endpoint, self.bundle.ca_uuid, None)
-        self.set_name = (options.get("event_type_set") or self._model_label() or self.cm_uuid) if self.cm_uuid else None
+        self.set_name = (options.get("event_type_set") or (self._model_label() or "").strip() or self.cm_uuid) if self.cm_uuid else None
         self._set = None
 
     def _model_label(self):
@@ -463,7 +463,7 @@ class ErSmartSyncMigration:
                 self._set_key, self._set = None, {"name": None, "prefix": FILE_BASED_CA_UUID, "old": False}
             else:
                 old_prefix = f"{FILE_BASED_CA_UUID}_{self.cm_uuid}".lower()
-                on_site = self.client.get_event_types(include_inactive=True, include_schema=True, version="v2") or []
+                on_site = self.client.get_event_types(include_inactive=True, version="v2") or []   # values only: no schemas
                 old = any(str(t.get("value") or "").lower().startswith(old_prefix + "_") for t in on_site if isinstance(t, dict))
                 self._set_key = self.cm_uuid if old else F.set_key(self.set_name)
                 self._set = {"name": None if old else self.set_name, "prefix": old_prefix if old else F.set_prefix(self.set_name), "old": old}

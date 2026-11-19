@@ -531,7 +531,7 @@ async function loadDialog(d, caId, keep) {
   const modelChanged = () => {
     const m = areaOf().configurable_models.find(m => m.uuid === $('#ldCm').value);
     $('#ldSetRow').hidden = !m;
-    $('#ldSet').value = m ? String(m.label || '').slice(0, 60) : '';
+    $('#ldSet').value = m ? String(m.label || '').trim() : '';   // whole, even past the field's limit: a name cut short would be another set
     setChanged();
   };
   dialog(t('loadDialog.title', { name: d.name }),

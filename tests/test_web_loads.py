@@ -464,3 +464,16 @@ def test_a_load_with_a_configurable_model_gets_a_set_name(client, launches):
         r = post(configurable_model="abc", event_type_set=bad)
         assert r.status_code == 400 and r.json()["code"] == "event_type_set_invalid", bad
     assert post(configurable_model="abc", event_type_set="x" * 60).status_code == 201
+
+
+def test_a_long_model_name_is_the_set_name_whole(client, launches):
+    app, c = client
+    store = app.get_store()
+    long = "A configurable model whose name runs well past sixty characters in all"
+    assert len(long) > 60
+    ds = _dataset(store, export=[{**EXPORT[0], "configurable_models": [{"uuid": "abc", "label": long}]}])
+    post = lambda **options: c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": _site(store), "options": options})
+    r = post(configurable_model="abc")
+    assert r.status_code == 201 and r.json()["options"]["event_type_set"] == long   # not cut: a cut name is another set
+    store.update_load(r.json()["id"], status="done")
+    assert post(configurable_model="abc", event_type_set=long).status_code == 201   # what the dialog sends back

@@ -304,6 +304,8 @@ def test_a_plan_warns_only_when_a_set_already_on_the_site_would_change(findings)
     assert f["values"] == ["smart-ca-import_k_fire"] and "changes: 1" in f["detail"] and "adds: 2" in f["detail"]
     # options added to a set the site has, with no event type changed
     assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 3, "choices_created": 2}, dry_calls=[])["values"] == []
+    # an area with no event type in common joins a set that is there: its new options are still reported
+    assert F.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "event_types_created": 2, "choices_created": 1}, dry_calls=[post])
     # the same model again: nothing would change
     assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 4, "choices_created": 0}, dry_calls=[]) is None
     # a set new to the site: everything is created, nothing is shared yet

@@ -60,8 +60,9 @@ The model's name does not depend on the language of the load.
 The load form shows the set name when a configurable model is chosen, with
 the model's name filled in, and the operator can change it: to keep two
 models with the same name apart, or to put two models with different names
-together. It is 1 to 60 characters. It is stored with the load's options
-and shown on the load page.
+together. A name the operator gives is at most 60 characters; left blank,
+it is the model's name, whole. It is stored with the load's options and
+shown on the load page.
 
 ### A site loaded before this change
 
@@ -96,7 +97,9 @@ from SMART Connect, whose sets belong to one area each, behaves as today.
 **Event types**
 
 - An event type that is active on the site stays active. One that is
-  inactive becomes active if this area's model has it active.
+  inactive becomes active if this area's model has it active. A type the
+  site has active and this area's model has retired is not written at all:
+  the retired version's name and fields must not replace the active one's.
 - An event type the site has that this area's model lacks is left alone,
   as today.
 - An existing event type keeps its event category. Today the push moves
@@ -181,7 +184,8 @@ App:
   category.
 - The plan of the second area carries the warning when its model differs
   and does not when it is the same.
-- The set name is refused when empty or over 60 characters.
+- A set name over 60 characters is refused, and so is one sent without a
+  configurable model; a blank one becomes the model's name.
 
 By hand, before release: plan the two local Region 5 areas into one test
 site with their configurable models and confirm 18 event types and 22

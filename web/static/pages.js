@@ -343,7 +343,7 @@ function loadFacts(l) {
   // conservation area keeps event types of its own from before areas shared them
   return [l.site ? l.site.url : '', set.category ? t('load.setCategory', { value: set.category }) : o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
     o.configurable_model ? t('load.configurableModel', { value: o.configurable_model }) : '',
-    set.old ? t('load.oldSet') : o.event_type_set ? t('load.eventTypeSet', { value: o.event_type_set }) : '',
+    set.old ? t('load.oldSet') : (set.name || o.event_type_set) ? t('load.eventTypeSet', { value: set.name || o.event_type_set }) : '',   // set.name: a load made before set names has no option, and the job gave it the model's
     l.owner_email ? (l.created_at ? t('load.startedByWhen', { who: l.owner_email, when: fmtWhen(l.created_at) }) : t('load.startedBy', { who: l.owner_email })) : ''].filter(Boolean);
 }
 function renderLoadTitle(l) {

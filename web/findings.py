@@ -239,7 +239,10 @@ def token_rejected(detail: str) -> dict:
 def shared_set_changes(*, datamodel_stats: dict, dry_calls: list):
     """A plan's warning that this load would change event types the site already has: other conservation
     areas' loads may share them. None when the set is new to the site or nothing in it would change."""
-    on_site = (datamodel_stats.get("event_types_unchanged") or 0) + (datamodel_stats.get("event_types_updated") or 0)
+    # the set's event types the site had before this load: the library counts them by the set's prefix, so a
+    # conservation area with no event type in common with the ones already loaded still counts as joining
+    on_site = (datamodel_stats.get("event_types_on_site") or 0) + (datamodel_stats.get("event_types_unchanged") or 0) \
+        + (datamodel_stats.get("event_types_updated") or 0)
     updated = [(kw.get("event_type") or {}).get("value") for name, _, kw in dry_calls if name == "patch_event_type"]
     updated = [v for v in updated if v]
     added = datamodel_stats.get("choices_created") or 0
