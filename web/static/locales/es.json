@@ -199,6 +199,9 @@
     "eventCategory": "categoría de eventos {{value}}",
     "language": "idioma {{value}}",
     "configurableModel": "modelo configurable {{value}}",
+    "eventTypeSet": "grupo de tipos de evento {{value}}",
+    "setCategory": "tipos de evento en la categoría {{value}}",
+    "oldSet": "sus propios tipos de evento, de una carga hecha antes de que las áreas de conservación los compartieran",
     "startedBy": "iniciada por {{who}}",
     "startedByWhen": "iniciada por {{who}}, {{when}}"
   },
@@ -427,6 +430,10 @@
       "site_token_rejected": {
         "title": "El token del sitio ya no funciona",
         "fix": "No se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva."
+      },
+      "shared_set_changes": {
+        "title": "Esta carga cambia tipos de evento o listas de opciones que el sitio ya tiene",
+        "fix": "Puede que otras áreas de conservación cargadas en este sitio los usen. Cada tipo de evento indicado recibe los campos y el nombre de esta área; no se desactiva nada. Para mantener aparte el modelo de esta área, haga un plan nuevo con otro nombre de grupo de tipos de evento."
       }
     }
   },
@@ -519,10 +526,12 @@
     "configurableModel": "Modelo configurable",
     "none": "ninguno",
     "modelHint": "ninguno: tipos de evento para todo el modelo de datos. Un modelo configurable (el subconjunto que usa un formulario móvil de SMART) deja activas solo sus categorías y opciones de lista; las demás, que usaron observaciones anteriores, se conservan, inactivas, para que esas observaciones se sigan cargando.",
+    "eventTypeSet": "Grupo de tipos de evento",
+    "eventTypeSetHint": "Las áreas de conservación cargadas con el mismo nombre comparten un solo grupo de tipos de evento y de listas de opciones en el sitio. Cámbielo para mantener aparte los de este modelo.",
     "roster": "Grupo de guardaparques",
     "rosterPlaceholder": "opcional; por defecto: el primer grupo de miembros de la configuración de patrullas",
     "category": "Categoría de eventos",
-    "categoryHint": "Use el identificador que usó un envío anterior con la herramienta de línea de comandos, si lo hubo (por ejemplo, site-xyz).",
+    "categoryHint": "A dónde van los tipos de evento que crea esta carga. Si el sitio ya tiene los tipos de evento de esta carga, se quedan en su categoría y los nuevos se unen a ellos allí.",
     "what": "Qué cargar",
     "modelAndPatrols": "El modelo de datos y las patrullas",
     "modelOnly": "Solo el modelo de datos",
@@ -596,6 +605,8 @@
     "language_not_in_bundle": "El idioma «{{language}}» no está en el paquete",
     "unknown_model": "Modelo configurable desconocido",
     "event_category_invalid": "La categoría de eventos debe tener de 2 a 30 caracteres: letras, dígitos, '-' o '_'",
+    "set_without_model": "Solo una carga con un modelo configurable tiene un grupo de tipos de evento",
+    "event_type_set_invalid": "El nombre del grupo de tipos de evento debe tener de 1 a 60 caracteres",
     "load_active": "Ya hay una carga activa de esta área de conservación en ese sitio",
     "site_removed": "Se quitó el sitio; regístrelo de nuevo e inicie una nueva carga",
     "site_no_access": "No tiene acceso a ese sitio",

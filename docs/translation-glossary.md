@@ -236,6 +236,7 @@ The guide names these as the app shows them. Keep the two in step.
 | Findings | Constats | Hallazgos | Constatações | Matokeo ya ukaguzi | load page heading |
 | Roster group | Groupe des écogardes | Grupo de guardaparques | Grupo de guarda-parques | Kundi la askari | load dialog field |
 | configurable model | modèle configurable | modelo configurable | modelo configurável | moduli inayosanidika | load dialog field |
+| event type set | ensemble de types d'événement | grupo de tipos de evento | grupo de tipos de evento | kundi la aina za matukio | load dialog field; not *conjunto* or *seti*, which mean the dataset |
 | bundle (migration bundle) | paquet | paquete | pacote | kifurushi | messages |
 
 The message for a sign-in refused because the address is not on the list

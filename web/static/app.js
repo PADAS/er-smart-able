@@ -496,6 +496,9 @@ function defaultEventCategory(caId) {
   return (s.length >= 2 ? s : 'smart-ca').slice(0, 30);
 }
 
+// mirrors findings.set_category: smart-<set name>, made safe the same way
+function defaultSetCategory(name) { return defaultEventCategory(name.normalize('NFKC').toLowerCase().trim().split(/\s+/).join(' ') || 'set'); }
+
 // keep: the form's values and site choice, when the dialog is reopened after the add-a-site detour
 async function loadDialog(d, caId, keep) {
   let sites;
@@ -509,11 +512,27 @@ async function loadDialog(d, caId, keep) {
     const ca = d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
     // an area with no patrols has only its data model to load; leaving it for one with patrols undoes that choice
     if (!ca.patrols) { $('#ldScope').value = 'datamodel'; autoDm = true; } else if (autoDm) { $('#ldScope').value = 'all'; autoDm = false; }
-    const def = defaultEventCategory(ca.ca_id);   // what the server defaults to
-    if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
-    lastDefault = def;
+    setCategory(defaultEventCategory(ca.ca_id));   // what the server defaults to
     $('#ldLang').innerHTML = ca.languages.map(l => '<option' + (l === ca.default_language ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
     $('#ldCm').innerHTML = '<option value="">' + T('loadDialog.none') + '</option>' + ca.configurable_models.map(m => '<option value="' + esc(m.uuid) + '">' + esc(m.label) + '</option>').join('');
+    modelChanged();
+  };
+  // the category field follows the server's default until the reader types their own
+  const setCategory = def => {
+    if (lastDefault === null || $('#ldCategory').value === lastDefault) $('#ldCategory').value = def;
+    lastDefault = def;
+  };
+  const areaOf = () => d.export.find(e => e.dir === $('#ldCa').value) || d.export[0];
+  // a load with a configurable model has a set name: the model's, unless the reader changes it
+  const setChanged = () => {
+    const name = $('#ldSet').value.trim();
+    setCategory($('#ldCm').value && name ? defaultSetCategory(name) : defaultEventCategory(areaOf().ca_id));
+  };
+  const modelChanged = () => {
+    const m = areaOf().configurable_models.find(m => m.uuid === $('#ldCm').value);
+    $('#ldSetRow').hidden = !m;
+    $('#ldSet').value = m ? String(m.label || '').trim() : '';   // whole, even past the field's limit: a name cut short would be another set
+    setChanged();
   };
   dialog(t('loadDialog.title', { name: d.name }),
     '<p class="muted tiny">' + T('loadDialog.intro') + '</p>' +
@@ -523,6 +542,8 @@ async function loadDialog(d, caId, keep) {
     '<label>' + T('loadDialog.labelLanguage') + ' <select id="ldLang"></select></label>' +
     '<label>' + T('loadDialog.configurableModel') + ' <select id="ldCm"></select></label>' +
     '<p class="muted tiny">' + T('loadDialog.modelHint') + '</p>' +
+    '<div id="ldSetRow" class="col" hidden><label>' + T('loadDialog.eventTypeSet') + ' <input type="text" id="ldSet" maxlength="60"></label>' +
+    '<p class="muted tiny">' + T('loadDialog.eventTypeSetHint') + '</p></div>' +
     '<label>' + T('loadDialog.roster') + ' <input type="text" id="ldRoster" placeholder="' + T('loadDialog.rosterPlaceholder') + '"></label>' +
     '<label>' + T('loadDialog.category') + ' <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
     '<p class="muted tiny">' + T('loadDialog.categoryHint') + '</p>' +
@@ -540,12 +561,15 @@ async function loadDialog(d, caId, keep) {
   const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
   if (keep && keep.ca) $('#ldCa').value = keep.ca;
   render();
-  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; if (keep.site) $('#ldSite').value = keep.site; }   // lastDefault stays the area's default, so a category the reader typed is still theirs
+  if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; $('#ldSetRow').hidden = !keep.ldCm; $('#ldSet').value = keep.ldSet || ''; if (keep.site) $('#ldSite').value = keep.site;
+    // lastDefault is what the server would default to for the restored form, so a category the reader typed is still theirs
+    if (keep.ldCm && $('#ldSet').value.trim()) lastDefault = defaultSetCategory($('#ldSet').value.trim()); }
   scopeChanged(); $('#ldCa').onchange = () => { render(); scopeChanged(); }; $('#ldScope').onchange = scopeChanged;
+  $('#ldCm').onchange = modelChanged; $('#ldSet').oninput = setChanged;
   let prevSite = $('#ldSite').value;
   $('#ldSite').onchange = () => {
     if ($('#ldSite').value !== '__add__') { prevSite = $('#ldSite').value; return; }
-    const kept = { ca: $('#ldCa').value, site: prevSite, ldLang: $('#ldLang').value, ldCm: $('#ldCm').value };
+    const kept = { ca: $('#ldCa').value, site: prevSite, ldLang: $('#ldLang').value, ldCm: $('#ldCm').value, ldSet: $('#ldSet').value };
     ids.forEach(i => { kept[i] = $('#' + i).value; });
     addSite(kept);
   };
@@ -555,7 +579,7 @@ async function loadDialog(d, caId, keep) {
     if (since && until && since > until) return alert(t('loadDialog.windowBackwards'));
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
-        options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, roster_group: $('#ldRoster').value,
+        options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, event_type_set: $('#ldCm').value ? $('#ldSet').value.trim() || null : null, roster_group: $('#ldRoster').value,
         event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
       closeDialog(); navigate({ page: 'load', id: d.id, load: l.id });
     } catch (e) { oops(e); }

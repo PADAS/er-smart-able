@@ -3,6 +3,8 @@ the job stopped and what a human does about it; the plan is what a run
 would write. Pure functions, no er-smart-sync or Google imports, so the
 service and the job both use them."""
 import re
+import unicodedata
+import uuid
 
 MAX_PATROLS = 50
 LIST_CAP = 200
@@ -26,6 +28,36 @@ def ca_identifier(ca_id: str) -> str:
     """A load's default ER event-category identifier: smart-<ca id>, made safe (2-30 chars of [A-Za-z0-9_-])."""
     s = re.sub(r"[^a-z0-9_-]+", "-", f"smart-{ca_id or 'ca'}".lower()).strip("-")
     return (s if len(s) >= 2 else "smart-ca")[:30]
+
+
+# A set is the event types and choice lists one configurable model becomes on a
+# site. Loads with one set name write one set, whichever conservation area's
+# copy of the model they carry: the key below stands where the model's own
+# uuid (different in every area) used to. The namespace must never change; a
+# changed key orphans every set already on a site.
+SET_NAMESPACE = uuid.UUID("6f0b1a52-7c3e-5d0a-9a41-2e5d8c7b4f10")
+SET_NAME_MAX = 60
+FILE_BASED_CA_UUID = "smart-ca-import"
+
+
+def _normal_set_name(name: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", name).casefold().split())
+
+
+def set_key(name: str) -> str:
+    """The 32 hex characters that identify a set name: equal for names that
+    differ only in case, spacing or Unicode form."""
+    return uuid.uuid5(SET_NAMESPACE, _normal_set_name(name)).hex
+
+
+def set_prefix(name) -> str:
+    """What every event type value of a load's set starts with."""
+    return f"{FILE_BASED_CA_UUID}_{set_key(name)}" if name else FILE_BASED_CA_UUID
+
+
+def set_category(name: str) -> str:
+    """The default event category of a load with a set name: smart-<name>, made safe as ca_identifier's is."""
+    return ca_identifier(_normal_set_name(name) or "set")
 
 
 def finding(stage, code, severity, title, detail="", fix="", patrols=(), values=(), key=None, params=None) -> dict:
@@ -57,7 +89,7 @@ FINDING_KEYS = frozenset(
     + [f"preflight.{c}" for c in _PREFLIGHT_COUNTED] + ["preflight.leg_span", "preflight.timezone"]
     + ["preflight.inactive_members.retired", "preflight.inactive_members.stranded"]
     + [f"preflight.event_types.{v}" for _, v in _EVENT_TYPE_VARIANTS]
-    + ["import.patrols_failed", "datamodel.site_token_rejected"])
+    + ["import.patrols_failed", "datamodel.site_token_rejected", "datamodel.shared_set_changes"])
 
 
 def _count(f: dict) -> int:
@@ -202,6 +234,24 @@ def token_rejected(detail: str) -> dict:
     return finding("datamodel", "site_token_rejected", "blocking", "The site's token no longer works", detail=detail,
                    fix="Register the site again with a working token, then start a new load.",
                    key="datamodel.site_token_rejected")
+
+
+def shared_set_changes(*, datamodel_stats: dict, dry_calls: list):
+    """A plan's warning that this load would change event types the site already has: other conservation
+    areas' loads may share them. None when the set is new to the site or nothing in it would change."""
+    # the set's event types the site had before this load: the library counts them by the set's prefix, so a
+    # conservation area with no event type in common with the ones already loaded still counts as joining
+    on_site = (datamodel_stats.get("event_types_on_site") or 0) + (datamodel_stats.get("event_types_unchanged") or 0) \
+        + (datamodel_stats.get("event_types_updated") or 0)
+    updated = [(kw.get("event_type") or {}).get("value") for name, _, kw in dry_calls if name == "patch_event_type"]
+    updated = [v for v in updated if v]
+    added = datamodel_stats.get("choices_created") or 0
+    if not on_site or not (updated or added):
+        return None
+    return finding("datamodel", "shared_set_changes", "warning", "This load changes event types or dropdown lists the site already has",
+                   detail=f"Event types it changes: {len(updated)}. Dropdown options it adds: {added}.",
+                   fix="Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name.",
+                   values=updated, key="datamodel.shared_set_changes")
 
 
 def has_blocking(findings: list) -> bool:

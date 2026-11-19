@@ -132,3 +132,7 @@ Cada patrulla fallida se enumera con su error. La mayoría de los errores nombra
 ### El token del sitio ya no funciona {#finding-site_token_rejected}
 
 El sitio rechazó el token, así que no se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva.
+
+### Esta carga cambia lo que el sitio ya tiene {#finding-shared_set_changes}
+
+El plan encontró los tipos de evento de esta carga ya presentes en el sitio, y el modelo de esta área de conservación difiere de ellos: cambiaría los tipos de evento indicados o añadiría opciones de lista. Puede que otras áreas de conservación cargadas en el sitio los compartan. Al ejecutar la carga, cada tipo de evento indicado recibe los campos y el nombre de esta área, y se añaden las opciones; no se desactiva nada. Si la diferencia es la esperada, ejecute la carga. Para mantener aparte el modelo de esta área, haga un plan nuevo y dele otro nombre de grupo de tipos de evento.

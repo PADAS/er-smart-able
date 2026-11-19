@@ -130,3 +130,7 @@ Each failed patrol is listed with its error. Most errors name something missing 
 ### The site's token no longer works {#finding-site_token_rejected}
 
 The site refused the token, so nothing was written. Remove the site, register it again with a working token, and start a new load.
+
+### This load changes what the site already has {#finding-shared_set_changes}
+
+The plan found this load's event types already on the site, and this conservation area's model differs from them: it would change the event types listed, or add dropdown options. Other conservation areas loaded into the site may share them. Running the load gives each listed event type this area's fields and name, and adds the options; it deactivates nothing. If the difference is expected, run the load. To keep this area's model apart, make a new plan and give it another event type set name.

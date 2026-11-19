@@ -132,3 +132,7 @@ Cada patrulha que falhou é listada com o erro dela. A maioria dos erros informa
 ### O token do site não funciona mais {#finding-site_token_rejected}
 
 O site recusou o token, então nada foi gravado. Remova o site, registre-o de novo com um token que funcione e inicie uma carga nova.
+
+### Esta carga altera o que o site já tem {#finding-shared_set_changes}
+
+O plano encontrou os tipos de evento desta carga já presentes no site, e o modelo desta área de conservação difere deles: alteraria os tipos de evento indicados ou acrescentaria opções de lista. Outras áreas de conservação carregadas no site podem compartilhá-los. Ao executar a carga, cada tipo de evento indicado recebe os campos e o nome desta área, e as opções são acrescentadas; nada é desativado. Se a diferença é esperada, execute a carga. Para manter à parte o modelo desta área, faça um novo plano e dê a ele outro nome de grupo de tipos de evento.

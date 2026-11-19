@@ -199,6 +199,9 @@
     "eventCategory": "event category {{value}}",
     "language": "language {{value}}",
     "configurableModel": "configurable model {{value}}",
+    "eventTypeSet": "event type set {{value}}",
+    "setCategory": "event types in category {{value}}",
+    "oldSet": "its own event types, from a load made before conservation areas shared them",
     "startedBy": "started by {{who}}",
     "startedByWhen": "started by {{who}}, {{when}}"
   },
@@ -427,6 +430,10 @@
       "site_token_rejected": {
         "title": "The site's token no longer works",
         "fix": "Nothing was written. Remove the site, register it again with a working token, and start a new load."
+      },
+      "shared_set_changes": {
+        "title": "This load changes event types or dropdown lists the site already has",
+        "fix": "Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name."
       }
     }
   },
@@ -519,10 +526,12 @@
     "configurableModel": "Configurable model",
     "none": "none",
     "modelHint": "none: event types for the whole data model. A configurable model (the subset a SMART mobile form uses) makes only its categories and dropdown options active; others that older observations used are kept, inactive, so those observations still load.",
+    "eventTypeSet": "Event type set",
+    "eventTypeSetHint": "Conservation areas loaded with the same name share one set of event types and dropdown lists on the site. Change it to keep this model's apart.",
     "roster": "Roster group",
     "rosterPlaceholder": "optional; default: the patrol configuration's first member group",
     "category": "Event category",
-    "categoryHint": "Use the identifier an earlier CLI push used, if any (for example, site-xyz).",
+    "categoryHint": "Where the event types this load creates go. If the site already has this load's event types, they stay in their category and new ones join them there.",
     "what": "What to load",
     "modelAndPatrols": "The data model and patrols",
     "modelOnly": "The data model only",
@@ -596,6 +605,8 @@
     "language_not_in_bundle": "Language '{{language}}' is not in the bundle",
     "unknown_model": "Unknown configurable model",
     "event_category_invalid": "The event category must be 2-30 letters, digits, '-' or '_'",
+    "set_without_model": "Only a load with a configurable model has an event type set",
+    "event_type_set_invalid": "The event type set's name must be 1-60 characters",
     "load_active": "A load of this conservation area into that site is already active",
     "site_removed": "The site was removed; register it again and start a new load",
     "site_no_access": "You do not have access to that site",

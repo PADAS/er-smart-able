@@ -31,6 +31,16 @@ test('the title block names the host, options, window and who started it', () =>
   const h = P.renderLoadTitle({ ...base, options: { ...base.options, since: '2024-01-01', configurable_model: 'cm-uuid' } });
   assert.match(h, /p\.pamdas\.org/); assert.match(h, /language en/); assert.match(h, /Patrols from 2024-01-01/); assert.match(h, /configurable model cm-uuid/);
   assert.match(h, /started by ops@earthranger\.com, 2026-11-13 10:00/);
+  assert.doesNotMatch(h, /event type set/);
+  const shared = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region <5>' } });
+  assert.match(shared, /event type set Region &lt;5&gt;/);
+  // what the job found on the site replaces what was asked for
+  const found = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region 5' }, event_type_set: { name: 'Region 5', prefix: 'p', old: false, category: 'smart_r5' } });
+  assert.match(found, /event types in category smart_r5/); assert.match(found, /event type set Region 5/); assert.doesNotMatch(found, /event category/);
+  const before = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid' }, event_type_set: { name: 'Mobile', prefix: 'p', old: false, category: 'smart_x' } });
+  assert.match(before, /event type set Mobile/);   // a load made before set names: the name the job gave it
+  const old = P.renderLoadTitle({ ...base, options: { ...base.options, configurable_model: 'cm-uuid', event_type_set: 'Region 5' }, event_type_set: { name: null, prefix: 'p', old: true, category: 'smart_050500' } });
+  assert.match(old, /its own event types, from a load made before/); assert.doesNotMatch(old, /event type set Region 5/);
   assert.match(P.renderLoadTitle({ ...base, site: null }), /050500 → removed site/);
   assert.doesNotMatch(P.renderLoadTitle({ ...base, site: null }), /data-run|data-replan/);
 });

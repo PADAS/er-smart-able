@@ -224,7 +224,7 @@ def test_a_finding_the_rules_do_not_recognise_has_no_key(findings):
 def test_every_key_the_module_can_emit_is_listed(findings):
     assert {"checklist.team", "preflight.event_types.unmatched", "preflight.inactive_members.stranded", "import.patrols_failed",
             "datamodel.site_token_rejected"} <= findings.FINDING_KEYS
-    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 32
+    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 33
 
 
 def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
@@ -263,6 +263,50 @@ def test_every_key_a_rule_assigns_is_one_the_module_lists(findings):
                                    + [PRE("event_types", "blocking", phrase) for phrase, _ in findings._EVENT_TYPE_VARIANTS]
                                    + [PRE("inactive_members", "blocking", "x"), PRE("leg_span", "warning", "x (3 leg days as stored)")],
                                    "warnings": [PRE("inactive_members", "warning", "x"), PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred")]})
-    keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"]]
+    keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"],
+                                        findings.shared_set_changes(datamodel_stats={"event_types_unchanged": 1, "choices_created": 1}, dry_calls=[])["key"]]
     assert None not in keys and set(keys) == set(findings.FINDING_KEYS)
     assert cl[1]["params"] == {"group": "A`b"}, "the whole name between the outer backticks"
+
+
+def test_one_set_name_one_key(findings):
+    F = findings
+    assert F.set_key("R5 Model") == F.set_key("  r5   model ") == F.set_key("Ｒ５ Model")
+    assert F.set_key("R5 Model") != F.set_key("R6 Model")
+    assert len(F.set_key("R5 Model")) == 32 and int(F.set_key("R5 Model"), 16) >= 0
+
+
+def test_the_set_key_is_pinned(findings):
+    # the namespace must never change: a changed key orphans every set already on a site
+    assert findings.set_key("R5 Model") == "04768b84429f56a7a491f88351f55a03"
+
+
+def test_the_set_prefix(findings):
+    F = findings
+    assert F.set_prefix(None) == "smart-ca-import"
+    assert F.set_prefix("R5 Model") == "smart-ca-import_" + F.set_key("R5 Model")
+
+
+def test_the_default_category_of_a_set(findings):
+    F = findings
+    assert F.set_category("R5 Model") == "smart-r5-model"
+    for name in ("A very long configurable model name indeed", "模型", "-", "x"):
+        assert F.EVENT_CATEGORY.fullmatch(F.set_category(name)), name
+
+
+def test_a_plan_warns_only_when_a_set_already_on_the_site_would_change(findings):
+    F = findings
+    patch = ("patch_event_type", (), {"event_type": {"value": "smart-ca-import_k_fire", "display": "Fire"}})
+    post = ("post_event_type", (), {"event_type": {"value": "smart-ca-import_k_new"}})
+    on_site = {"event_types_unchanged": 3, "event_types_updated": 1, "choices_created": 2}
+    f = F.shared_set_changes(datamodel_stats=on_site, dry_calls=[patch, post])
+    assert f["severity"] == "warning" and not F.has_blocking([f]) and f["stage"] == "datamodel"
+    assert f["values"] == ["smart-ca-import_k_fire"] and "changes: 1" in f["detail"] and "adds: 2" in f["detail"]
+    # options added to a set the site has, with no event type changed
+    assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 3, "choices_created": 2}, dry_calls=[])["values"] == []
+    # an area with no event type in common joins a set that is there: its new options are still reported
+    assert F.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "event_types_created": 2, "choices_created": 1}, dry_calls=[post])
+    # the same model again: nothing would change
+    assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 4, "choices_created": 0}, dry_calls=[]) is None
+    # a set new to the site: everything is created, nothing is shared yet
+    assert F.shared_set_changes(datamodel_stats={"event_types_created": 4, "choices_created": 9}, dry_calls=[post]) is None

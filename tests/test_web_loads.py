@@ -160,7 +160,7 @@ def test_create_load_plans_first(client, launches):
     assert r.status_code == 201, r.text
     load = r.json()
     assert load["status"] == "planning" and load["site"] == {"id": site, "name": "s", "url": "x.pamdas.org"}
-    assert load["options"] == {"language": "en", "configurable_model": None, "roster_group": "Rangers",
+    assert load["options"] == {"language": "en", "configurable_model": None, "event_type_set": None, "roster_group": "Rangers",
                                "event_category": "smart-050500", "scope": "all", "since": None, "until": None}
     assert launches == [(load["id"], "plan")]
     listed = c.get(f"/api/datasets/{ds}/loads").json()[0]
@@ -438,3 +438,42 @@ def test_a_load_says_when_its_dataset_is_being_extracted(client, launches):
     store.update(ds, status="running", started_at=app.now())
     assert c.get(f"/api/loads/{load}").json()["dataset_extracting"] is True
     assert c.get(f"/api/datasets/{ds}/loads").json()[0]["dataset_extracting"] is True
+
+
+def test_a_load_with_a_configurable_model_gets_a_set_name(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    post = lambda **options: c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": options})
+    r = post(configurable_model="abc")
+    assert r.status_code == 201, r.text
+    # the model's label, and the category that goes with it
+    assert r.json()["options"]["event_type_set"] == "Mobile" and r.json()["options"]["event_category"] == "smart-mobile"
+    store.update_load(r.json()["id"], status="done")
+    r = post(configurable_model="abc", event_type_set="  Region 5  ")
+    assert r.json()["options"]["event_type_set"] == "Region 5" and r.json()["options"]["event_category"] == "smart-region-5"
+    store.update_load(r.json()["id"], status="done")
+    r = post(configurable_model="abc", event_type_set="Region 5", event_category="mine")
+    assert r.json()["options"]["event_category"] == "mine"   # a given category still wins
+    store.update_load(r.json()["id"], status="done")
+    r = post(configurable_model="abc", event_type_set="   ")
+    assert r.json()["options"]["event_type_set"] == "Mobile"   # blank: the default
+    store.update_load(r.json()["id"], status="done")
+    assert post(event_type_set="Region 5").json()["code"] == "set_without_model"
+    for bad in ("x" * 61, 12, ["a"]):
+        r = post(configurable_model="abc", event_type_set=bad)
+        assert r.status_code == 400 and r.json()["code"] == "event_type_set_invalid", bad
+    assert post(configurable_model="abc", event_type_set="x" * 60).status_code == 201
+
+
+def test_a_long_model_name_is_the_set_name_whole(client, launches):
+    app, c = client
+    store = app.get_store()
+    long = "A configurable model whose name runs well past sixty characters in all"
+    assert len(long) > 60
+    ds = _dataset(store, export=[{**EXPORT[0], "configurable_models": [{"uuid": "abc", "label": long}]}])
+    post = lambda **options: c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": _site(store), "options": options})
+    r = post(configurable_model="abc")
+    assert r.status_code == 201 and r.json()["options"]["event_type_set"] == long   # not cut: a cut name is another set
+    store.update_load(r.json()["id"], status="done")
+    assert post(configurable_model="abc", event_type_set=long).status_code == 201   # what the dialog sends back

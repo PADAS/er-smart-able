@@ -338,9 +338,12 @@ function loadName(l) { return t('load.name', { area: l.ca_id, site: l.site ? l.s
 // the heading with its status, what the load was asked to do and by whom, and the actions it offers now
 // the facts under a load's title, as plain text: the title block escapes each one (facts.map(esc))
 function loadFacts(l) {
-  const o = l.options || {};
-  return [l.site ? l.site.url : '', o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
+  const o = l.options || {}, set = l.event_type_set || {};
+  // once the job has looked at the site: the category its event types are really in, and whether this
+  // conservation area keeps event types of its own from before areas shared them
+  return [l.site ? l.site.url : '', set.category ? t('load.setCategory', { value: set.category }) : o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
     o.configurable_model ? t('load.configurableModel', { value: o.configurable_model }) : '',
+    set.old ? t('load.oldSet') : (set.name || o.event_type_set) ? t('load.eventTypeSet', { value: set.name || o.event_type_set }) : '',   // set.name: a load made before set names has no option, and the job gave it the model's
     l.owner_email ? (l.created_at ? t('load.startedByWhen', { who: l.owner_email, when: fmtWhen(l.created_at) }) : t('load.startedBy', { who: l.owner_email })) : ''].filter(Boolean);
 }
 function renderLoadTitle(l) {

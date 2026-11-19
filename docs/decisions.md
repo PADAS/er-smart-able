@@ -89,3 +89,31 @@ dataset extracted earlier loads without being touched; re-extracting it
 writes version 2. A track is now checked when its patrol is imported, so a
 bad one fails that patrol and not the bundle. Reopen if `patrols.json`,
 still read whole, becomes the next thing too big to hold.
+
+## 2026-11-19: Conservation areas share event types by their configurable model's name
+
+A country's SMART deployment is many conservation areas with one model per
+region, all loaded into one site. Each area's copy of a configurable model
+has its own uuid, and the uuid was part of every event type value and
+choice list name, so two areas of one region each wrote 18 event types and
+22 lists of the same content and no query spanned them: about 3,000 event
+types for 168 areas (GUNDI-5946). Without a configurable model the areas did
+share, but each load deactivated the options its own model lacked and moved
+every event type into its own category.
+
+A load with a configurable model now has a set name, the model's name
+unless the operator changes it, and a key made from that name stands where
+the uuid stood (`findings.set_key`). Areas with one name write one set.
+Every push is additive (er-smart-sync's `additive`): nothing is
+deactivated, an existing event type keeps its category, and new ones join
+it.
+
+Not a hash of the model's content: one edited option in one area would
+start a new set, and the operator could not see why. Not one set for the
+whole site: regions keep different species lists. Sets written under a
+model's uuid before this change are left as they are, and a load that
+finds one keeps using it, so events already imported stay valid; merging
+them into a shared set is not done.
+
+Reopen if two regions give different models the same name and the plan's
+warning (`shared_set_changes`) proves too easy to miss.

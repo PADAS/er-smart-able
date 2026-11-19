@@ -199,6 +199,9 @@
     "eventCategory": "catégorie d'événements {{value}}",
     "language": "langue {{value}}",
     "configurableModel": "modèle configurable {{value}}",
+    "eventTypeSet": "ensemble de types d'événement {{value}}",
+    "setCategory": "types d'événement dans la catégorie {{value}}",
+    "oldSet": "ses propres types d'événement, issus d'un chargement fait avant que les zones de conservation ne les partagent",
     "startedBy": "lancé par {{who}}",
     "startedByWhen": "lancé par {{who}}, {{when}}"
   },
@@ -427,6 +430,10 @@
       "site_token_rejected": {
         "title": "Le jeton du site ne fonctionne plus",
         "fix": "Rien n'a été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement."
+      },
+      "shared_set_changes": {
+        "title": "Ce chargement modifie des types d'événement ou des listes d'options que le site a déjà",
+        "fix": "D'autres zones de conservation chargées sur ce site les utilisent peut-être. Chaque type d'événement indiqué reçoit les champs et le nom de cette zone ; rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
       }
     }
   },
@@ -519,10 +526,12 @@
     "configurableModel": "Modèle configurable",
     "none": "aucun",
     "modelHint": "aucun : des types d'événement pour tout le modèle de données. Un modèle configurable (le sous-ensemble qu'utilise un formulaire mobile SMART) ne rend actives que ses catégories et ses options de liste ; les autres, utilisées par des observations plus anciennes, sont conservées, inactives, pour que ces observations se chargent quand même.",
+    "eventTypeSet": "Ensemble de types d'événement",
+    "eventTypeSetHint": "Les zones de conservation chargées sous le même nom partagent un seul ensemble de types d'événement et de listes d'options sur le site. Changez-le pour garder à part ceux de ce modèle.",
     "roster": "Groupe des écogardes",
     "rosterPlaceholder": "facultatif ; par défaut : le premier groupe de membres de la configuration des patrouilles",
     "category": "Catégorie d'événements",
-    "categoryHint": "Utilisez l'identifiant d'un envoi antérieur fait avec l'outil en ligne de commande, s'il y en a eu un (par exemple, site-xyz).",
+    "categoryHint": "Là où vont les types d'événement que ce chargement crée. Si le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent.",
     "what": "Que charger",
     "modelAndPatrols": "Le modèle de données et les patrouilles",
     "modelOnly": "Le modèle de données seulement",
@@ -596,6 +605,8 @@
     "language_not_in_bundle": "La langue « {{language}} » n'est pas dans le paquet",
     "unknown_model": "Modèle configurable inconnu",
     "event_category_invalid": "La catégorie d'événements doit compter de 2 à 30 caractères : lettres, chiffres, « - » ou « _ »",
+    "set_without_model": "Seul un chargement avec un modèle configurable a un ensemble de types d'événement",
+    "event_type_set_invalid": "Le nom de l'ensemble de types d'événement doit compter de 1 à 60 caractères",
     "load_active": "Un chargement de cette zone de conservation dans ce site est déjà actif",
     "site_removed": "Le site a été retiré ; enregistrez-le de nouveau et lancez un nouveau chargement",
     "site_no_access": "Vous n'avez pas accès à ce site",

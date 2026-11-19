@@ -27,7 +27,20 @@ Patrols that fail during the import do not stop the others. At the end they beco
 
 ## Event category
 
-The event category is the EarthRanger identifier the data model is pushed under. The default is `smart-<conservation area id>`. If a data model for this conservation area was already pushed to the site, for example with the command-line tool, use the identifier that push used, so the event types are updated rather than created a second time under a new category.
+The event category is the EarthRanger category that the event types this load creates go into. The default is `smart-<conservation area id>`, or `smart-<event type set name>` for a load with a configurable model. When the site already has this load's event types, they stay in the category they are in and new ones join them there, whatever is entered here. The load page names that category once the plan is made.
+
+## Several conservation areas in one site
+
+Conservation areas that use the same data model share its event types on a site, so one query covers all of them.
+
+- **Without a configurable model**, every load into the site writes the same set of event types and dropdown lists.
+- **With a configurable model**, loads with the same **event type set** name share one set. The name is the configurable model's name unless you change it. Give it another name to keep a model's event types apart from another model with the same name. Give two models one name to put them together.
+
+A load only adds to a set. It creates the event types and dropdown options the site lacks and updates the fields of those it has. It never deactivates an option or an event type, and never moves an event type to another category. So an option or event type removed from SMART stays active on the site until an administrator turns it off there.
+
+If this conservation area's model differs from what the site already has under the same name, the plan says so in a warning that lists the event types the load would change.
+
+A conservation area loaded before event types were shared keeps its own event types on that site. The load page says so, and the set name does not apply.
 
 ## Loading part of a dataset
 

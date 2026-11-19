@@ -199,6 +199,9 @@
     "eventCategory": "kategoria ya matukio {{value}}",
     "language": "lugha {{value}}",
     "configurableModel": "moduli inayosanidika {{value}}",
+    "eventTypeSet": "kundi la aina za matukio {{value}}",
+    "setCategory": "aina za matukio katika kategoria {{value}}",
+    "oldSet": "aina zake za matukio, kutoka kwa uingizaji uliofanywa kabla maeneo ya hifadhi hayajaanza kuzishiriki",
     "startedBy": "mwanzilishi: {{who}}",
     "startedByWhen": "mwanzilishi: {{who}}, {{when}}"
   },
@@ -427,6 +430,10 @@
       "site_token_rejected": {
         "title": "Tokeni ya tovuti haifanyi kazi tena",
         "fix": "Hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya."
+      },
+      "shared_set_changes": {
+        "title": "Uingizaji huu unabadilisha aina za matukio au orodha za machaguo ambazo tovuti tayari inazo",
+        "fix": "Huenda maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti hii yanazitumia. Kila aina ya tukio iliyoorodheshwa inapata sehemu za kujaza na jina la eneo hili; hakuna kinachozimwa. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya wenye jina jingine la kundi la aina za matukio."
       }
     }
   },
@@ -519,10 +526,12 @@
     "configurableModel": "Moduli inayosanidika",
     "none": "hakuna",
     "modelHint": "hakuna: aina za matukio kwa moduli data nzima. Moduli inayosanidika (sehemu ndogo inayotumiwa na fomu ya simu ya SMART) inafanya kategoria na machaguo yake tu kuwa amilifu; nyingine zilizotumiwa na vielelezo vya zamani zinabaki, zikiwa si amilifu, ili vielelezo hivyo bado viweze kuingizwa.",
+    "eventTypeSet": "Kundi la aina za matukio",
+    "eventTypeSetHint": "Maeneo ya hifadhi yanayoingizwa kwa jina moja yanashiriki kundi moja la aina za matukio na orodha za machaguo kwenye tovuti. Libadilishe ili kutenga zile za moduli hii.",
     "roster": "Kundi la askari",
     "rosterPlaceholder": "si lazima; chaguo-msingi: kundi la kwanza la wanachama katika usanidi wa doria",
     "category": "Kategoria ya matukio",
-    "categoryHint": "Tumia kitambulisho kilichotumiwa na utumaji wa awali kwa zana ya mstari wa amri, kama upo (kwa mfano, site-xyz).",
+    "categoryHint": "Mahali ambapo aina za matukio zinazoundwa na uingizaji huu zinawekwa. Tovuti ikiwa tayari ina aina za matukio za uingizaji huu, zinabaki katika kategoria yake na mpya zinajiunga nazo humo.",
     "what": "Cha kuingiza",
     "modelAndPatrols": "Moduli data na doria",
     "modelOnly": "Moduli data pekee",
@@ -596,6 +605,8 @@
     "language_not_in_bundle": "Lugha \"{{language}}\" haimo kwenye kifurushi",
     "unknown_model": "Moduli inayosanidika haijulikani",
     "event_category_invalid": "Kategoria ya matukio lazima iwe na urefu wa vibambo 2 hadi 30: herufi, tarakimu, '-' au '_'",
+    "set_without_model": "Ni uingizaji wenye moduli inayosanidika tu ulio na kundi la aina za matukio",
+    "event_type_set_invalid": "Jina la kundi la aina za matukio lazima liwe na vibambo 1 hadi 60",
     "load_active": "Tayari kuna uingizaji amilifu wa eneo hili la hifadhi kwenye tovuti hiyo",
     "site_removed": "Tovuti iliondolewa; isajili tena kisha anzisha uingizaji mpya",
     "site_no_access": "Huna ruhusa ya kufikia tovuti hiyo",

@@ -27,7 +27,20 @@ Doria zinazoshindwa wakati wa uingizaji hazisimamishi nyingine. Mwishoni zinakuw
 
 ## Kategoria ya matukio
 
-Kategoria ya matukio ni kitambulisho cha EarthRanger ambacho moduli data inatumwa chini yake. Chaguo-msingi ni `smart-<conservation area id>`. Kama moduli data ya eneo hili la hifadhi ilishatumwa kwenye tovuti, kwa mfano kwa zana ya mstari wa amri, tumia kitambulisho kilichotumiwa wakati huo, ili aina za matukio zisasishwe badala ya kuundwa mara ya pili chini ya kategoria mpya.
+Kategoria ya matukio ni kategoria ya EarthRanger ambamo aina za matukio zinazoundwa na uingizaji huu zinawekwa. Chaguo-msingi ni `smart-<conservation area id>`, au `smart-<event type set name>` kwa uingizaji wenye moduli inayosanidika. Tovuti ikiwa tayari ina aina za matukio za uingizaji huu, zinabaki katika kategoria zilimo na mpya zinajiunga nazo humo, bila kujali kilichoandikwa hapa. Ukurasa wa uingizaji unataja kategoria hiyo baada ya mpango kutengenezwa.
+
+## Maeneo kadhaa ya hifadhi kwenye tovuti moja
+
+Maeneo ya hifadhi yanayotumia moduli data moja yanashiriki aina zake za matukio kwenye tovuti, kwa hiyo ulizo moja linayahusu yote.
+
+- **Bila moduli inayosanidika**, kila uingizaji kwenye tovuti unaandika kundi lilelile la aina za matukio na orodha za machaguo.
+- **Kwa moduli inayosanidika**, uingizaji wenye jina moja la **kundi la aina za matukio** unashiriki kundi moja. Jina hilo ni la moduli inayosanidika, isipokuwa ukilibadilisha. Lipe jina jingine ili kutenga aina za matukio za moduli moja na zile za moduli nyingine yenye jina hilohilo. Zipe moduli mbili jina moja ili kuziweka pamoja.
+
+Uingizaji huongeza tu kwenye kundi. Unaunda aina za matukio na machaguo ya orodha ambayo tovuti haina, na unasasisha sehemu za kujaza za zile ilizonazo. Hauzimi kamwe chaguo wala aina ya tukio, na hauhamishi kamwe aina ya tukio kwenda kategoria nyingine. Kwa hiyo chaguo au aina ya tukio iliyoondolewa kwenye SMART inabaki amilifu kwenye tovuti hadi msimamizi aizime huko.
+
+Ikiwa moduli ya eneo hili la hifadhi inatofautiana na kile ambacho tovuti tayari inacho chini ya jina hilohilo, mpango unasema hivyo kwa onyo linaloorodhesha aina za matukio ambazo uingizaji ungezibadilisha.
+
+Eneo la hifadhi lililoingizwa kabla aina za matukio hazijaanza kushirikiwa linabaki na aina zake za matukio kwenye tovuti hiyo. Ukurasa wa uingizaji unasema hivyo, na jina la kundi halitumiki.
 
 ## Kuingiza sehemu ya seti ya data
 

@@ -94,7 +94,7 @@ def extract_in_progress(doc: dict) -> bool:
 
 LOAD_FIELDS = ("dataset_id", "ca_id", "site_id", "owner_uid", "owner_email", "options", "status", "stage", "stages", "mode", "rangers", "rangers_total",
                "created_at", "updated_at", "execution", "continuations", "plan", "findings", "progress",
-               "log_tail", "error", "started_at", "claimed_at")
+               "log_tail", "error", "started_at", "claimed_at", "event_type_set")
 LOAD_ACTIVE = ("planning", "queued", "running", "continuing")
 LOAD_STALE_AFTER = timedelta(seconds=int(os.environ.get("LOAD_STALE_AFTER_SECONDS", 90000)))
 

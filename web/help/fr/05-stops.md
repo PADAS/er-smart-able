@@ -132,3 +132,7 @@ Chaque patrouille en échec est listée avec son erreur. La plupart des erreurs 
 ### Le jeton du site ne fonctionne plus {#finding-site_token_rejected}
 
 Le site a refusé le jeton ; rien n'a donc été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement.
+
+### Ce chargement modifie ce que le site a déjà {#finding-shared_set_changes}
+
+Le plan a trouvé les types d'événement de ce chargement déjà présents sur le site, et le modèle de cette zone de conservation en diffère : il modifierait les types d'événement indiqués, ou ajouterait des options de liste. D'autres zones de conservation chargées sur le site les partagent peut-être. Lancer le chargement donne à chaque type d'événement indiqué les champs et le nom de cette zone, et ajoute les options ; il ne désactive rien. Si la différence est attendue, lancez le chargement. Pour garder à part le modèle de cette zone, faites un nouveau plan et donnez-lui un autre nom d'ensemble de types d'événement.
