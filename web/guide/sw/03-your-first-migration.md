@@ -12,17 +12,17 @@ Fungua [programu](https://smart-able-977100970772.us-central1.run.app/) na uingi
 2. Ipe seti ya data jina utakalolitambua, kama vile eneo la hifadhi na tarehe, kisha chagua faili yako ya `.zip`.
 3. Bonyeza **Pakia**. Chelezo kubwa inachukua muda kutumwa; acha kisanduku cha mazungumzo wazi hadi kijifunge.
 
-Seti mpya ya data inaonekana kwenye orodha kama **inapakiwa**, kisha **kwenye foleni**, kisha **inaendelea**, kisha **tayari**. Hilo linachukua dakika chache, na ukurasa unajisasisha wenyewe. Ikiishia kuwa **imeshindwa**, fungua seti ya data: kichupo cha **Muhtasari** kinaonyesha hitilafu na mwisho wa kumbukumbu. [Hali](../../help/sw/04-statuses.md) inaeleza kila hali.
+Seti mpya ya data inaonekana kwenye orodha kama **inapakiwa**, kisha **kwenye foleni**, kisha **inaendelea**, kisha **tayari**. Hilo linachukua dakika chache, na ukurasa unajisasisha wenyewe. Ikiishia kuwa **imeshindwa**, fungua seti ya data: **Muhtasari** wake unaonyesha hitilafu na mwisho wa kumbukumbu. [Hali](../../help/sw/04-statuses.md) inaeleza kila hali.
 
 ## 3. Vinjari data zilizotolewa (extract)
 
-Fungua seti ya data. Kichupo chake cha **Muhtasari** kinaorodhesha kila eneo la hifadhi lililomo kwenye faili, pamoja na idadi ya doria na ya vielekezi (waypoints). Bonyeza **Vinjari** ili kupitia doria, ramani, vielelezo na moduli data.
+Fungua seti ya data. **Muhtasari** wake unaorodhesha kila eneo la hifadhi lililomo kwenye faili, pamoja na idadi ya doria na ya vielekezi (waypoints). Bonyeza **Vinjari** ili kupitia doria, ramani, vielelezo na moduli data.
 
 Hakikisha kwamba hili ndilo eneo la hifadhi ulilolitarajia na kwamba idadi zinaonekana sahihi. Bado hakuna kilichoandikwa kwenye EarthRanger.
 
 ## 4. Ongeza tovuti
 
-1. Kwenye ukurasa wa mwanzo, tafuta **Tovuti za EarthRanger**, chini ya seti zako za data.
+1. Kwenye upau wa pembeni, fungua **Tovuti**.
 2. Bonyeza **Ongeza tovuti**.
 3. Andika jina, anwani ya tovuti, na tokeni.
 

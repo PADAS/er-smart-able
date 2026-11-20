@@ -150,3 +150,39 @@ hand on a test site before release; if the site refuses such events,
 
 Reopen if operators need SMART's new fields and the site's added fields in
 one event type often enough that adding fields by hand does not do.
+
+## 2026-11-20: One sidebar for the app and the data browser
+
+Getting from a dataset back to the list was clumsy and different in each
+place: a breadcrumb line on the dataset page, one "Back to dataset" link on
+the browse pages. The two are separate documents with separate navigation,
+so a dataset's data and its migration read as two applications.
+
+A left sidebar replaces the app's top band, its breadcrumb line and the
+dataset's tabs, and the browser's band and list of views. Outside a dataset
+it lists Datasets and Sites. Inside one it shows only that dataset: a link
+back to the datasets, its Overview, then two groups, Data (the browser's
+eight views) and Migration (Loads, Match rangers, Backup). Theme, language,
+help and the account sit at its foot. Sites became a page of its own, and
+the browser's "Overview" is named Summary so the dataset has one Overview.
+
+The browser stays its own self-contained document, because it also opens
+from a local folder with no server. The sidebar's entries and markup are
+one file, `web/static/nav.js`, with `nav.css`; the app loads them and the
+browser carries a copy between markers, written by `scripts/sync_nav.py`
+and compared byte for byte by a test. From a folder the browser shows the
+Data group and the fold control and asks no server for anything. The
+browser's pages stay in English; only its sidebar follows the reader's
+language, and says so beside the Data heading. `quirks.html` keeps a plain
+band with a link back: it is a reference page opened in its own tab.
+
+Not the top band with Datasets and Sites links added and a breadcrumb in
+the browser: small, but the tabs and the browser's views would stay two
+separate things. Not a sidebar only inside a dataset: two styles of
+navigation in one app. Not the browser's views nested under a "Browse"
+entry: three levels deep, and "Rangers" twice. Not the browser moved into
+the app: a much larger change that ends its use from a folder.
+
+Reopen if the copy in the browser drifts despite the test, or if the page
+load between a Data view and a Migration page is felt in use; then the
+browser moves into the app.

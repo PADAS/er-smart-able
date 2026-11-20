@@ -573,7 +573,7 @@ def test_status_values_survive_translation(site, tmp_path):
             assert f"<code>{v}</code>" in h, (code, v)
 
 
-NAMED_IN_THE_GUIDE = ["home.title", "home.upload", "upload.submit", "dataset.browse", "shell.sites", "sites.add", "dataset.load",
+NAMED_IN_THE_GUIDE = ["home.title", "home.upload", "upload.submit", "dataset.browse", "nav.sites", "sites.add", "dataset.load",
                       "loadDialog.what", "loadDialog.modelOnly", "loadDialog.modelAndPatrols", "loadDialog.makePlan",
                       "load.confirm", "load.continue", "rangers.title"]
 

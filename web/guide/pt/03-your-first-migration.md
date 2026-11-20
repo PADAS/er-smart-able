@@ -12,17 +12,17 @@ Abra [o aplicativo](https://smart-able-977100970772.us-central1.run.app/) e entr
 2. Dê ao conjunto de dados um nome que você reconheça, como a área de conservação e a data, e escolha o seu arquivo `.zip`.
 3. Pressione **Enviar**. Um backup grande demora para ser enviado; deixe a caixa de diálogo aberta até ela fechar.
 
-O novo conjunto de dados aparece na lista como **enviando**, depois **na fila**, depois **em execução** e depois **pronto**. Isso leva alguns minutos, e a página se atualiza sozinha. Se terminar como **falhou**, abra o conjunto de dados: a aba **Visão geral** mostra o erro e o fim do registro. [Status](../../help/pt/04-statuses.md) explica cada status.
+O novo conjunto de dados aparece na lista como **enviando**, depois **na fila**, depois **em execução** e depois **pronto**. Isso leva alguns minutos, e a página se atualiza sozinha. Se terminar como **falhou**, abra o conjunto de dados: a **Visão geral** mostra o erro e o fim do registro. [Status](../../help/pt/04-statuses.md) explica cada status.
 
 ## 3. Explorar o que foi extraído
 
-Abra o conjunto de dados. A aba **Visão geral** lista cada área de conservação do arquivo, com o número de patrulhas e de pontos de localização (waypoints). Pressione **Explorar** para percorrer as patrulhas, o mapa, as observações e o modelo de dados.
+Abra o conjunto de dados. A **Visão geral** lista cada área de conservação do arquivo, com o número de patrulhas e de pontos de localização (waypoints). Pressione **Explorar** para percorrer as patrulhas, o mapa, as observações e o modelo de dados.
 
 Confira se esta é a área de conservação que você esperava e se os números parecem certos. Nada foi gravado no EarthRanger ainda.
 
 ## 4. Adicionar um site
 
-1. Na página inicial, encontre **Sites do EarthRanger**, abaixo dos seus conjuntos de dados.
+1. Na barra lateral, abra **Sites**.
 2. Pressione **Adicionar um site**.
 3. Digite um nome, o endereço do site e o token.
 

@@ -12,17 +12,17 @@ Ouvrez [l'application](https://smart-able-977100970772.us-central1.run.app/) et 
 2. Donnez au jeu de données un nom que vous reconnaîtrez, par exemple la zone de conservation et la date, et choisissez votre fichier `.zip`.
 3. Appuyez sur **Téléverser**. Une sauvegarde volumineuse met du temps à être envoyée ; laissez la boîte de dialogue ouverte jusqu'à ce qu'elle se ferme.
 
-Le nouveau jeu de données apparaît dans la liste comme **téléversement**, puis **en file d'attente**, puis **en cours**, puis **prêt**. Cela prend quelques minutes, et la page se met à jour d'elle-même. S'il se termine par **échec**, ouvrez le jeu de données : l'onglet **Vue d'ensemble** montre l'erreur et la fin du journal. [Statuts](../../help/fr/04-statuses.md) explique chaque statut.
+Le nouveau jeu de données apparaît dans la liste comme **téléversement**, puis **en file d'attente**, puis **en cours**, puis **prêt**. Cela prend quelques minutes, et la page se met à jour d'elle-même. S'il se termine par **échec**, ouvrez le jeu de données : sa **Vue d'ensemble** montre l'erreur et la fin du journal. [Statuts](../../help/fr/04-statuses.md) explique chaque statut.
 
 ## 3. Parcourir ce qui a été extrait
 
-Ouvrez le jeu de données. Son onglet **Vue d'ensemble** énumère chaque zone de conservation du fichier, avec le nombre de ses patrouilles et de ses waypoints. Appuyez sur **Parcourir** pour consulter les patrouilles, la carte, les observations et le modèle de données.
+Ouvrez le jeu de données. Sa **Vue d'ensemble** énumère chaque zone de conservation du fichier, avec le nombre de ses patrouilles et de ses waypoints. Appuyez sur **Parcourir** pour consulter les patrouilles, la carte, les observations et le modèle de données.
 
 Vérifiez qu'il s'agit bien de la zone de conservation attendue et que les nombres semblent corrects. Rien n'a encore été écrit dans EarthRanger.
 
 ## 4. Ajouter un site
 
-1. Sur la page d'accueil, repérez **Sites EarthRanger**, sous vos jeux de données.
+1. Dans la barre latérale, ouvrez **Sites**.
 2. Appuyez sur **Ajouter un site**.
 3. Saisissez un nom, l'adresse du site et le jeton.
 

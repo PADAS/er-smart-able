@@ -1,6 +1,6 @@
 # Cargar un conjunto de datos
 
-Una carga pone un área de conservación de un conjunto de datos en un sitio. Iníciela desde la página del conjunto de datos con **Cargar en EarthRanger**, en la pestaña **Resumen** o **Cargas**, eligiendo el área de conservación, el sitio, el idioma de las etiquetas, un modelo configurable opcional, el grupo (la lista de guardaparques) del que se eligen los guardaparques y la categoría de eventos.
+Una carga pone un área de conservación de un conjunto de datos en un sitio. Iníciela desde la página del conjunto de datos con **Cargar en EarthRanger**, en su **Resumen**, o bajo **Cargas** en la barra lateral, eligiendo el área de conservación, el sitio, el idioma de las etiquetas, un modelo configurable opcional, el grupo (la lista de guardaparques) del que se eligen los guardaparques y la categoría de eventos.
 
 ## Primero el plan, después confirmar
 
@@ -64,7 +64,7 @@ La elección abarca los tipos de evento y sus listas de opciones. Los tipos de p
 - **El modelo de datos y las patrullas**, la opción predeterminada. Deje **Patrullas desde** y **hasta** vacíos para cargar todas las patrullas, o indique uno o ambos para cargar solo las patrullas que empiezan en esos días o entre ellos. Las observaciones, las fotos y el trayecto de una patrulla vienen con ella. Las fechas son las propias del área de conservación, tal como SMART las registró. Una patrulla que SMART guardó sin fecha de inicio queda fuera de cualquier intervalo. Un intervalo solo limita las patrullas: la carga sigue configurando todo el modelo de datos, de modo que los pasos que pide a un administrador, como crear equipos, abarcan todos los equipos del área de conservación, incluidos los que solo usaron patrullas antiguas.
 - **Solo el modelo de datos**: los tipos de evento, los tipos de patrullaje y sus campos, los guardaparques como sujetos y la lista de guardaparques. Es lo que un equipo necesita para empezar a patrullar y registrar en EarthRanger sin traer su historial. Aun así se detiene en lo que un administrador debe hacer antes en el sitio, como crear equipos.
 
-Una carga posterior en el mismo sitio puede ampliar el intervalo o añadir las patrullas. Lo que ya está importado se omite. La página de la carga y la pestaña **Cargas** del conjunto de datos nombran lo que escribió cada carga, por ejemplo «Solo el modelo de datos» o «Patrullas del 2023-01-01 al 2024-12-31».
+Una carga posterior en el mismo sitio puede ampliar el intervalo o añadir las patrullas. Lo que ya está importado se omite. La página de la carga y la página **Cargas** del conjunto de datos nombran lo que escribió cada carga, por ejemplo «Solo el modelo de datos» o «Patrullas del 2023-01-01 al 2024-12-31».
 
 ## Ejecuciones largas y continuación
 
@@ -80,7 +80,7 @@ Si un trabajo es interrumpido de golpe, por una caída del servicio por ejemplo,
 
 La configuración de patrullas crea un sujeto por cada empleado de SMART que aparece en una patrulla o que sigue empleado, y la importación pone en él sus patrullas, sus trayectos y sus reportes. Un guardaparque que después use EarthRanger Mobile necesita una cuenta de usuario **vinculada a ese sujeto**: los trayectos de un usuario van a su sujeto vinculado, y los eventos que reporta lo llevan como *reported by* (reportado por). Sin el vínculo, su primer inicio de sesión crea un segundo sujeto y el historial se divide.
 
-La sección **Guardaparques** de la página de la carga, y la pestaña **Guardaparques** del conjunto de datos (que muestra la carga más reciente que llegó a la configuración de patrullas), enumeran a cada una de esas personas, con el nombre exactamente como está en el sitio, si la persona sigue activa en SMART y dos recuentos de patrullas: en las patrullas que importa esta carga (su intervalo de fechas, si se indicó uno) y en todo el conjunto de datos. Un guardaparque que sigue empleado y no tiene patrullas muestra 0, y una carga de solo el modelo de datos, que no importa patrullas, muestra solo el recuento de todo el conjunto de datos. El archivo CSV descargable tiene las mismas filas más una columna de correo vacía.
+La sección **Guardaparques** de la página de la carga, y la página **Vincular guardaparques** del conjunto de datos (que muestra la carga más reciente que llegó a la configuración de patrullas), enumeran a cada una de esas personas, con el nombre exactamente como está en el sitio, si la persona sigue activa en SMART y dos recuentos de patrullas: en las patrullas que importa esta carga (su intervalo de fechas, si se indicó uno) y en todo el conjunto de datos. Un guardaparque que sigue empleado y no tiene patrullas muestra 0, y una carga de solo el modelo de datos, que no importa patrullas, muestra solo el recuento de todo el conjunto de datos. El archivo CSV descargable tiene las mismas filas más una columna de correo vacía.
 
 Una fila marcada *registro de empleado eliminado en SMART* es un miembro de patrulla cuyo registro de empleado ya no existe; su sujeto se nombra con un identificador. Nadie puede iniciar sesión como él, así que no necesita cuenta.
 

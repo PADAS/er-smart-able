@@ -12,17 +12,17 @@ Abra [la aplicación](https://smart-able-977100970772.us-central1.run.app/) e in
 2. Dé al conjunto de datos un nombre que reconozca, como el área de conservación y la fecha, y elija su archivo `.zip`.
 3. Haga clic en **Subir**. Una copia de seguridad grande tarda en enviarse; deje el cuadro de diálogo abierto hasta que se cierre.
 
-El nuevo conjunto de datos aparece en la lista como **subiendo**, después **en cola**, después **en ejecución** y después **listo**. Eso tarda unos minutos, y la página se actualiza sola. Si termina como **falló**, abra el conjunto de datos: la pestaña **Resumen** muestra el error y el final del registro de actividad. [Estados](../../help/es/04-statuses.md) explica cada estado.
+El nuevo conjunto de datos aparece en la lista como **subiendo**, después **en cola**, después **en ejecución** y después **listo**. Eso tarda unos minutos, y la página se actualiza sola. Si termina como **falló**, abra el conjunto de datos: su **Resumen** muestra el error y el final del registro de actividad. [Estados](../../help/es/04-statuses.md) explica cada estado.
 
 ## 3. Explorar lo que se extrajo
 
-Abra el conjunto de datos. Su pestaña **Resumen** enumera cada área de conservación del archivo, con su número de patrullas y de coordenadas (waypoints). Haga clic en **Explorar** para recorrer las patrullas, el mapa, las observaciones y el modelo de datos.
+Abra el conjunto de datos. Su **Resumen** enumera cada área de conservación del archivo, con su número de patrullas y de coordenadas (waypoints). Haga clic en **Explorar** para recorrer las patrullas, el mapa, las observaciones y el modelo de datos.
 
 Compruebe que es el área de conservación que esperaba y que los números parecen correctos. Todavía no se ha escrito nada en EarthRanger.
 
 ## 4. Añadir un sitio
 
-1. En la página de inicio, busque **Sitios de EarthRanger**, debajo de sus conjuntos de datos.
+1. En la barra lateral, abra **Sitios**.
 2. Haga clic en **Agregar un sitio**.
 3. Escriba un nombre, la dirección del sitio y el token.
 
