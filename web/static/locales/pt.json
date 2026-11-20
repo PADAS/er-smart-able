@@ -434,8 +434,16 @@
         "fix": "Nada foi gravado. Remova o site, registre-o de novo com um token que funcione e inicie uma carga nova."
       },
       "shared_set_changes": {
-        "title": "Esta carga altera tipos de evento ou listas de opções que o site já tem",
-        "fix": "Outras áreas de conservação carregadas neste site podem usá-los. Cada tipo de evento indicado recebe os campos e o nome desta área; nada é desativado. Para manter à parte o modelo desta área, faça um novo plano com outro nome de grupo de tipos de evento."
+        "title": "Esta carga adiciona opções a listas que o site já tem",
+        "fix": "Outras áreas de conservação carregadas neste site compartilham estas listas. Nada é desativado. Para manter à parte o modelo desta área, faça um novo plano com outro nome de grupo de tipos de evento."
+      },
+      "event_types_overwritten": {
+        "title": "Esta carga substitui tipos de evento que o site alterou",
+        "fix": "Cada um recebe o nome e os campos do SMART, e os campos adicionados no site são removidos. Para mantê-los, faça um novo plano com «Deixá-los como estão»."
+      },
+      "event_types_missing_fields": {
+        "title": "Faltam a tipos de evento do site campos que esta área de conservação registra",
+        "fix": "Adicione os campos a estes tipos de evento no site, ou faça um novo plano com «Atualizá-los a partir do SMART»."
       }
     }
   },
@@ -475,6 +483,14 @@
     "more": "e mais {{n}}",
     "unchanged": "{{n}} sem alteração",
     "nothing": "nada a fazer",
+    "differKept": "Diferem do SMART e são deixados como estão: {{n}}",
+    "differUpdated": "Diferem do SMART e recebem o nome e os campos do SMART: {{n}}",
+    "diffName": "nome",
+    "diffActive": "ativo ou não",
+    "diffSiteOnly": "só no site: {{fields}}",
+    "diffSmartOnly": "só no SMART: {{fields}}",
+    "diffChanged": "alterados: {{fields}}",
+    "diffOther": "disposição ou configurações",
     "rosterAdd": "{{n}} a adicionar",
     "rosterGroupAdd": "{{group}}: {{n}} a adicionar",
     "none": "nenhuma: esta carga é só o modelo de dados",

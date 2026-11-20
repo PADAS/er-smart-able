@@ -133,6 +133,14 @@ Kila doria iliyoshindwa inaorodheshwa pamoja na hitilafu yake. Hitilafu nyingi z
 
 Tovuti ilikataa tokeni, kwa hiyo hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya.
 
-### Uingizaji huu unabadilisha kile ambacho tovuti tayari inacho {#finding-shared_set_changes}
+### Uingizaji huu unaongeza machaguo kwenye orodha ambazo tovuti tayari inazo {#finding-shared_set_changes}
 
-Mpango umekuta aina za matukio za uingizaji huu tayari zipo kwenye tovuti, na moduli ya eneo hili la hifadhi inatofautiana nazo: ungebadilisha aina za matukio zilizoorodheshwa, au kuongeza machaguo ya orodha. Huenda maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti yanazishiriki. Kuendesha uingizaji kunaipa kila aina ya tukio iliyoorodheshwa sehemu za kujaza na jina la eneo hili, na kuongeza machaguo; hakuzimi chochote. Ikiwa tofauti hiyo inatarajiwa, endesha uingizaji. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya na uupe jina jingine la kundi la aina za matukio.
+Mpango umekuta aina za matukio za uingizaji huu tayari ziko kwenye tovuti, na moduli ya eneo hili la hifadhi ina machaguo ya orodha ambayo orodha za tovuti hazina. Maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti yanashiriki orodha hizo. Kuendesha uingizaji kunaongeza machaguo hayo; hakuzimi chochote. Ikiwa tofauti hiyo inatarajiwa, endesha uingizaji. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya na uupe jina jingine la kundi la aina za matukio.
+
+### Uingizaji huu unabadilisha aina za matukio ambazo tovuti imezirekebisha {#finding-event_types_overwritten}
+
+Uingizaji uliombwa kusasisha kutoka SMART aina za matukio ambazo tovuti tayari inazo, na baadhi yake zinatofautiana na SMART. Kuendesha uingizaji kunaipa kila moja iliyoorodheshwa jina na sehemu za kujaza za SMART. Sehemu ambayo mtu aliiongeza kwenye tovuti inaondolewa. Mpango unaorodhesha, kwa kila aina ya tukio, sehemu zilizo kwenye tovuti pekee na zilizo kwenye SMART pekee. Hauwezi kutofautisha sehemu iliyoongezwa kwenye tovuti na iliyoondolewa kwenye SMART. Ili kuhifadhi aina za matukio za tovuti, tengeneza mpango mpya na uchague "Ziache kama zilivyo".
+
+### Aina za matukio kwenye tovuti hazina sehemu za kujaza ambazo eneo hili la hifadhi linarekodi {#finding-event_types_missing_fields}
+
+Uingizaji unaziacha kama zilivyo aina za matukio ambazo tovuti tayari inazo, na moduli ya SMART ya eneo hili la hifadhi ina sehemu za kujaza ambazo baadhi yake hazina. Mpango unaorodhesha sehemu hizo kwa kila aina ya tukio. Uingizaji hauziongezi. Ongeza sehemu hizo kwenye aina za matukio kwenye tovuti, au tengeneza mpango mpya na uchague "Zisasishe kutoka SMART", jambo linalobadilisha jina na sehemu za kila aina ya tukio kuwa za SMART.

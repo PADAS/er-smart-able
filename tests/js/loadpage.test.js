@@ -151,3 +151,13 @@ test('the title block says what the load does with event types the site already 
   assert.match(P.renderLoadTitle({ ...base, options: { ...base.options, existing_event_types: 'update' } }), /existing event types updated from SMART/);
   assert.doesNotMatch(P.renderLoadTitle(base), /existing event types/);
 });
+test('the plan lists the event types that differ from SMART, under the load\'s choice', () => {
+  const differ = [{ label: 'Fire', value: 'smart_fire', name: true, active: false, site_only: ['site_note', '<b>x</b>'], smart_only: [], changed: ['cause'], other: false }];
+  const kept = P.renderPlan({ existing_event_types: 'keep', event_types: { create: [], update: [], differ, more: { differ: 3 } } });
+  assert.match(kept, /left as they are: 1\+/); assert.match(kept, /Fire <span class="tiny">smart_fire<\/span>/);
+  assert.match(kept, /name; only on the site: site_note, &lt;b&gt;x&lt;\/b&gt;; changed: cause/); assert.match(kept, /and 3 more/);
+  assert.doesNotMatch(kept, /only in SMART|active or not|layout/);
+  const updated = P.renderPlan({ existing_event_types: 'update', event_types: { create: [], update: [], differ } });
+  assert.match(updated, /get SMART&#39;s name and fields: 1</);
+  assert.doesNotMatch(P.renderPlan({ event_types: { create: [], update: [] } }), /Differ from SMART/);   // a plan made before the list
+});

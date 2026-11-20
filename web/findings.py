@@ -89,7 +89,8 @@ FINDING_KEYS = frozenset(
     + [f"preflight.{c}" for c in _PREFLIGHT_COUNTED] + ["preflight.leg_span", "preflight.timezone"]
     + ["preflight.inactive_members.retired", "preflight.inactive_members.stranded"]
     + [f"preflight.event_types.{v}" for _, v in _EVENT_TYPE_VARIANTS]
-    + ["import.patrols_failed", "datamodel.site_token_rejected", "datamodel.shared_set_changes"])
+    + ["import.patrols_failed", "datamodel.site_token_rejected", "datamodel.shared_set_changes",
+       "datamodel.event_types_overwritten", "datamodel.event_types_missing_fields"])
 
 
 def _count(f: dict) -> int:
@@ -236,22 +237,49 @@ def token_rejected(detail: str) -> dict:
                    key="datamodel.site_token_rejected")
 
 
-def shared_set_changes(*, datamodel_stats: dict, dry_calls: list):
-    """A plan's warning that this load would change event types the site already has: other conservation
-    areas' loads may share them. None when the set is new to the site or nothing in it would change."""
+def shared_set_changes(*, datamodel_stats: dict):
+    """A plan's warning that this load would add dropdown options to lists the site already has: other
+    conservation areas' loads may share them. None when the set is new to the site or it adds none.
+    (The event types a load would change are event_types_overwritten's to name.)"""
     # the set's event types the site had before this load: the library counts them by the set's prefix, so a
     # conservation area with no event type in common with the ones already loaded still counts as joining
-    on_site = (datamodel_stats.get("event_types_on_site") or 0) + (datamodel_stats.get("event_types_unchanged") or 0) \
-        + (datamodel_stats.get("event_types_updated") or 0)
-    updated = [(kw.get("event_type") or {}).get("value") for name, _, kw in dry_calls if name == "patch_event_type"]
-    updated = [v for v in updated if v]
+    on_site = sum(datamodel_stats.get(k) or 0 for k in ("event_types_on_site", "event_types_unchanged", "event_types_updated",
+                                                         "event_types_skipped_by_mode"))
     added = datamodel_stats.get("choices_created") or 0
-    if not on_site or not (updated or added):
+    if not on_site or not added:
         return None
-    return finding("datamodel", "shared_set_changes", "warning", "This load changes event types or dropdown lists the site already has",
-                   detail=f"Event types it changes: {len(updated)}. Dropdown options it adds: {added}.",
-                   fix="Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name.",
-                   values=updated, key="datamodel.shared_set_changes")
+    return finding("datamodel", "shared_set_changes", "warning", "This load adds dropdown options to lists the site already has",
+                   detail=f"Dropdown options it adds: {added}.",
+                   fix="Other conservation areas loaded into this site share these lists. Nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name.",
+                   key="datamodel.shared_set_changes")
+
+
+# ---- event types the site already has that differ from this load's model. `differences` is er-smart-sync's
+# list: {"value", "display", "name", "active", "site_only", "smart_only", "changed", "other"} per event type.
+# It cannot say which side changed: a field only the site has was added there, or removed in SMART.
+
+def event_types_overwritten(differences: list):
+    """A plan's warning, for a load that updates existing event types from SMART: the ones that differ, each
+    of which gets SMART's name and fields. None when none differs."""
+    if not differences:
+        return None
+    lose = sum(1 for d in differences if d.get("site_only"))
+    return finding("datamodel", "event_types_overwritten", "warning", "This load replaces event types the site has changed",
+                   detail=f"Event types that differ from SMART: {len(differences)}. Of those, with fields SMART lacks: {lose}.",
+                   fix="Each one gets SMART's name and fields, and fields added on the site are removed. To keep them, make a new plan with 'Leave them as they are'.",
+                   values=[d.get("value") for d in differences], key="datamodel.event_types_overwritten")
+
+
+def event_types_missing_fields(differences: list):
+    """A plan's warning, for a load that leaves existing event types as they are: the ones whose form on the
+    site has no field for something this conservation area's model records. None when there is none."""
+    lacking = [d for d in differences if d.get("smart_only")]
+    if not lacking:
+        return None
+    return finding("datamodel", "event_types_missing_fields", "warning", "Event types on the site lack fields this conservation area records",
+                   detail=f"Event types: {len(lacking)}. Fields: {sum(len(d['smart_only']) for d in lacking)}.",
+                   fix="Add the fields to these event types on the site, or make a new plan with 'Update them from SMART'.",
+                   values=[d.get("value") for d in lacking], key="datamodel.event_types_missing_fields")
 
 
 def has_blocking(findings: list) -> bool:
@@ -281,7 +309,10 @@ def _group(**lists) -> dict:
     return out
 
 
-def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group, patrols, ledger_done, counts) -> dict:
+def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group, patrols, ledger_done, counts,
+               differences=(), existing="update") -> dict:
+    """differences: the site's event types that differ from the load's model (see event_types_overwritten);
+    existing: what the load does with them, "keep" or "update"."""
     cats, types = {"create": [], "update": []}, {"create": [], "update": []}
     for name, args, kwargs in dry_calls:
         payload = args[0] if args else kwargs.get("data") or kwargs.get("event_type") or {}
@@ -315,7 +346,12 @@ def build_plan(*, datamodel_stats, dry_calls, pd_changes, pd_stats, roster_group
         by_kind[kind][k].append(entry)
     plan = {
         "event_categories": _group(**cats, unchanged=datamodel_stats.get("categories_existing", 0)),
-        "event_types": _group(**types, unchanged=datamodel_stats.get("event_types_unchanged", 0)),
+        "event_types": _group(**types, unchanged=datamodel_stats.get("event_types_unchanged", 0),
+                              differ=[{"value": d.get("value"), "label": d.get("display") or d.get("value"), "name": bool(d.get("name")),
+                                       "active": bool(d.get("active")), "site_only": list(d.get("site_only") or []),
+                                       "smart_only": list(d.get("smart_only") or []), "changed": list(d.get("changed") or []),
+                                       "other": bool(d.get("other"))} for d in differences]),
+        "existing_event_types": existing,
         "patrol_types": _group(**by_kind["patrol_type"]),
         "universal_patrol_fields": "write" if pd_stats.get("schema_written") else "skip" if pd_stats.get("schema_skipped") else "merge",
         "choices": _group(**by_kind["choice"]),

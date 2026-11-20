@@ -434,8 +434,16 @@
         "fix": "Hakuna kilichoandikwa. Ondoa tovuti, isajili upya kwa tokeni inayofanya kazi, kisha anzisha uingizaji mpya."
       },
       "shared_set_changes": {
-        "title": "Uingizaji huu unabadilisha aina za matukio au orodha za machaguo ambazo tovuti tayari inazo",
-        "fix": "Huenda maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti hii yanazitumia. Kila aina ya tukio iliyoorodheshwa inapata sehemu za kujaza na jina la eneo hili; hakuna kinachozimwa. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya wenye jina jingine la kundi la aina za matukio."
+        "title": "Uingizaji huu unaongeza machaguo kwenye orodha ambazo tovuti tayari inazo",
+        "fix": "Maeneo mengine ya hifadhi yaliyoingizwa kwenye tovuti hii yanashiriki orodha hizi. Hakuna kinachozimwa. Ili kutenga moduli ya eneo hili, tengeneza mpango mpya wenye jina jingine la kundi la aina za matukio."
+      },
+      "event_types_overwritten": {
+        "title": "Uingizaji huu unabadilisha aina za matukio ambazo tovuti imezirekebisha",
+        "fix": "Kila moja inapata jina na sehemu za kujaza za SMART, na sehemu zilizoongezwa kwenye tovuti zinaondolewa. Ili kuzihifadhi, tengeneza mpango mpya ukichagua \"Ziache kama zilivyo\"."
+      },
+      "event_types_missing_fields": {
+        "title": "Aina za matukio kwenye tovuti hazina sehemu za kujaza ambazo eneo hili la hifadhi linarekodi",
+        "fix": "Ongeza sehemu hizo kwenye aina hizi za matukio kwenye tovuti, au tengeneza mpango mpya ukichagua \"Zisasishe kutoka SMART\"."
       }
     }
   },
@@ -475,6 +483,14 @@
     "more": "na {{n}} zaidi",
     "unchanged": "{{n}} bila mabadiliko",
     "nothing": "hakuna la kufanya",
+    "differKept": "Zinatofautiana na SMART na zinaachwa kama zilivyo: {{n}}",
+    "differUpdated": "Zinatofautiana na SMART na zinapata jina na sehemu za kujaza za SMART: {{n}}",
+    "diffName": "jina",
+    "diffActive": "hai au la",
+    "diffSiteOnly": "kwenye tovuti pekee: {{fields}}",
+    "diffSmartOnly": "kwenye SMART pekee: {{fields}}",
+    "diffChanged": "zimebadilika: {{fields}}",
+    "diffOther": "mpangilio au mipangilio",
     "rosterAdd": "{{n}} wa kuongeza",
     "rosterGroupAdd": "{{group}}: {{n}} wa kuongeza",
     "none": "hakuna: uingizaji huu ni wa moduli data pekee",

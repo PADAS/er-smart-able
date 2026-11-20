@@ -434,8 +434,16 @@
         "fix": "Rien n'a été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement."
       },
       "shared_set_changes": {
-        "title": "Ce chargement modifie des types d'événement ou des listes d'options que le site a déjà",
-        "fix": "D'autres zones de conservation chargées sur ce site les utilisent peut-être. Chaque type d'événement indiqué reçoit les champs et le nom de cette zone ; rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
+        "title": "Ce chargement ajoute des options à des listes que le site a déjà",
+        "fix": "D'autres zones de conservation chargées sur ce site partagent ces listes. Rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
+      },
+      "event_types_overwritten": {
+        "title": "Ce chargement remplace des types d'événement que le site a modifiés",
+        "fix": "Chacun reçoit le nom et les champs de SMART, et les champs ajoutés sur le site sont supprimés. Pour les garder, faites un nouveau plan avec « Les laisser tels quels »."
+      },
+      "event_types_missing_fields": {
+        "title": "Il manque à des types d'événement du site des champs que cette zone de conservation enregistre",
+        "fix": "Ajoutez les champs à ces types d'événement sur le site, ou faites un nouveau plan avec « Les mettre à jour depuis SMART »."
       }
     }
   },
@@ -475,6 +483,14 @@
     "more": "et {{n}} de plus",
     "unchanged": "{{n}} sans changement",
     "nothing": "rien à faire",
+    "differKept": "Diffèrent de SMART et sont laissés tels quels : {{n}}",
+    "differUpdated": "Diffèrent de SMART et reçoivent le nom et les champs de SMART : {{n}}",
+    "diffName": "nom",
+    "diffActive": "actif ou non",
+    "diffSiteOnly": "seulement sur le site : {{fields}}",
+    "diffSmartOnly": "seulement dans SMART : {{fields}}",
+    "diffChanged": "modifiés : {{fields}}",
+    "diffOther": "mise en page ou réglages",
     "rosterAdd": "{{n}} à ajouter",
     "rosterGroupAdd": "{{group}} : {{n}} à ajouter",
     "none": "aucune : ce chargement ne porte que sur le modèle de données",

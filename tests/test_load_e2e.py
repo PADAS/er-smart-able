@@ -55,9 +55,10 @@ class FakeER:
     _post = _patch = post_subject = post_event_file = post_event_category = post_event_type = patch_event_type = _fail
 
 
-def _plan(smart_parquet, tmp_path, monkeypatch, prepare=None, **options):
+def _plan(smart_parquet, tmp_path, monkeypatch, prepare=None, er=None, **options):
     """Extract, export and plan a load of the synthetic dataset with these options.
-    prepare(export dir) may change the export before it is stored."""
+    prepare(export dir) may change the export before it is stored. er: the ER client to plan against,
+    an empty FakeER unless given."""
     from export.__main__ import main as export_main
 
     work = smart_parquet.parent
@@ -85,7 +86,7 @@ def _plan(smart_parquet, tmp_path, monkeypatch, prepare=None, **options):
                                  "created_at": "2026-10-21T00:00:00+00:00", "updated_at": "2026-10-21T00:00:00+00:00",
                                  "continuations": 0, "findings": [], **OWNER})
     rc = load_job.Runner(store, load_id, "plan", work=tmp_path / "work",
-                         migration_factory=lambda **kw: load_job.ErSmartSyncMigration(er_client=FakeER(), **kw),
+                         migration_factory=lambda **kw: load_job.ErSmartSyncMigration(er_client=er or FakeER(), **kw),
                          check_token=lambda h, t: "ops", env={}).run()
     load = store.get_load(load_id)
     assert rc == 0 and load["status"] == "planned", load.get("error")
@@ -450,13 +451,13 @@ def test_the_plan_warns_when_a_shared_set_would_change(smart_parquet, tmp_path, 
     before = site.event_types()
     b = _migration(load_job, _another_area(a, tmp_path / "BETA", differs=differs), site, tmp_path, cm=OTHER_CM, dry_run=True)
     b.resolve_set()
-    f = F.shared_set_changes(datamodel_stats=b.push_datamodel(), dry_calls=b.dry_calls)
+    f = F.shared_set_changes(datamodel_stats=b.push_datamodel())
     assert site.event_types() == before   # a plan writes nothing
-    if differs:
-        assert f["severity"] == "warning" and f["values"] == [F.set_prefix("Alpha mobile model") + "_animals_liveanimals"]
-        assert "adds: 1" in f["detail"]
+    if differs:   # the option it adds; the event type it would change is event_types_overwritten's to name
+        assert f["severity"] == "warning" and f["values"] == [] and "adds: 1" in f["detail"]
+        assert [d["value"] for d in b.differences] == [F.set_prefix("Alpha mobile model") + "_animals_liveanimals"]
     else:
-        assert f is None
+        assert f is None and b.differences == []
 
 
 @pytest.mark.parametrize("order", ["a_then_b", "b_then_a"])
@@ -488,3 +489,96 @@ def test_two_areas_share_one_set_and_take_nothing_from_each_other(smart_parquet,
     assert first_active <= _active(site) and _active(alone) <= _active(site)
     assert {v for _, v in _active(site)} >= {"elephant", "lion"}
     assert site.categories() == first_categories and len(first_categories) == 1
+
+
+# ---- event types the site already has: kept, or updated from SMART (GUNDI-5949)
+
+def _props(site, value):
+    return site._types[value]["schema"]["json"]["properties"]
+
+
+def _add_field(site, value, key="site_note"):
+    """What an administrator does on the site: one more field in an event type's form."""
+    _props(site, value)[key] = {"type": "string", "title": "Site note"}
+
+
+def _loaded_site(load_job, export_dir, tmp_path):
+    """A site with the export's data model pushed for real, and one of its event types' values."""
+    from tests.fake_site import FakeSite
+
+    site = FakeSite()
+    _migration(load_job, export_dir, site, tmp_path).push_datamodel()
+    return site, sorted(site.event_types())[0]
+
+
+@pytest.mark.parametrize("existing", ["keep", "update"])
+def test_the_plan_names_an_event_type_changed_on_the_site(smart_parquet, tmp_path, load_job, existing):
+    a = _export(smart_parquet)
+    site, value = _loaded_site(load_job, a, tmp_path)
+    _add_field(site, value)
+    m = _migration(load_job, a, site, tmp_path, dry_run=True, existing_event_types=existing)
+    stats = m.push_datamodel()
+    assert "event_type_differences" not in stats   # the list is the plan's, not the stage's
+    assert [(d["value"], d["site_only"], d["smart_only"]) for d in m.differences] == [(value, ["site_note"], [])]
+    patched = [kw["event_type"]["value"] for name, _, kw in m.dry_calls if name == "patch_event_type"]
+    assert patched == ([] if existing == "keep" else [value])
+    assert "site_note" in _props(site, value)   # a plan writes nothing
+
+
+def test_a_keep_plan_into_an_empty_site_has_no_difference(smart_parquet, tmp_path, load_job):
+    from tests.fake_site import FakeSite
+
+    m = _migration(load_job, _export(smart_parquet), FakeSite(), tmp_path, dry_run=True, existing_event_types="keep")
+    stats = m.push_datamodel()
+    created = [n for n, _, _ in m.dry_calls if n == "post_event_type"]
+    assert m.differences == [] and created and stats["event_types_created"] == len(created)
+
+
+class _SiteWithPatrolSide:
+    """A FakeSite's event types and choices, and FakeER's empty patrol side: what a whole plan reads."""
+
+    def __init__(self, site):
+        self._fake_site, self._fake_er = site, FakeER()
+
+    def _get(self, path=None, params=None, **k):
+        if path == "choices":
+            return self._fake_site._get(path=path, params=params)
+        return self._fake_er._get(path, params)
+
+    def __getattr__(self, name):
+        if name in ("get_event_types", "get_event_categories"):
+            return getattr(self._fake_site, name)
+        return getattr(self._fake_er, name)
+
+
+@pytest.mark.parametrize("existing, change, code", [
+    ("update", "added", "event_types_overwritten"), ("keep", "added", None), ("keep", "removed", "event_types_missing_fields")])
+def test_a_plan_through_the_job_warns_by_the_loads_choice(smart_parquet, tmp_path, monkeypatch, existing, change, code):
+    from tests.fake_site import FakeSite
+
+    site, value = FakeSite(), None
+
+    def prepare(export_root):   # the site already has this export's event types, and one was changed there
+        nonlocal value
+        lj = importlib.import_module("load_job") if "load_job" in sys.modules else None
+        monkeypatch.syspath_prepend(str(ROOT / "web"))
+        lj = lj or importlib.import_module("load_job")
+        _migration(lj, export_root / "ALPHA", site, tmp_path, existing_event_types="update").push_datamodel()
+        value = sorted(site.event_types())[0]
+        if change == "added":
+            _add_field(site, value)
+        else:
+            required = set(site._types[value]["schema"]["json"]["required"])
+            del _props(site, value)[sorted(set(_props(site, value)) - required)[0]]
+
+    load = _plan(smart_parquet, tmp_path, monkeypatch, prepare=prepare, er=_SiteWithPatrolSide(site), scope="datamodel",
+                 configurable_model=CM, existing_event_types=existing)
+    codes = {f["code"]: f for f in load["findings"] if f["code"].startswith("event_types_")}
+    assert set(codes) == ({code} if code else set())
+    if code:
+        assert codes[code]["values"] == [value] and codes[code]["severity"] == "warning"
+    differ = load["plan"]["event_types"]["differ"]
+    assert [d["value"] for d in differ] == [value] and load["plan"]["existing_event_types"] == existing
+    assert (differ[0]["site_only"] == ["site_note"]) is (change == "added") and bool(differ[0]["smart_only"]) is (change == "removed")
+    rest = json.dumps({"stages": load["stages"], "log": load.get("log_tail")})
+    assert "event_type_differences" not in rest and "site_note" not in rest

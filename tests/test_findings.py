@@ -224,7 +224,7 @@ def test_a_finding_the_rules_do_not_recognise_has_no_key(findings):
 def test_every_key_the_module_can_emit_is_listed(findings):
     assert {"checklist.team", "preflight.event_types.unmatched", "preflight.inactive_members.stranded", "import.patrols_failed",
             "datamodel.site_token_rejected"} <= findings.FINDING_KEYS
-    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 33
+    assert "preflight.check_failed" not in findings.FINDING_KEYS and len(findings.FINDING_KEYS) == 35
 
 
 def test_a_plans_findings_for_what_the_run_creates_say_so(findings):
@@ -264,7 +264,8 @@ def test_every_key_a_rule_assigns_is_one_the_module_lists(findings):
                                    + [PRE("inactive_members", "blocking", "x"), PRE("leg_span", "warning", "x (3 leg days as stored)")],
                                    "warnings": [PRE("inactive_members", "warning", "x"), PRE("timezone", "warning", "the bundle's timezone Asia/Manila was inferred")]})
     keys = [f["key"] for f in cl + pre] + [findings.from_failed_patrols({"u": "e"}, {})[0]["key"], findings.token_rejected("x")["key"],
-                                        findings.shared_set_changes(datamodel_stats={"event_types_unchanged": 1, "choices_created": 1}, dry_calls=[])["key"]]
+                                        findings.shared_set_changes(datamodel_stats={"event_types_unchanged": 1, "choices_created": 1})["key"],
+                                        findings.event_types_overwritten(DIFFER)["key"], findings.event_types_missing_fields(DIFFER)["key"]]
     assert None not in keys and set(keys) == set(findings.FINDING_KEYS)
     assert cl[1]["params"] == {"group": "A`b"}, "the whole name between the outer backticks"
 
@@ -296,17 +297,52 @@ def test_the_default_category_of_a_set(findings):
 
 def test_a_plan_warns_only_when_a_set_already_on_the_site_would_change(findings):
     F = findings
-    patch = ("patch_event_type", (), {"event_type": {"value": "smart-ca-import_k_fire", "display": "Fire"}})
-    post = ("post_event_type", (), {"event_type": {"value": "smart-ca-import_k_new"}})
-    on_site = {"event_types_unchanged": 3, "event_types_updated": 1, "choices_created": 2}
-    f = F.shared_set_changes(datamodel_stats=on_site, dry_calls=[patch, post])
+    f = F.shared_set_changes(datamodel_stats={"event_types_unchanged": 3, "event_types_updated": 1, "choices_created": 2})
     assert f["severity"] == "warning" and not F.has_blocking([f]) and f["stage"] == "datamodel"
-    assert f["values"] == ["smart-ca-import_k_fire"] and "changes: 1" in f["detail"] and "adds: 2" in f["detail"]
-    # options added to a set the site has, with no event type changed
-    assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 3, "choices_created": 2}, dry_calls=[])["values"] == []
+    assert f["values"] == [] and "adds: 2" in f["detail"]
     # an area with no event type in common joins a set that is there: its new options are still reported
-    assert F.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "event_types_created": 2, "choices_created": 1}, dry_calls=[post])
+    assert F.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "event_types_created": 2, "choices_created": 1})
+    # a load that leaves the site's event types: the ones it skipped show the set is there
+    assert F.shared_set_changes(datamodel_stats={"event_types_skipped_by_mode": 2, "choices_created": 1})
     # the same model again: nothing would change
-    assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 4, "choices_created": 0}, dry_calls=[]) is None
+    assert F.shared_set_changes(datamodel_stats={"event_types_unchanged": 4, "choices_created": 0}) is None
     # a set new to the site: everything is created, nothing is shared yet
-    assert F.shared_set_changes(datamodel_stats={"event_types_created": 4, "choices_created": 9}, dry_calls=[post]) is None
+    assert F.shared_set_changes(datamodel_stats={"event_types_created": 4, "choices_created": 9}) is None
+
+
+DIFFER = [{"value": "p_a", "display": "A", "name": False, "active": False, "site_only": ["note"], "smart_only": [], "changed": [], "other": False},
+          {"value": "p_b", "display": "B", "name": True, "active": False, "site_only": [], "smart_only": ["x", "y"], "changed": [], "other": False}]
+
+
+def test_overwritten_names_every_differing_event_type(findings):
+    f = findings.event_types_overwritten(DIFFER)
+    assert f["values"] == ["p_a", "p_b"] and f["severity"] == "warning" and not findings.has_blocking([f])
+    assert f["detail"] == "Event types that differ from SMART: 2. Of those, with fields SMART lacks: 1."
+    assert findings.event_types_overwritten([]) is None
+
+
+def test_missing_fields_names_only_those_smart_has_more_of(findings):
+    f = findings.event_types_missing_fields(DIFFER)
+    assert f["values"] == ["p_b"] and f["severity"] == "warning" and not findings.has_blocking([f])
+    assert f["detail"] == "Event types: 1. Fields: 2."
+    assert findings.event_types_missing_fields(DIFFER[:1]) is None
+
+
+def test_shared_set_changes_is_about_options_only(findings):
+    assert findings.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "choices_created": 0, "event_types_updated": 2}) is None
+    f = findings.shared_set_changes(datamodel_stats={"event_types_on_site": 3, "choices_created": 4})
+    assert f["values"] == [] and f["detail"] == "Dropdown options it adds: 4."
+    assert findings.shared_set_changes(datamodel_stats={"choices_created": 4}) is None   # a set new to the site
+
+
+def test_the_plan_carries_the_differences(findings):
+    kw = dict(datamodel_stats={}, dry_calls=[], pd_changes=[], pd_stats={}, roster_group=None, patrols=None, ledger_done=set(), counts={})
+    plan = findings.build_plan(**kw, differences=DIFFER, existing="keep")
+    assert plan["existing_event_types"] == "keep"
+    assert plan["event_types"]["differ"][0] == {"value": "p_a", "label": "A", "name": False, "active": False, "site_only": ["note"],
+                                                "smart_only": [], "changed": [], "other": False}
+    many = [{**DIFFER[0], "value": f"p_{i}"} for i in range(findings.LIST_CAP + 3)]
+    plan = findings.build_plan(**kw, differences=many, existing="update")
+    assert len(plan["event_types"]["differ"]) == findings.LIST_CAP and plan["event_types"]["more"]["differ"] == 3
+    plan = findings.build_plan(**kw)   # a caller from before the choice
+    assert plan["event_types"]["differ"] == [] and plan["existing_event_types"] == "update"

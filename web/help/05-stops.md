@@ -131,6 +131,14 @@ Each failed patrol is listed with its error. Most errors name something missing 
 
 The site refused the token, so nothing was written. Remove the site, register it again with a working token, and start a new load.
 
-### This load changes what the site already has {#finding-shared_set_changes}
+### This load adds options to lists the site already has {#finding-shared_set_changes}
 
-The plan found this load's event types already on the site, and this conservation area's model differs from them: it would change the event types listed, or add dropdown options. Other conservation areas loaded into the site may share them. Running the load gives each listed event type this area's fields and name, and adds the options; it deactivates nothing. If the difference is expected, run the load. To keep this area's model apart, make a new plan and give it another event type set name.
+The plan found this load's event types already on the site, and this conservation area's model has dropdown options the site's lists lack. Other conservation areas loaded into the site share those lists. Running the load adds the options; it deactivates nothing. If the difference is expected, run the load. To keep this area's model apart, make a new plan and give it another event type set name.
+
+### This load replaces event types the site has changed {#finding-event_types_overwritten}
+
+The load was asked to update the event types the site already has from SMART, and some of them differ from SMART. Running the load gives each one listed SMART's name and fields. A field that someone added on the site is removed. The plan lists, for each event type, the fields only the site has and the fields only SMART has. It cannot tell a field added on the site from one removed in SMART. To keep the site's event types, make a new plan and choose "Leave them as they are".
+
+### Event types on the site lack fields this conservation area records {#finding-event_types_missing_fields}
+
+The load leaves the event types the site already has as they are, and this conservation area's SMART model has fields that some of them lack. The plan lists those fields for each event type. The load does not add them. Add the fields to the event types on the site, or make a new plan and choose "Update them from SMART", which replaces each event type's name and fields with SMART's.

@@ -434,8 +434,16 @@
         "fix": "Nothing was written. Remove the site, register it again with a working token, and start a new load."
       },
       "shared_set_changes": {
-        "title": "This load changes event types or dropdown lists the site already has",
-        "fix": "Other conservation areas loaded into this site may use them. Each event type listed gets this area's fields and name; nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name."
+        "title": "This load adds dropdown options to lists the site already has",
+        "fix": "Other conservation areas loaded into this site share these lists. Nothing is deactivated. To keep this area's model apart, make a new plan with another event type set name."
+      },
+      "event_types_overwritten": {
+        "title": "This load replaces event types the site has changed",
+        "fix": "Each one gets SMART's name and fields, and fields added on the site are removed. To keep them, make a new plan with 'Leave them as they are'."
+      },
+      "event_types_missing_fields": {
+        "title": "Event types on the site lack fields this conservation area records",
+        "fix": "Add the fields to these event types on the site, or make a new plan with 'Update them from SMART'."
       }
     }
   },
@@ -475,6 +483,14 @@
     "more": "and {{n}} more",
     "unchanged": "{{n}} unchanged",
     "nothing": "nothing to do",
+    "differKept": "Differ from SMART and are left as they are: {{n}}",
+    "differUpdated": "Differ from SMART and get SMART's name and fields: {{n}}",
+    "diffName": "name",
+    "diffActive": "active or not",
+    "diffSiteOnly": "only on the site: {{fields}}",
+    "diffSmartOnly": "only in SMART: {{fields}}",
+    "diffChanged": "changed: {{fields}}",
+    "diffOther": "layout or settings",
     "rosterAdd": "{{n}} to add",
     "rosterGroupAdd": "{{group}}: {{n}} to add",
     "none": "none: this load is the data model only",
