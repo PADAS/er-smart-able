@@ -74,7 +74,8 @@ const FULL_METRICS = {
 };
 const stagesOf = (status, extra) => Object.fromEntries(Object.keys(FULL_METRICS).map(s => [s, { status, started_at: T0, finished_at: T1, metrics: FULL_METRICS[s], ...extra }]));
 const PLAN = { event_categories: { create: [{ label: 'Cat new' }], update: [], deactivate: [{ label: 'Cat old', value: 'cat-old' }], unchanged: 2 },
-  event_types: { create: [{ label: 'Type new', value: 'type-new' }], update: [{ label: 'Type same', value: 'Type same' }], more: { create: 4 }, unchanged: 1 },
+  event_types: { create: [{ label: 'Type new', value: 'type-new' }], update: [{ label: 'Type same', value: 'Type same' }], more: { create: 4, differ: 2 }, unchanged: 1,
+    differ: [{ label: 'Type differs', value: 'type-differs', name: true, active: true, site_only: ['zznote'], smart_only: ['zzspecies'], changed: ['zzcount'], other: true }] },
   patrol_types: { create: [], update: [] }, universal_patrol_fields: 'zzwritten', choices: { update: [{ label: 'Choice up', value: 'ch-1' }], more: 3 },
   subjects: { create: [{ label: 'Subj new', value: 'subj-id' }] }, roster: { group: 'Rangers group', add: 3 },
   patrols: { total: 12, first: '2024-01-02', last: '2024-06-01', already_done: 2, events: 40, track_points: 900 } };

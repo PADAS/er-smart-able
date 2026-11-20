@@ -344,6 +344,7 @@ function loadFacts(l) {
   return [l.site ? l.site.url : '', set.category ? t('load.setCategory', { value: set.category }) : o.event_category ? t('load.eventCategory', { value: o.event_category }) : '', o.language ? t('load.language', { value: o.language }) : '', loadScope(l),
     o.configurable_model ? t('load.configurableModel', { value: o.configurable_model }) : '',
     set.old ? t('load.oldSet') : (set.name || o.event_type_set) ? t('load.eventTypeSet', { value: set.name || o.event_type_set }) : '',   // set.name: a load made before set names has no option, and the job gave it the model's
+    o.existing_event_types === 'keep' ? t('load.existingKeep') : o.existing_event_types === 'update' ? t('load.existingUpdate') : '',
     l.owner_email ? (l.created_at ? t('load.startedByWhen', { who: l.owner_email, when: fmtWhen(l.created_at) }) : t('load.startedBy', { who: l.owner_email })) : ''].filter(Boolean);
 }
 function renderLoadTitle(l) {
@@ -441,7 +442,7 @@ function stageSummary(stage, row, l, active) {
   const list = items => ({ list: items.join(', ') });
   const parts = [];
   if (stage === 'datamodel') {
-    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'errored']);
+    const cats = tally('categories_', ['created', 'existing']), types = tally('event_types_', ['created', 'updated', 'unchanged', 'migrated', 'skipped_by_mode', 'skipped_by_conflict', 'errored']), ch = tally('choices_', ['created', 'updated', 'unchanged', 'deactivated', 'skipped_by_mode', 'errored']);
     if (cats.length) parts.push(T('stages.summary.categories', null, list(cats)));
     if (types.length) parts.push(T('stages.summary.eventTypes', null, list(types)));
     if (ch.length) parts.push(T('stages.summary.choices', null, list(ch)));
@@ -531,8 +532,23 @@ function renderPlan(plan) {
       const showValue = e => e.value && e.value !== e.label && !(opts.noIdOnCreate && k === 'create');
       parts.push('<details><summary>' + T('plan.' + k, { n: g[k].length + (more ? '+' : '') }) + '</summary><ul>' + g[k].map(e => '<li>' + esc(e.label) + (showValue(e) ? ' <span class="tiny">' + esc(e.value) + '</span>' : '') + '</li>').join('') + (more ? '<li class="tiny">' + T('plan.more', { n: more }) + '</li>' : '') + '</ul></details>');
     }
+    if (opts.extra) parts.push(opts.extra);
     if (g.unchanged) parts.push('<span class="tiny">' + T('plan.unchanged', { n: g.unchanged }) + '</span>');
     return '<div><b>' + title + '</b> ' + (parts.join(' ') || '<span class="tiny">' + T('plan.nothing') + '</span>') + '</div>';
+  };
+  // event types the site already has that differ from SMART, and what the load does with them: each with what
+  // differs (the field keys are the site's and SMART's own, shown as they are)
+  const differs = () => {
+    const g = plan.event_types || {}, list = Array.isArray(g.differ) ? g.differ : [];
+    if (!list.length) return '';
+    const more = typeof g.more === 'object' && g.more ? g.more.differ || 0 : 0;
+    const what = d => [d.name ? T('plan.diffName') : '', d.active ? T('plan.diffActive') : '',
+      (d.site_only || []).length ? T('plan.diffSiteOnly', { fields: d.site_only.join(', ') }) : '',
+      (d.smart_only || []).length ? T('plan.diffSmartOnly', { fields: d.smart_only.join(', ') }) : '',
+      (d.changed || []).length ? T('plan.diffChanged', { fields: d.changed.join(', ') }) : '', d.other ? T('plan.diffOther') : ''].filter(Boolean).join('; ');
+    return '<details><summary>' + T(plan.existing_event_types === 'keep' ? 'plan.differKept' : 'plan.differUpdated', { n: list.length + (more ? '+' : '') }) + '</summary><ul>' +
+      list.map(d => '<li>' + esc(d.label) + (d.value && d.value !== d.label ? ' <span class="tiny">' + esc(d.value) + '</span>' : '') + ' <span class="tiny">' + what(d) + '</span></li>').join('') +
+      (more ? '<li class="tiny">' + T('plan.more', { n: more }) + '</li>' : '') + '</ul></details>';
   };
   const p = plan.patrols;   // absent from a data-model-only plan
   const roster = plan.roster || {};
@@ -540,7 +556,7 @@ function renderPlan(plan) {
   // the line's wording depends on whether the plan has a date window and patrols already imported
   const patrolsLine = p => T(p.first ? (p.already_done ? 'plan.patrolsFromDone' : 'plan.patrolsFrom') : (p.already_done ? 'plan.patrolsDone' : 'plan.patrolsLine'),
     { total: fmtNum(p.total || 0), first: p.first, last: p.last, done: fmtNum(p.already_done || 0) }, { events: tn('units.observations', p.events || 0), points: tn('units.trackPoints', p.track_points || 0) });
-  return group(T('plan.eventCategories'), plan.event_categories) + group(T('plan.eventTypes'), plan.event_types) + group(T('plan.patrolTypes'), plan.patrol_types) +
+  return group(T('plan.eventCategories'), plan.event_categories) + group(T('plan.eventTypes'), plan.event_types, { extra: differs() }) + group(T('plan.patrolTypes'), plan.patrol_types) +
     '<div><b>' + T('plan.universalFields') + '</b> ' + esc(plan.universal_patrol_fields) + '</div>' + group(T('plan.choices'), plan.choices) + group(T('plan.subjects'), plan.subjects, { noIdOnCreate: true }) +
     '<div><b>' + T('plan.roster') + '</b> ' + rosterAdd + '</div>' +
     (!p ? '<div><b>' + T('plan.patrols') + '</b> <span class="tiny">' + T('plan.none') + '</span></div>' :

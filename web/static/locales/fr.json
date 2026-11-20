@@ -202,6 +202,8 @@
     "eventTypeSet": "ensemble de types d'événement {{value}}",
     "setCategory": "types d'événement dans la catégorie {{value}}",
     "oldSet": "ses propres types d'événement, issus d'un chargement fait avant que les zones de conservation ne les partagent",
+    "existingKeep": "types d'événement existants conservés",
+    "existingUpdate": "types d'événement existants mis à jour depuis SMART",
     "startedBy": "lancé par {{who}}",
     "startedByWhen": "lancé par {{who}}, {{when}}"
   },
@@ -432,8 +434,16 @@
         "fix": "Rien n'a été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement."
       },
       "shared_set_changes": {
-        "title": "Ce chargement modifie des types d'événement ou des listes d'options que le site a déjà",
-        "fix": "D'autres zones de conservation chargées sur ce site les utilisent peut-être. Chaque type d'événement indiqué reçoit les champs et le nom de cette zone ; rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
+        "title": "Ce chargement ajoute des options à des listes que le site a déjà",
+        "fix": "D'autres zones de conservation chargées sur ce site partagent ces listes. Rien n'est désactivé. Pour garder à part le modèle de cette zone, faites un nouveau plan avec un autre nom d'ensemble de types d'événement."
+      },
+      "event_types_overwritten": {
+        "title": "Ce chargement remplace des types d'événement que le site a modifiés",
+        "fix": "Chacun reçoit le nom et les champs de SMART, et les champs ajoutés sur le site sont supprimés. Pour les garder, faites un nouveau plan avec « Les laisser tels quels »."
+      },
+      "event_types_missing_fields": {
+        "title": "Il manque à des types d'événement du site des champs que cette zone de conservation enregistre",
+        "fix": "Ajoutez les champs à ces types d'événement sur le site, ou faites un nouveau plan avec « Les mettre à jour depuis SMART »."
       }
     }
   },
@@ -473,6 +483,14 @@
     "more": "et {{n}} de plus",
     "unchanged": "{{n}} sans changement",
     "nothing": "rien à faire",
+    "differKept": "Diffèrent de SMART et sont laissés tels quels : {{n}}",
+    "differUpdated": "Diffèrent de SMART et reçoivent le nom et les champs de SMART : {{n}}",
+    "diffName": "nom",
+    "diffActive": "actif ou non",
+    "diffSiteOnly": "seulement sur le site : {{fields}}",
+    "diffSmartOnly": "seulement dans SMART : {{fields}}",
+    "diffChanged": "modifiés : {{fields}}",
+    "diffOther": "mise en page ou réglages",
     "rosterAdd": "{{n}} à ajouter",
     "rosterGroupAdd": "{{group}} : {{n}} à ajouter",
     "none": "aucune : ce chargement ne porte que sur le modèle de données",
@@ -532,6 +550,10 @@
     "rosterPlaceholder": "facultatif ; par défaut : le premier groupe de membres de la configuration des patrouilles",
     "category": "Catégorie d'événements",
     "categoryHint": "Là où vont les types d'événement que ce chargement crée. Si le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent.",
+    "existing": "Types d'événement déjà sur le site",
+    "existingKeep": "Les laisser tels quels",
+    "existingUpdate": "Les mettre à jour depuis SMART",
+    "existingHint": "Le chargement crée toujours les types d'événement et les options de liste qui manquent sur le site. La mise à jour remplace le nom et les champs d'un type d'événement qui diffère de SMART, ce qui supprime les champs ajoutés sur le site.",
     "what": "Que charger",
     "modelAndPatrols": "Le modèle de données et les patrouilles",
     "modelOnly": "Le modèle de données seulement",
@@ -607,6 +629,7 @@
     "event_category_invalid": "La catégorie d'événements doit compter de 2 à 30 caractères : lettres, chiffres, « - » ou « _ »",
     "set_without_model": "Seul un chargement avec un modèle configurable a un ensemble de types d'événement",
     "event_type_set_invalid": "Le nom de l'ensemble de types d'événement doit compter de 1 à 60 caractères",
+    "existing_event_types_invalid": "Les types d'événement déjà sur le site sont soit conservés, soit mis à jour",
     "load_active": "Un chargement de cette zone de conservation dans ce site est déjà actif",
     "site_removed": "Le site a été retiré ; enregistrez-le de nouveau et lancez un nouveau chargement",
     "site_no_access": "Vous n'avez pas accès à ce site",

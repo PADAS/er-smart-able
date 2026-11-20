@@ -133,6 +133,14 @@ Cada patrulla fallida se enumera con su error. La mayoría de los errores nombra
 
 El sitio rechazó el token, así que no se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva.
 
-### Esta carga cambia lo que el sitio ya tiene {#finding-shared_set_changes}
+### Esta carga añade opciones a listas que el sitio ya tiene {#finding-shared_set_changes}
 
-El plan encontró los tipos de evento de esta carga ya presentes en el sitio, y el modelo de esta área de conservación difiere de ellos: cambiaría los tipos de evento indicados o añadiría opciones de lista. Puede que otras áreas de conservación cargadas en el sitio los compartan. Al ejecutar la carga, cada tipo de evento indicado recibe los campos y el nombre de esta área, y se añaden las opciones; no se desactiva nada. Si la diferencia es la esperada, ejecute la carga. Para mantener aparte el modelo de esta área, haga un plan nuevo y dele otro nombre de grupo de tipos de evento.
+El plan encontró los tipos de evento de esta carga ya en el sitio, y el modelo de esta área de conservación tiene opciones de lista que las listas del sitio no tienen. Otras áreas de conservación cargadas en el sitio comparten esas listas. Ejecutar la carga añade las opciones; no desactiva nada. Si la diferencia es la esperada, ejecute la carga. Para mantener aparte el modelo de esta área, haga un plan nuevo y dele otro nombre de grupo de tipos de evento.
+
+### Esta carga reemplaza tipos de evento que el sitio ha cambiado {#finding-event_types_overwritten}
+
+Se pidió a la carga que actualizara desde SMART los tipos de evento que el sitio ya tiene, y algunos difieren de SMART. Ejecutar la carga da a cada uno de los indicados el nombre y los campos de SMART. Un campo que alguien añadió en el sitio se elimina. El plan indica, para cada tipo de evento, los campos que solo tiene el sitio y los que solo tiene SMART. No puede distinguir un campo añadido en el sitio de uno quitado en SMART. Para conservar los tipos de evento del sitio, haga un plan nuevo y elija «Dejarlos como están».
+
+### A tipos de evento del sitio les faltan campos que esta área de conservación registra {#finding-event_types_missing_fields}
+
+La carga deja como están los tipos de evento que el sitio ya tiene, y el modelo SMART de esta área de conservación tiene campos que a algunos de ellos les faltan. El plan indica esos campos para cada tipo de evento. La carga no los añade. Añada los campos a los tipos de evento en el sitio, o haga un plan nuevo y elija «Actualizarlos desde SMART», lo que reemplaza el nombre y los campos de cada tipo de evento por los de SMART.

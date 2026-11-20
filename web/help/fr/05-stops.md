@@ -133,6 +133,14 @@ Chaque patrouille en échec est listée avec son erreur. La plupart des erreurs 
 
 Le site a refusé le jeton ; rien n'a donc été écrit. Retirez le site, enregistrez-le de nouveau avec un jeton valable, et lancez un nouveau chargement.
 
-### Ce chargement modifie ce que le site a déjà {#finding-shared_set_changes}
+### Ce chargement ajoute des options à des listes que le site a déjà {#finding-shared_set_changes}
 
-Le plan a trouvé les types d'événement de ce chargement déjà présents sur le site, et le modèle de cette zone de conservation en diffère : il modifierait les types d'événement indiqués, ou ajouterait des options de liste. D'autres zones de conservation chargées sur le site les partagent peut-être. Lancer le chargement donne à chaque type d'événement indiqué les champs et le nom de cette zone, et ajoute les options ; il ne désactive rien. Si la différence est attendue, lancez le chargement. Pour garder à part le modèle de cette zone, faites un nouveau plan et donnez-lui un autre nom d'ensemble de types d'événement.
+Le plan a trouvé les types d'événement de ce chargement déjà sur le site, et le modèle de cette zone de conservation a des options de liste que les listes du site n'ont pas. D'autres zones de conservation chargées sur le site partagent ces listes. Lancer le chargement ajoute les options ; il ne désactive rien. Si la différence est attendue, lancez le chargement. Pour garder à part le modèle de cette zone, faites un nouveau plan et donnez-lui un autre nom d'ensemble de types d'événement.
+
+### Ce chargement remplace des types d'événement que le site a modifiés {#finding-event_types_overwritten}
+
+Il a été demandé au chargement de mettre à jour depuis SMART les types d'événement que le site a déjà, et certains diffèrent de SMART. Lancer le chargement donne à chacun de ceux indiqués le nom et les champs de SMART. Un champ que quelqu'un a ajouté sur le site est supprimé. Le plan indique, pour chaque type d'événement, les champs que seul le site a et ceux que seul SMART a. Il ne peut pas distinguer un champ ajouté sur le site d'un champ retiré dans SMART. Pour garder les types d'événement du site, faites un nouveau plan et choisissez « Les laisser tels quels ».
+
+### Il manque à des types d'événement du site des champs que cette zone de conservation enregistre {#finding-event_types_missing_fields}
+
+Le chargement laisse tels quels les types d'événement que le site a déjà, et le modèle SMART de cette zone de conservation a des champs que certains d'entre eux n'ont pas. Le plan indique ces champs pour chaque type d'événement. Le chargement ne les ajoute pas. Ajoutez les champs aux types d'événement sur le site, ou faites un nouveau plan et choisissez « Les mettre à jour depuis SMART », ce qui remplace le nom et les champs de chaque type d'événement par ceux de SMART.

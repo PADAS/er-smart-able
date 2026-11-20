@@ -133,6 +133,14 @@ Cada patrulha que falhou é listada com o erro dela. A maioria dos erros informa
 
 O site recusou o token, então nada foi gravado. Remova o site, registre-o de novo com um token que funcione e inicie uma carga nova.
 
-### Esta carga altera o que o site já tem {#finding-shared_set_changes}
+### Esta carga adiciona opções a listas que o site já tem {#finding-shared_set_changes}
 
-O plano encontrou os tipos de evento desta carga já presentes no site, e o modelo desta área de conservação difere deles: alteraria os tipos de evento indicados ou acrescentaria opções de lista. Outras áreas de conservação carregadas no site podem compartilhá-los. Ao executar a carga, cada tipo de evento indicado recebe os campos e o nome desta área, e as opções são acrescentadas; nada é desativado. Se a diferença é esperada, execute a carga. Para manter à parte o modelo desta área, faça um novo plano e dê a ele outro nome de grupo de tipos de evento.
+O plano encontrou os tipos de evento desta carga já no site, e o modelo desta área de conservação tem opções de lista que as listas do site não têm. Outras áreas de conservação carregadas no site compartilham essas listas. Executar a carga adiciona as opções; não desativa nada. Se a diferença é esperada, execute a carga. Para manter à parte o modelo desta área, faça um novo plano e dê-lhe outro nome de grupo de tipos de evento.
+
+### Esta carga substitui tipos de evento que o site alterou {#finding-event_types_overwritten}
+
+Pediu-se à carga que atualizasse a partir do SMART os tipos de evento que o site já tem, e alguns diferem do SMART. Executar a carga dá a cada um dos indicados o nome e os campos do SMART. Um campo que alguém adicionou no site é removido. O plano indica, para cada tipo de evento, os campos que só o site tem e os que só o SMART tem. Ele não consegue distinguir um campo adicionado no site de um removido no SMART. Para manter os tipos de evento do site, faça um novo plano e escolha «Deixá-los como estão».
+
+### Faltam a tipos de evento do site campos que esta área de conservação registra {#finding-event_types_missing_fields}
+
+A carga deixa como estão os tipos de evento que o site já tem, e o modelo SMART desta área de conservação tem campos que faltam a alguns deles. O plano indica esses campos para cada tipo de evento. A carga não os adiciona. Adicione os campos aos tipos de evento no site, ou faça um novo plano e escolha «Atualizá-los a partir do SMART», o que substitui o nome e os campos de cada tipo de evento pelos do SMART.

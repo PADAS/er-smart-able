@@ -36,11 +36,26 @@ Conservation areas that use the same data model share its event types on a site,
 - **Without a configurable model**, every load into the site writes the same set of event types and dropdown lists.
 - **With a configurable model**, loads with the same **event type set** name share one set. The name is the configurable model's name unless you change it. Give it another name to keep a model's event types apart from another model with the same name. Give two models one name to put them together.
 
-A load only adds to a set. It creates the event types and dropdown options the site lacks and updates the fields of those it has. It never deactivates an option or an event type, and never moves an event type to another category. So an option or event type removed from SMART stays active on the site until an administrator turns it off there.
+A load only adds to a set. It creates the event types and dropdown options the site lacks. What it does with the ones the site already has is your choice (see "Changes made on the site" below). It never deactivates an option or an event type, and never moves an event type to another category. So an option or event type removed from SMART stays active on the site until an administrator turns it off there.
 
-If this conservation area's model differs from what the site already has under the same name, the plan says so in a warning that lists the event types the load would change.
+If this conservation area's model differs from what the site already has under the same name, the plan lists the event types that differ, and warns when the load would add dropdown options to the site's lists.
 
 A conservation area loaded before event types were shared keeps its own event types on that site. The load page says so, and the set name does not apply.
+
+## Changes made on the site
+
+After a load, an administrator may change the migrated event types on the site: add a field, rename an event type, reword or reorder dropdown options, turn one off. The load form asks what a later load does with **event types already on the site**.
+
+- **Leave them as they are** is chosen unless you change it. The load writes nothing to an event type the site has: its name, its fields and whether it is active stay. The same holds for a dropdown option: its text, its place in the list and whether it is active stay. The load still creates the event types and options the site lacks.
+- **Update them from SMART** replaces the name and fields of every event type that differs from SMART. Choose it when the SMART data model itself changed and the site should follow. A field added on the site is removed.
+
+The plan lists every event type on the site that differs from SMART, with the fields only the site has and the fields only SMART has. It cannot tell which side made a change. Read the list before you run a load that updates.
+
+When a load leaves the event types as they are and this conservation area's model has a field the site's event type lacks, the plan warns you. Add the field on the site, or plan again with an update.
+
+A site that still has SMART event types in EarthRanger's older form (version 1) is the exception: choose **Update them from SMART** for its first load, so the load converts them. A load that leaves event types as they are does not convert them, skips the ones with the same value, and the readiness check then reports those event types as missing.
+
+The choice covers event types and their dropdown lists. Patrol types and the universal patrol fields are set up as before.
 
 ## Loading part of a dataset
 

@@ -454,7 +454,9 @@ def _load_public(doc: dict, user: dict, dataset: Optional[dict] = None) -> dict:
     site = get_store().get_site(doc.get("site_id", "")) if doc.get("site_id") else None
     out = {k: doc.get(k) for k in LOAD_FIELDS}
     # loads made before event_category existed run with the default (load_job's fallback)
-    out["options"] = {"event_category": None, "event_type_set": None, "scope": "all", "since": None, "until": None, **(out.get("options") or {})}
+    # a load made before existing_event_types ran, or was planned, as an update of what the site has
+    out["options"] = {"event_category": None, "event_type_set": None, "existing_event_types": "update", "scope": "all", "since": None,
+                      "until": None, **(out.get("options") or {})}
     # a load is reached through its dataset: seen through support view if the dataset is
     reach = "support" if dataset and access(dataset, user) == "support" else "owner" if is_owner(doc, user) else "shared"
     return out | {
@@ -542,12 +544,18 @@ def create_load(id: str, req: LoadCreate, user=Depends(current_user)):
     elif not isinstance(category, str) or not EVENT_CATEGORY.fullmatch(category.strip()):
         raise ApiError(400, "event_category_invalid", "The event category must be 2-30 letters, digits, '-' or '_'")
     category = category.strip()
+    # event types and dropdown options the site already has: left as they are, unless the load is to update them from SMART
+    existing = req.options.get("existing_event_types")
+    if existing is None:
+        existing = "keep"
+    if existing not in ("keep", "update"):   # `in` on a tuple of strings: a list or a number is simply not there
+        raise ApiError(400, "existing_event_types_invalid", "Event types already on the site are either kept or updated")
     store = get_store()
     load_id = store.create_load({
         "dataset_id": id, "ca_id": req.ca_id, "site_id": site["id"], "owner_uid": user["uid"], "owner_email": user["email"],
         "options": {"language": language, "configurable_model": cm, "event_type_set": set_name,
                     "roster_group": (req.options.get("roster_group") or "").strip() or None,
-                    "event_category": category, "scope": scope, "since": since, "until": until},
+                    "event_category": category, "existing_event_types": existing, "scope": scope, "since": since, "until": until},
         "status": "planning", "stage": None, "claimed_at": now(),   # created holding its slot: no claim race
         "created_at": now(), "updated_at": now(), "continuations": 0,
         "plan": None, "findings": [], "progress": None, "log_tail": None, "error": None})

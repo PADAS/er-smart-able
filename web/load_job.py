@@ -227,9 +227,11 @@ class Runner:
             event_set["category"] = dm_stats.get("event_category") or None
             self._update(event_type_set=event_set)
             if dry:
-                changes = F.shared_set_changes(datamodel_stats=dm_stats, dry_calls=m.dry_calls)
-                if changes:
-                    findings.append(changes)
+                differ = getattr(m, "differences", [])
+                for f in (F.event_types_overwritten(differ) if getattr(m, "existing", "update") == "update" else F.event_types_missing_fields(differ),
+                          F.shared_set_changes(datamodel_stats=dm_stats)):
+                    if f:
+                        findings.append(f)
             self._end(stage, dm_stats)
 
             stage = "patrol_datamodel"
@@ -254,7 +256,8 @@ class Runner:
                 if dry:
                     plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
                                         roster_group=load["options"].get("roster_group"), patrols=None,
-                                        ledger_done=set(), counts={})
+                                        ledger_done=set(), counts={},
+                                        differences=getattr(m, "differences", []), existing=getattr(m, "existing", "update"))
                     plan["event_type_set"] = event_set
                     (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
                     (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
@@ -282,7 +285,8 @@ class Runner:
             if dry:
                 plan = F.build_plan(datamodel_stats=dm_stats, dry_calls=m.dry_calls, pd_changes=pd_changes, pd_stats=pd_stats,
                                     roster_group=load["options"].get("roster_group"), patrols=patrols,
-                                    ledger_done=m.ledger_done(), counts=m.counts())
+                                    ledger_done=m.ledger_done(), counts=m.counts(),
+                                    differences=getattr(m, "differences", []), existing=getattr(m, "existing", "update"))
                 plan["event_type_set"] = event_set
                 (self.load_dir / "plan.json").write_text(json.dumps(plan, indent=1))
                 (self.load_dir / "findings.json").write_text(json.dumps(findings, indent=1))
@@ -442,6 +446,10 @@ class ErSmartSyncMigration:
         self.ns = namespace(self.endpoint, self.bundle.ca_uuid, None)
         self.set_name = (options.get("event_type_set") or (self._model_label() or "").strip() or self.cm_uuid) if self.cm_uuid else None
         self._set = None
+        # event types and options the site already has: "keep" leaves them as they are; a load made before
+        # the choice existed has no option and updates them from SMART, as its plan showed
+        self.existing = options.get("existing_event_types") or "update"
+        self.differences: list = []   # the site's event types that differ from this load's model, after push_datamodel
 
     def _model_label(self):
         """The chosen configurable model's name, as the export's datamodel.json has it: the set name of a
@@ -487,10 +495,15 @@ class ErSmartSyncMigration:
 
     def push_datamodel(self) -> dict:
         from er_smart_sync.datamodel_push import push_datamodel_files
-        return push_datamodel_files(self.client, endpoint=self.endpoint, datamodel_file=str(self.bundle_dir.parent / "datamodel.xml"),
-                                    ca_identifier=self.ca_identifier, cm_file=self._cm_file(),
-                                    cm_uuid=self._set_key if self.resolve_set() and self.cm_uuid else None,   # the set's key, not the model's own uuid
-                                    language=self.language or "en", bundle_dir=str(self.bundle_dir), additive=True)
+        stats = push_datamodel_files(self.client, endpoint=self.endpoint, datamodel_file=str(self.bundle_dir.parent / "datamodel.xml"),
+                                     ca_identifier=self.ca_identifier, cm_file=self._cm_file(),
+                                     cm_uuid=self._set_key if self.resolve_set() and self.cm_uuid else None,   # the set's key, not the model's own uuid
+                                     language=self.language or "en", bundle_dir=str(self.bundle_dir), additive=True,
+                                     # create-only: what the site has is not written, only what it lacks is created
+                                     mode="create-only" if self.existing == "keep" else "both")
+        # the differences are the plan's to show: taken out, so the stage's stored stats and the log stay counters
+        self.differences = list(stats.pop("event_type_differences", None) or [])
+        return stats
 
     def patrol_datamodel(self, out_dir):
         from er_smart_sync.patrol_datamodel import render_checklist, run_patrol_datamodel, write_run_record

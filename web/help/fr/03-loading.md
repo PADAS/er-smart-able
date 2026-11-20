@@ -36,11 +36,26 @@ Les zones de conservation qui utilisent le même modèle de données partagent s
 - **Sans modèle configurable**, chaque chargement sur le site écrit le même ensemble de types d'événement et de listes d'options.
 - **Avec un modèle configurable**, les chargements qui ont le même nom d'**ensemble de types d'événement** partagent un seul ensemble. Ce nom est celui du modèle configurable, sauf si vous le changez. Donnez-lui un autre nom pour garder les types d'événement d'un modèle à part de ceux d'un autre modèle du même nom. Donnez un même nom à deux modèles pour les réunir.
 
-Un chargement ne fait qu'ajouter à un ensemble. Il crée les types d'événement et les options de liste qui manquent au site et met à jour les champs de ceux qu'il a. Il ne désactive jamais une option ni un type d'événement, et ne déplace jamais un type d'événement vers une autre catégorie. Une option ou un type d'événement retiré de SMART reste donc actif sur le site jusqu'à ce qu'un administrateur le désactive.
+Un chargement ne fait qu'ajouter à un ensemble. Il crée les types d'événement et les options de liste qui manquent au site. Ce qu'il fait de ceux que le site a déjà dépend de votre choix (voir « Modifications faites sur le site » ci-dessous). Il ne désactive jamais une option ni un type d'événement, et ne déplace jamais un type d'événement vers une autre catégorie. Une option ou un type d'événement retiré de SMART reste donc actif sur le site jusqu'à ce qu'un administrateur le désactive.
 
-Si le modèle de cette zone de conservation diffère de ce que le site a déjà sous le même nom, le plan le signale par un avertissement qui liste les types d'événement que le chargement modifierait.
+Si le modèle de cette zone de conservation diffère de ce que le site a déjà sous le même nom, le plan liste les types d'événement qui diffèrent, et avertit quand le chargement ajouterait des options aux listes du site.
 
 Une zone de conservation chargée avant le partage des types d'événement garde ses propres types d'événement sur ce site. La page du chargement le dit, et le nom de l'ensemble ne s'applique pas.
+
+## Modifications faites sur le site
+
+Après un chargement, un administrateur peut modifier sur le site les types d'événement migrés : ajouter un champ, renommer un type d'événement, reformuler ou réordonner des options de liste, en désactiver une. Le formulaire de chargement demande ce qu'un chargement ultérieur fait des **types d'événement déjà sur le site**.
+
+- **Les laisser tels quels** est choisi, sauf si vous le changez. Le chargement n'écrit rien dans un type d'événement que le site a : son nom, ses champs et son état actif ou non restent. Il en va de même pour une option de liste : son texte, sa place dans la liste et son état actif ou non restent. Le chargement crée toujours les types d'événement et les options qui manquent au site.
+- **Les mettre à jour depuis SMART** remplace le nom et les champs de chaque type d'événement qui diffère de SMART. Choisissez-le quand le modèle de données SMART lui-même a changé et que le site doit suivre. Un champ ajouté sur le site est supprimé.
+
+Le plan liste chaque type d'événement du site qui diffère de SMART, avec les champs que seul le site a et ceux que seul SMART a. Il ne peut pas dire de quel côté vient une modification. Lisez la liste avant de lancer un chargement qui met à jour.
+
+Quand un chargement laisse les types d'événement tels quels et que le modèle de cette zone de conservation a un champ qui manque au type d'événement du site, le plan vous en avertit. Ajoutez le champ sur le site, ou refaites le plan avec une mise à jour.
+
+Un site qui a encore des types d'événement SMART sous l'ancienne forme d'EarthRanger (version 1) fait exception : choisissez **Les mettre à jour depuis SMART** pour son premier chargement, afin que le chargement les convertisse. Un chargement qui laisse les types d'événement tels quels ne les convertit pas, ignore ceux qui ont la même valeur, et le contrôle préalable signale alors ces types d'événement comme manquants.
+
+Le choix porte sur les types d'événement et leurs listes d'options. Les types de patrouille et les champs de patrouille universels sont configurés comme avant.
 
 ## Charger une partie d'un jeu de données
 

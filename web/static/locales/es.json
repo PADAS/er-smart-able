@@ -202,6 +202,8 @@
     "eventTypeSet": "grupo de tipos de evento {{value}}",
     "setCategory": "tipos de evento en la categoría {{value}}",
     "oldSet": "sus propios tipos de evento, de una carga hecha antes de que las áreas de conservación los compartieran",
+    "existingKeep": "tipos de evento existentes conservados",
+    "existingUpdate": "tipos de evento existentes actualizados desde SMART",
     "startedBy": "iniciada por {{who}}",
     "startedByWhen": "iniciada por {{who}}, {{when}}"
   },
@@ -432,8 +434,16 @@
         "fix": "No se escribió nada. Quite el sitio, regístrelo de nuevo con un token que funcione e inicie una carga nueva."
       },
       "shared_set_changes": {
-        "title": "Esta carga cambia tipos de evento o listas de opciones que el sitio ya tiene",
-        "fix": "Puede que otras áreas de conservación cargadas en este sitio los usen. Cada tipo de evento indicado recibe los campos y el nombre de esta área; no se desactiva nada. Para mantener aparte el modelo de esta área, haga un plan nuevo con otro nombre de grupo de tipos de evento."
+        "title": "Esta carga añade opciones a listas que el sitio ya tiene",
+        "fix": "Otras áreas de conservación cargadas en este sitio comparten estas listas. No se desactiva nada. Para mantener aparte el modelo de esta área, haga un plan nuevo con otro nombre de grupo de tipos de evento."
+      },
+      "event_types_overwritten": {
+        "title": "Esta carga reemplaza tipos de evento que el sitio ha cambiado",
+        "fix": "Cada uno recibe el nombre y los campos de SMART, y los campos añadidos en el sitio se eliminan. Para conservarlos, haga un plan nuevo con «Dejarlos como están»."
+      },
+      "event_types_missing_fields": {
+        "title": "A tipos de evento del sitio les faltan campos que esta área de conservación registra",
+        "fix": "Añada los campos a estos tipos de evento en el sitio, o haga un plan nuevo con «Actualizarlos desde SMART»."
       }
     }
   },
@@ -473,6 +483,14 @@
     "more": "y {{n}} más",
     "unchanged": "{{n}} sin cambios",
     "nothing": "nada que hacer",
+    "differKept": "Difieren de SMART y se dejan como están: {{n}}",
+    "differUpdated": "Difieren de SMART y reciben el nombre y los campos de SMART: {{n}}",
+    "diffName": "nombre",
+    "diffActive": "activo o no",
+    "diffSiteOnly": "solo en el sitio: {{fields}}",
+    "diffSmartOnly": "solo en SMART: {{fields}}",
+    "diffChanged": "cambiados: {{fields}}",
+    "diffOther": "diseño o ajustes",
     "rosterAdd": "{{n}} por agregar",
     "rosterGroupAdd": "{{group}}: {{n}} por agregar",
     "none": "ninguna: esta carga es solo el modelo de datos",
@@ -532,6 +550,10 @@
     "rosterPlaceholder": "opcional; por defecto: el primer grupo de miembros de la configuración de patrullas",
     "category": "Categoría de eventos",
     "categoryHint": "A dónde van los tipos de evento que crea esta carga. Si el sitio ya tiene los tipos de evento de esta carga, se quedan en su categoría y los nuevos se unen a ellos allí.",
+    "existing": "Tipos de evento que ya están en el sitio",
+    "existingKeep": "Dejarlos como están",
+    "existingUpdate": "Actualizarlos desde SMART",
+    "existingHint": "La carga siempre crea los tipos de evento y las opciones de lista que faltan en el sitio. Actualizar reemplaza el nombre y los campos de un tipo de evento que difiere de SMART, lo que elimina los campos añadidos en el sitio.",
     "what": "Qué cargar",
     "modelAndPatrols": "El modelo de datos y las patrullas",
     "modelOnly": "Solo el modelo de datos",
@@ -607,6 +629,7 @@
     "event_category_invalid": "La categoría de eventos debe tener de 2 a 30 caracteres: letras, dígitos, '-' o '_'",
     "set_without_model": "Solo una carga con un modelo configurable tiene un grupo de tipos de evento",
     "event_type_set_invalid": "El nombre del grupo de tipos de evento debe tener de 1 a 60 caracteres",
+    "existing_event_types_invalid": "Los tipos de evento que ya están en el sitio se conservan o se actualizan",
     "load_active": "Ya hay una carga activa de esta área de conservación en ese sitio",
     "site_removed": "Se quitó el sitio; regístrelo de nuevo e inicie una nueva carga",
     "site_no_access": "No tiene acceso a ese sitio",
