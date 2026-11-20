@@ -36,11 +36,24 @@ Las áreas de conservación que usan el mismo modelo de datos comparten sus tipo
 - **Sin modelo configurable**, cada carga en el sitio escribe el mismo grupo de tipos de evento y de listas de opciones.
 - **Con un modelo configurable**, las cargas con el mismo nombre de **grupo de tipos de evento** comparten un solo grupo. El nombre es el del modelo configurable, salvo que usted lo cambie. Dele otro nombre para mantener los tipos de evento de un modelo aparte de los de otro modelo con el mismo nombre. Dé un mismo nombre a dos modelos para reunirlos.
 
-Una carga solo añade a un grupo. Crea los tipos de evento y las opciones de lista que le faltan al sitio y actualiza los campos de los que ya tiene. Nunca desactiva una opción ni un tipo de evento, y nunca mueve un tipo de evento a otra categoría. Por eso una opción o un tipo de evento quitado de SMART sigue activo en el sitio hasta que un administrador lo desactive allí.
+Una carga solo añade a un grupo. Crea los tipos de evento y las opciones de lista que le faltan al sitio. Lo que hace con los que el sitio ya tiene depende de su elección (vea « Cambios hechos en el sitio » más abajo). Nunca desactiva una opción ni un tipo de evento, y nunca mueve un tipo de evento a otra categoría. Por eso una opción o un tipo de evento quitado de SMART sigue activo en el sitio hasta que un administrador lo desactive allí.
 
-Si el modelo de esta área de conservación difiere de lo que el sitio ya tiene bajo el mismo nombre, el plan lo indica con una advertencia que enumera los tipos de evento que la carga cambiaría.
+Si el modelo de esta área de conservación difiere de lo que el sitio ya tiene bajo el mismo nombre, el plan enumera los tipos de evento que difieren, y advierte cuando la carga añadiría opciones a las listas del sitio.
 
 Un área de conservación cargada antes de que se compartieran los tipos de evento conserva sus propios tipos de evento en ese sitio. La página de la carga lo dice, y el nombre del grupo no se aplica.
+
+## Cambios hechos en el sitio
+
+Después de una carga, un administrador puede cambiar en el sitio los tipos de evento migrados: añadir un campo, cambiar el nombre de un tipo de evento, reformular o reordenar opciones de lista, desactivar una. El formulario de carga pregunta qué hace una carga posterior con los **tipos de evento que ya están en el sitio**.
+
+- **Dejarlos como están** es lo elegido, salvo que usted lo cambie. La carga no escribe nada en un tipo de evento que el sitio tiene: su nombre, sus campos y si está activo se quedan. Lo mismo vale para una opción de lista: su texto, su lugar en la lista y si está activa se quedan. La carga sigue creando los tipos de evento y las opciones que le faltan al sitio.
+- **Actualizarlos desde SMART** reemplaza el nombre y los campos de cada tipo de evento que difiere de SMART. Elíjalo cuando el propio modelo de datos de SMART cambió y el sitio debe seguirlo. Un campo añadido en el sitio se elimina.
+
+El plan enumera cada tipo de evento del sitio que difiere de SMART, con los campos que solo tiene el sitio y los que solo tiene SMART. No puede decir qué lado hizo un cambio. Lea la lista antes de ejecutar una carga que actualiza.
+
+Cuando una carga deja los tipos de evento como están y el modelo de esta área de conservación tiene un campo que le falta al tipo de evento del sitio, el plan se lo advierte. Añada el campo en el sitio, o haga el plan de nuevo con una actualización.
+
+La elección abarca los tipos de evento y sus listas de opciones. Los tipos de patrullaje y los campos universales de patrullaje se configuran como antes.
 
 ## Cargar parte de un conjunto de datos
 

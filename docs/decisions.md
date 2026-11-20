@@ -117,3 +117,36 @@ them into a shared set is not done.
 
 Reopen if two regions give different models the same name and the plan's
 warning (`shared_set_changes`) proves too easy to miss.
+
+## 2026-11-19: A load leaves the event types a site already has
+
+After a first load an administrator changes the migrated event types on
+the site, then loads more patrols or another conservation area. Every load
+pushes the data model, and the push replaced the name and the whole schema
+of an event type that differed from SMART, so a field added on the site was
+gone after the next load, with nothing in the plan to say so (GUNDI-5949).
+
+A load now has a choice for event types the site already has, and the
+default is to leave them: the push runs in er-smart-sync's `create-only`
+mode, which creates the event types and options the site lacks and writes
+nothing to the rest, their active state included. The other choice updates
+them from SMART, as every load did. In both, the plan lists each event type
+that differs with the fields on each side, and warns: before an update,
+that those event types are replaced; before a keep, when SMART has a field
+the site's event type lacks. A load made before the choice existed runs as
+an update, which is what its plan showed.
+
+Not a merge of SMART's fields with the site's: the push cannot tell a field
+added on the site from one removed in SMART, and guessing would either
+bring back what SMART dropped or drop what the administrator added. Not a
+load of patrols alone: a load that leaves existing event types does that
+and still creates the ones that are missing. Patrol types and the
+universal patrol fields are outside the choice.
+
+Not established: whether a site accepts an event whose details carry a
+field its event type lacks, which a keep load can import. It is checked by
+hand on a test site before release; if the site refuses such events,
+`event_types_missing_fields` becomes blocking.
+
+Reopen if operators need SMART's new fields and the site's added fields in
+one event type often enough that adding fields by hand does not do.

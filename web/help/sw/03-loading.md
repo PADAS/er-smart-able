@@ -36,11 +36,24 @@ Maeneo ya hifadhi yanayotumia moduli data moja yanashiriki aina zake za matukio 
 - **Bila moduli inayosanidika**, kila uingizaji kwenye tovuti unaandika kundi lilelile la aina za matukio na orodha za machaguo.
 - **Kwa moduli inayosanidika**, uingizaji wenye jina moja la **kundi la aina za matukio** unashiriki kundi moja. Jina hilo ni la moduli inayosanidika, isipokuwa ukilibadilisha. Lipe jina jingine ili kutenga aina za matukio za moduli moja na zile za moduli nyingine yenye jina hilohilo. Zipe moduli mbili jina moja ili kuziweka pamoja.
 
-Uingizaji huongeza tu kwenye kundi. Unaunda aina za matukio na machaguo ya orodha ambayo tovuti haina, na unasasisha sehemu za kujaza za zile ilizonazo. Hauzimi kamwe chaguo wala aina ya tukio, na hauhamishi kamwe aina ya tukio kwenda kategoria nyingine. Kwa hiyo chaguo au aina ya tukio iliyoondolewa kwenye SMART inabaki amilifu kwenye tovuti hadi msimamizi aizime huko.
+Uingizaji huongeza tu kwenye kundi. Unaunda aina za matukio na machaguo ya orodha ambayo tovuti haina. Unachofanya kwa zile ambazo tovuti tayari inazo kinategemea chaguo lako (tazama "Mabadiliko yaliyofanywa kwenye tovuti" hapa chini). Hauzimi kamwe chaguo wala aina ya tukio, na hauhamishi kamwe aina ya tukio kwenda kategoria nyingine. Kwa hiyo chaguo au aina ya tukio iliyoondolewa kwenye SMART inabaki amilifu kwenye tovuti hadi msimamizi aizime huko.
 
-Ikiwa moduli ya eneo hili la hifadhi inatofautiana na kile ambacho tovuti tayari inacho chini ya jina hilohilo, mpango unasema hivyo kwa onyo linaloorodhesha aina za matukio ambazo uingizaji ungezibadilisha.
+Ikiwa moduli ya eneo hili la hifadhi inatofautiana na kile ambacho tovuti tayari inacho chini ya jina hilohilo, mpango unaorodhesha aina za matukio zinazotofautiana, na unaonya pale uingizaji ungeongeza machaguo kwenye orodha za tovuti.
 
 Eneo la hifadhi lililoingizwa kabla aina za matukio hazijaanza kushirikiwa linabaki na aina zake za matukio kwenye tovuti hiyo. Ukurasa wa uingizaji unasema hivyo, na jina la kundi halitumiki.
+
+## Mabadiliko yaliyofanywa kwenye tovuti
+
+Baada ya uingizaji, msimamizi anaweza kubadilisha kwenye tovuti aina za matukio zilizohamishwa: kuongeza sehemu ya kujaza, kubadilisha jina la aina ya tukio, kuandika upya au kupanga upya machaguo ya orodha, kuzima moja. Fomu ya uingizaji inauliza uingizaji wa baadaye ufanye nini na **aina za matukio ambazo tayari ziko kwenye tovuti**.
+
+- **Ziache kama zilivyo** ndiyo iliyochaguliwa, isipokuwa ukiibadilisha. Uingizaji hauandiki chochote kwenye aina ya tukio ambayo tovuti inayo: jina lake, sehemu zake za kujaza na kama ni amilifu vinabaki. Vivyo hivyo kwa chaguo la orodha: maandishi yake, nafasi yake kwenye orodha na kama ni amilifu vinabaki. Uingizaji bado unaunda aina za matukio na machaguo ambayo tovuti haina.
+- **Zisasishe kutoka SMART** inabadilisha jina na sehemu za kujaza za kila aina ya tukio inayotofautiana na SMART. Ichague pale moduli data ya SMART yenyewe ilipobadilika na tovuti inapaswa kuifuata. Sehemu ya kujaza iliyoongezwa kwenye tovuti inaondolewa.
+
+Mpango unaorodhesha kila aina ya tukio ya tovuti inayotofautiana na SMART, pamoja na sehemu za kujaza zilizo kwenye tovuti pekee na zilizo kwenye SMART pekee. Hauwezi kusema ni upande upi uliofanya badiliko. Soma orodha hiyo kabla ya kuendesha uingizaji unaosasisha.
+
+Pale uingizaji unapoziacha aina za matukio kama zilivyo na moduli ya eneo hili la hifadhi ina sehemu ya kujaza ambayo aina ya tukio ya tovuti haina, mpango unakuonya. Ongeza sehemu hiyo kwenye tovuti, au tengeneza mpango upya ukichagua kusasisha.
+
+Chaguo hili linahusu aina za matukio na orodha zake za machaguo. Aina za doria na sehemu za jumla za kujaza za doria zinawekwa kama awali.
 
 ## Kuingiza sehemu ya seti ya data
 

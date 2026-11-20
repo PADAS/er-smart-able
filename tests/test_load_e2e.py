@@ -582,3 +582,46 @@ def test_a_plan_through_the_job_warns_by_the_loads_choice(smart_parquet, tmp_pat
     assert (differ[0]["site_only"] == ["site_note"]) is (change == "added") and bool(differ[0]["smart_only"]) is (change == "removed")
     rest = json.dumps({"stages": load["stages"], "log": load.get("log_tail")})
     assert "event_type_differences" not in rest and "site_note" not in rest
+
+
+def _site_an_administrator_changed(load_job, a, tmp_path):
+    """Area A loaded; then, on the site: a field added to an event type, which was also turned off, an
+    option renamed and another turned off. Returns the site and what was changed."""
+    site, value = _loaded_site(load_job, a, tmp_path)
+    _add_field(site, value)
+    site._types[value]["is_active"] = False
+    options = sorted((rec["field"], rec["value"], rec["id"]) for rec in site._choices.values())
+    assert len(options) >= 2, "the test needs two options"
+    renamed, off_option = options[0][2], options[1][2]
+    site._choices[renamed]["display"] = "Renamed on the site"
+    site._choices[off_option]["is_active"] = False
+    return site, value, renamed, off_option
+
+
+def test_a_field_added_on_the_site_is_still_there_after_a_keep_load(smart_parquet, tmp_path, load_job):
+    a = _export(smart_parquet)
+    site, value, renamed, off_option = _site_an_administrator_changed(load_job, a, tmp_path)
+    gone = next(v for v in sorted(site.event_types()) if v != value)
+    was = site._types.pop(gone)   # an event type the site lacks is still created
+    before = site.event_types()
+    b = _another_area(a, tmp_path / "BETA", differs=True)
+
+    stats = _migration(load_job, b, site, tmp_path, cm=OTHER_CM, category="smart-b", existing_event_types="keep").push_datamodel()
+
+    after = site.event_types()
+    assert "site_note" in _props(site, value)
+    assert {v: t for v, t in after.items() if v != gone} == before   # nothing the site had was written: the type is still off
+    assert after[gone]["is_active"] == was["is_active"] and after[gone]["schema"] == was["schema"]
+    assert after[gone]["category"] == before[value]["category"]   # in the set's category, not this load's
+    assert site._choices[renamed]["display"] == "Renamed on the site" and site._choices[off_option]["is_active"] is False
+    assert "lion" in {v for _, v in _active(site)}   # area B's own option was added
+    assert stats["event_types_updated"] == 0 and stats["choices_updated"] == 0 and stats["choices_deactivated"] == 0
+
+
+def test_an_update_load_removes_it(smart_parquet, tmp_path, load_job):
+    a = _export(smart_parquet)
+    site, value, renamed, off_option = _site_an_administrator_changed(load_job, a, tmp_path)
+    _migration(load_job, a, site, tmp_path, existing_event_types="update").push_datamodel()
+    assert "site_note" not in _props(site, value) and site.event_types()[value]["is_active"]
+    assert site._choices[renamed]["display"] != "Renamed on the site"
+    assert site._choices[off_option]["is_active"]
