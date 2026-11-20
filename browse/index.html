@@ -24,7 +24,7 @@ if (/^\/d\/[A-Za-z0-9]+\//.test(location.pathname)) {
 }
 </script>
 <style>
-/* Layout: full-height app — brand-teal header band, a collapsible list of views down the left, scrolling content pane per view.
+/* Layout: full-height app — the app's sidebar down the left (collapsible), scrolling content pane per view.
    Theming: EarthRanger design system (DESIGN.md) — semantic tokens, light/dark inverts
    (warm off-white -> deep teal). Data colors use ER's categorical scale (mode-stable).
    Variable names kept; values mapped to ER semantic tokens. */
@@ -232,50 +232,16 @@ html, body { height: 100%; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--sans); }
 #app { display: flex; flex-direction: column; height: 100%; }
-header {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
-  padding: 10px 16px; background: var(--brand); color: var(--brand-ink);
-}
-.brand { display: flex; align-items: center; gap: 16px; }
-.brand .lockup, .brand .lockup-fallback { height: 26px; width: auto; display: block; flex: none; }
-header h1 { font-family: var(--head); font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.1px; }
-header h1 span { color: var(--brand-ink); opacity: 0.6; font-weight: 400; font-family: var(--sans); }
-/* Hosted copies (/d/{id}/) link back to the dataset list and name the dataset */
-.home { display: inline-flex; align-items: center; gap: 4px; color: var(--brand-ink); text-decoration: none;
-  font: 500 13.5px var(--sans); padding: 6px 10px 6px 6px; border-radius: 7px; opacity: 0.8; }
-.home .mi { color: inherit; font-size: 18px; }
-.home:hover { background: rgba(255,255,255,0.12); opacity: 1; }
-.dsname { font: 500 14px var(--sans); opacity: 0.85; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home { margin-left: auto; }
-/* The views: a list down the left, collapsible to icons; html[data-nav] carries the state */
+/* The sidebar is the app's (the nav.css block below); html[data-nav] carries its open or closed state */
 #shell { display: flex; flex: 1; min-height: 0; position: relative; }
-#sidenav { width: 196px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 8px; box-sizing: border-box;
-  background: var(--surface); border-right: 1px solid var(--line); overflow: hidden auto; transition: width .15s ease; }
-#tabs { display: flex; flex-direction: column; gap: 2px; }
-#sidenav button {
-  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
-  border: 0; background: none; color: var(--ink); font: 500 13.5px var(--sans); text-align: left;
-  padding: 8px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap;
-}
-#sidenav button .mi { color: var(--ink-2); font-size: 20px; flex: none; }
-#sidenav button:hover { background: var(--chip); }
-#sidenav button.on { background: var(--accent); color: var(--accent-ink); }
-#sidenav button.on .mi { color: inherit; }
-#caSel { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 8px; border-radius: 7px;
+#caSel { width: 100%; box-sizing: border-box; padding: 7px 8px; border-radius: 7px;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 13px var(--sans); }
 #caSel option { color: var(--ink); background: var(--surface); }
-#sidenav #caIcon { display: none; }
-#navToggle { margin-top: auto; color: var(--ink-2); }
-html[data-nav="closed"] #sidenav { width: 52px; }
-html[data-nav="closed"] #sidenav button { padding: 8px; justify-content: center; }
-html[data-nav="closed"] #sidenav .label, html[data-nav="closed"] #caSel { display: none; }
-html[data-nav="closed"] #sidenav #caIcon { display: flex; }
-#scrim { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 4; }
+#scrim { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 39; }
 @media (max-width: 700px) {
-  .brand h1 { display: none; }   /* the band keeps the lockup, the dataset name and the way back */
-  html[data-nav="open"] #sidenav { position: absolute; top: 0; bottom: 0; left: 0; z-index: 5; box-shadow: 4px 0 16px rgba(0,0,0,0.2); }
   html[data-nav="open"] #scrim { display: block; }
 }
+.dbver { margin: 0 0 10px; font-size: 12.5px; }
 main { flex: 1; min-width: 0; overflow: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
 .wrap { max-width: 1200px; margin: 0 auto; }
 h2 { font-family: var(--head); font-size: 15px; font-weight: 700; margin: 22px 0 10px; }
@@ -456,19 +422,78 @@ pre.mermaid { overflow-x: auto; }
 code { font-family: var(--mono); font-size: 12px; background: var(--chip); padding: 1px 5px; border-radius: 5px; }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=block">
+<style>
+/* nav.css:begin */
+/* The sidebar of the app and of the data browser (web/static/nav.js draws it). The browser carries a copy of
+   this file between markers; scripts/sync_nav.py writes it. Every colour is a token from er-tokens.css. */
+#rail { flex: none; width: 220px; height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+  background: var(--er-ui-background-primary-background); color: var(--er-ui-text-primary-text); border-right: 1px solid var(--er-ui-divider-lines); font: 500 14px/20px Roboto, system-ui, "Helvetica Neue", Arial, sans-serif; }
+#rail .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-size: 20px; line-height: 1; flex: none; color: var(--er-ui-icons); }
+#rail .rail-top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 4px 8px 8px; }
+#rail .rail-brand { flex: 1 1 100%; }
+#rail .rail-brand img { display: block; height: auto; max-height: 28px; max-width: 100%; }
+#rail .rail-brand .logo-dark { display: none; }
+#rail .rail-app { flex: 1; min-width: 0; font-size: 13px; color: var(--er-ui-text-secondary-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rail .rail-main { display: flex; flex-direction: column; gap: 2px; flex: 1 0 auto; }
+#rail .rail-foot { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--er-ui-divider-lines); }
+#rail a, #rail .off, #rail button, #rail summary, #rail .rail-lang { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; width: 100%; box-sizing: border-box; }
+#rail .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#rail a:hover, #rail button:hover, #rail summary:hover { background: var(--er-ui-background-hover-background); }
+#rail a.on { background: var(--er-ui-background-selected-background); color: var(--er-ui-cta-primary); }
+#rail a.on .mi { color: inherit; }
+#rail .off { color: var(--er-ui-text-disabled); cursor: default; }
+#rail .off .mi { color: inherit; }
+#rail #railToggle { width: auto; min-height: 32px; padding: 6px; }
+.rail-dataset { padding: 10px 10px 2px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rail .rail-group { padding: 12px 10px 2px; font-size: 11px; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--er-ui-text-secondary-text); }
+#rail .rail-note { text-transform: none; letter-spacing: 0; }
+#rail #railFilter:empty { display: none; }
+#rail #railFilter { padding: 2px 4px 4px; }
+#rail #railFilter select { width: 100%; }
+#rail summary { list-style: none; }
+#rail summary::-webkit-details-marker { display: none; }
+#rail .rail-menu[open] > summary { background: var(--er-ui-background-hover-background); }
+#rail .menu-theme { border: 0; margin: 0; padding: 4px 10px 8px 40px; display: flex; flex-direction: column; gap: 4px; font-weight: 400; }
+#rail .menu-theme label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+#rail .menu-theme input { accent-color: var(--er-ui-cta-primary); margin: 0; }
+#rail .rail-lang { cursor: default; }
+#rail .rail-lang select { flex: 1; min-width: 0; max-width: none; padding: 4px 6px; font: inherit; color: inherit; background: var(--er-ui-background-primary-background); border: 1px solid var(--er-ui-divider-lines); border-radius: 6px; }
+#rail .menu-item { padding-left: 40px; font-weight: 400; }
+#rail .menu-version { margin: 0; padding: 2px 10px 4px 40px; }
+#railScrim { display: none; }
+
+/* the dark theme: the app always sets data-theme; the browser leaves it unset to follow the system */
+html[data-theme="dark"] #rail .rail-brand .logo-light { display: none; }
+html[data-theme="dark"] #rail .rail-brand .logo-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) #rail .rail-brand .logo-light { display: none; }
+  html:not([data-theme="light"]) #rail .rail-brand .logo-dark { display: block; }
+}
+
+/* folded: icons only */
+html[data-nav="closed"] #rail { width: 52px; padding: 10px 6px; }
+html[data-nav="closed"] #rail .label, html[data-nav="closed"] #rail .rail-brand, html[data-nav="closed"] #rail .rail-app, html[data-nav="closed"] #rail .rail-dataset,
+html[data-nav="closed"] #rail .rail-group span, html[data-nav="closed"] #rail #railFilter, html[data-nav="closed"] #rail .rail-lang select,
+html[data-nav="closed"] #rail .rail-menu > :not(summary) { display: none; }
+html[data-nav="closed"] #rail .rail-group { padding: 0; margin: 6px 8px; border-top: 1px solid var(--er-ui-divider-lines); }
+html[data-nav="closed"] #rail .rail-top { padding: 0 0 6px; justify-content: center; }
+html[data-nav="closed"] #rail a, html[data-nav="closed"] #rail .off, html[data-nav="closed"] #rail button, html[data-nav="closed"] #rail summary, html[data-nav="closed"] #rail .rail-lang { justify-content: center; padding: 6px; }
+
+/* a narrow screen: the open sidebar lies over the page, with a scrim behind it */
+@media (max-width: 699.98px) {
+  html[data-nav="open"] #rail { position: fixed; left: 0; top: 0; bottom: 0; z-index: 40; box-shadow: 4px 0 16px color-mix(in srgb, var(--er-ui-text-primary-text) 18%, transparent); }
+  html[data-nav="open"] #railScrim { display: block; position: fixed; inset: 0; z-index: 39; background: color-mix(in srgb, var(--er-ui-cta-secondary) 55%, transparent); }
+  html[data-nav="open"] body { padding-left: 52px; }
+}
+/* nav.css:end */
+/* the browser's page is a fixed-height frame, so the sidebar fills it rather than sticking to the window */
+#rail { height: 100%; position: static; }
+</style>
 </head>
 <body>
 <div id="app">
-  <header>
-    <div class="brand">
-      <img class="lockup" src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-      <svg class="lockup-fallback" viewBox="0 0 862 102" aria-hidden="true" hidden><path fill="#fff" d="M98.1,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M159.2,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM157.8,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M205.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM191.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M255.1,23.9h-11.3v57.6h-11.2V23.9h-11.3v-9.8h33.7v9.8Z"/><path fill="#fff" d="M274,14.1v28.1h12.8V14.1h11.2v67.4h-11.2v-29.3h-12.8v29.3h-11.2V14.1h11.2Z"/><path fill="#fff" d="M334.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM320.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M376.3,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM374.9,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M397.6,81.5V14.1h11.2l14.2,41.7V14.1h10.2v67.4h-10.6l-14.7-43.8v43.8h-10.2Z"/><path fill="#fff" d="M478.9,68c0,10.4-6.7,14.2-16.9,14.2h-.8c-10.2,0-16.9-3.8-16.9-14.2V27.6c0-10,6.7-14.2,16.9-14.2h.8c10.2,0,16.9,4.2,16.9,14.2v9.6h-11.2v-7.9c0-4.8-2.5-6.2-6.2-6.2s-6.2,1.3-6.2,6.2v37c0,4.8,2.5,6.2,6.2,6.2s6.2-1.3,6.2-6.2v-10h-6.5v-9.4h17.7v21.2Z"/><path fill="#fff" d="M489.9,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M554.9,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM540.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M72.7,65.2v1.9c0,6.3-1.2,13.3-9.8,18.4l-24.6,15.4-25.5-15.4c-8.9-5.5-8.9-14.9-8.9-18.4v-1.8h68.9Z"/><polygon fill="#fff" points="38.3 1 2.2 6.9 3.9 27.7 72.7 27.7 74.4 6.9 38.3 1"/><polygon fill="#fff" points="64.5 33.2 3.9 33.2 3.9 58.9 64.5 58.9 64.5 33.2"/><path fill="#ddd" d="M695.5,40h-11.6v-11h9.3c1.2,0,2.3-1,2.3-2.3v-9.3h11v11.6c0,6.1-4.9,11-11,11ZM684,41.1h-11.6v11h9.3c1.2,0,2.3,1,2.3,2.3v9.3h11v-11.6c0-6.1-4.9-11-11-11ZM720.9,40.6c-1.2,0-2.3-1-2.3-2.3v-9.3h-11v11.6c0,6.1,4.9,11,11,11h11.6v-11h-9.3ZM696.1,63.7v11.6h11v-9.3c0-1.2,1-2.3,2.3-2.3h9.3v-11h-11.6c-6.1,0-11,4.9-11,11Z"/><path fill="#ddd" d="M804.7,25.3h-11v-7.8h11v7.8ZM796.2,31.8h-6.6v8.2h5.7c1,0,1.7.8,1.7,1.7v33.5h8.7v-34.1c0-6.1-3.9-9.3-9.6-9.3ZM769.7,17.4l21.5,57.8h-9.1l-5.7-15.4h-26.9l-5.7,15.4h-9l21.5-57.8h13.5ZM773.7,52.7l-10.7-28.9-10.7,28.9h21.5ZM826.3,68.1l17.7-13.9c10.3-8.1,14.8-13.7,14.8-21.5s-5.1-16.8-20.6-16.8-24.9,12.6-24.9,24.1h9.4c0-10.4,4.6-16.7,15.5-16.7s11.2,4.6,11.2,9.5-1.3,7.3-6.3,11.4l-29.6,23.9v7.2h46.4v-7.2h-33.5Z"/><g><path fill="#ddd" d="M612.4,32h13.2c5.4,0,7.5,2.8,7.5,6.3s-2.6,5.7-5.1,6.2c3,.4,5.5,2.5,5.5,6.4s-2.7,7-8.1,7h-12.9v-25.9ZM624.2,43.1c3.3,0,4.8-1.3,4.8-4s-1-3.8-4.2-3.8h-8.3v7.8h7.7ZM624.9,54.7c3.2,0,4.4-1.9,4.4-4.2s-1.5-4.4-5.1-4.4h-7.7v8.7h8.5Z"/><path fill="#ddd" d="M636.6,62.6h5.8l1.8-4.7h-1.4l-7.4-19.5h4l5.3,13.9.8,2.3.7-2.3,5.3-13.9h3.8l-8.1,21.2c-1.6,4.1-2.6,6.1-7.3,6.1h-3.3v-3.1Z"/></g><rect fill="#ddd" x="588.3" y="13.9" width="2" height="69"/></svg>
-      <h1>SMART migration <span id="dbver"></span></h1>
-    </div>
-    <span id="dsName" class="dsname" hidden></span>
-    <!-- the way back sits at the band's right end (spec §7) -->
-    <a id="home" class="home" href="/" hidden title="Back to the dataset list"><span class="mi" aria-hidden="true">arrow_back</span>All datasets</a>
-  </header>
+  <!-- the EarthRanger lockup as inline SVG: build_quirks.py reads it for the docs page's band, which has no server to ask -->
+  <template id="lockupMark"><svg class="lockup-fallback" viewBox="0 0 862 102" aria-hidden="true" hidden><path fill="#fff" d="M98.1,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M159.2,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM157.8,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M205.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM191.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M255.1,23.9h-11.3v57.6h-11.2V23.9h-11.3v-9.8h33.7v9.8Z"/><path fill="#fff" d="M274,14.1v28.1h12.8V14.1h11.2v67.4h-11.2v-29.3h-12.8v29.3h-11.2V14.1h11.2Z"/><path fill="#fff" d="M334.8,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM320.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M376.3,66.5h-12.3l-2.4,15h-10.8l12.5-67.4h14.1l12.7,67.4h-11.4l-2.4-15ZM374.9,57.2l-4.7-29.9-4.7,29.9h9.4Z"/><path fill="#fff" d="M397.6,81.5V14.1h11.2l14.2,41.7V14.1h10.2v67.4h-10.6l-14.7-43.8v43.8h-10.2Z"/><path fill="#fff" d="M478.9,68c0,10.4-6.7,14.2-16.9,14.2h-.8c-10.2,0-16.9-3.8-16.9-14.2V27.6c0-10,6.7-14.2,16.9-14.2h.8c10.2,0,16.9,4.2,16.9,14.2v9.6h-11.2v-7.9c0-4.8-2.5-6.2-6.2-6.2s-6.2,1.3-6.2,6.2v37c0,4.8,2.5,6.2,6.2,6.2s6.2-1.3,6.2-6.2v-10h-6.5v-9.4h17.7v21.2Z"/><path fill="#fff" d="M489.9,81.5V14.1h29.6v9.8h-18.4v18.5h15.4v9.8h-15.4v19.4h18.7v9.8h-29.8Z"/><path fill="#fff" d="M554.9,81.5l-8.6-26.9h-5.6v26.9h-11.2V14.1h17.4c10.2,0,16.9,4,16.9,14.2v12c0,6.4-2.7,10.5-7.3,12.5l9.6,28.6h-11.4ZM540.7,45h5.9c3.7,0,6.2-1.3,6.2-6.2v-8.8c0-4.8-2.5-6.2-6.2-6.2h-5.9v21.1Z"/><path fill="#fff" d="M72.7,65.2v1.9c0,6.3-1.2,13.3-9.8,18.4l-24.6,15.4-25.5-15.4c-8.9-5.5-8.9-14.9-8.9-18.4v-1.8h68.9Z"/><polygon fill="#fff" points="38.3 1 2.2 6.9 3.9 27.7 72.7 27.7 74.4 6.9 38.3 1"/><polygon fill="#fff" points="64.5 33.2 3.9 33.2 3.9 58.9 64.5 58.9 64.5 33.2"/><path fill="#ddd" d="M695.5,40h-11.6v-11h9.3c1.2,0,2.3-1,2.3-2.3v-9.3h11v11.6c0,6.1-4.9,11-11,11ZM684,41.1h-11.6v11h9.3c1.2,0,2.3,1,2.3,2.3v9.3h11v-11.6c0-6.1-4.9-11-11-11ZM720.9,40.6c-1.2,0-2.3-1-2.3-2.3v-9.3h-11v11.6c0,6.1,4.9,11,11,11h11.6v-11h-9.3ZM696.1,63.7v11.6h11v-9.3c0-1.2,1-2.3,2.3-2.3h9.3v-11h-11.6c-6.1,0-11,4.9-11,11Z"/><path fill="#ddd" d="M804.7,25.3h-11v-7.8h11v7.8ZM796.2,31.8h-6.6v8.2h5.7c1,0,1.7.8,1.7,1.7v33.5h8.7v-34.1c0-6.1-3.9-9.3-9.6-9.3ZM769.7,17.4l21.5,57.8h-9.1l-5.7-15.4h-26.9l-5.7,15.4h-9l21.5-57.8h13.5ZM773.7,52.7l-10.7-28.9-10.7,28.9h21.5ZM826.3,68.1l17.7-13.9c10.3-8.1,14.8-13.7,14.8-21.5s-5.1-16.8-20.6-16.8-24.9,12.6-24.9,24.1h9.4c0-10.4,4.6-16.7,15.5-16.7s11.2,4.6,11.2,9.5-1.3,7.3-6.3,11.4l-29.6,23.9v7.2h46.4v-7.2h-33.5Z"/><g><path fill="#ddd" d="M612.4,32h13.2c5.4,0,7.5,2.8,7.5,6.3s-2.6,5.7-5.1,6.2c3,.4,5.5,2.5,5.5,6.4s-2.7,7-8.1,7h-12.9v-25.9ZM624.2,43.1c3.3,0,4.8-1.3,4.8-4s-1-3.8-4.2-3.8h-8.3v7.8h7.7ZM624.9,54.7c3.2,0,4.4-1.9,4.4-4.2s-1.5-4.4-5.1-4.4h-7.7v8.7h8.5Z"/><path fill="#ddd" d="M636.6,62.6h5.8l1.8-4.7h-1.4l-7.4-19.5h4l5.3,13.9.8,2.3.7-2.3,5.3-13.9h3.8l-8.1,21.2c-1.6,4.1-2.6,6.1-7.3,6.1h-3.3v-3.1Z"/></g><rect fill="#ddd" x="588.3" y="13.9" width="2" height="69"/></svg></template>
   <div id="notice" class="notice" hidden></div>
   <template id="help-flow">
     <div class="help">
@@ -537,12 +562,9 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
     </div>
   </template>
   <div id="shell">
-    <nav id="sidenav" aria-label="Views">
-      <select id="caSel" aria-label="Conservation area filter"></select>
-      <button id="caIcon" type="button" title="Conservation area" aria-label="Conservation area"><span class="mi" aria-hidden="true">filter_alt</span></button>
-      <div id="tabs"></div>
-      <button id="navToggle" type="button" aria-controls="sidenav" aria-expanded="true" title="Collapse the list"><span class="mi" aria-hidden="true">chevron_left</span><span class="label">Collapse</span></button>
-    </nav>
+    <!-- the sidebar the app also draws (nav.js, copied below); the area filter waits in #caHold until the sidebar has its slot -->
+    <nav id="rail" aria-label="Views"></nav>
+    <div id="caHold" hidden><select id="caSel" aria-label="Conservation area filter"></select></div>
     <div id="scrim"></div>
     <main><div class="wrap" id="view"><div id="loading">Loading data…</div></div></main>
   </div>
@@ -551,6 +573,91 @@ code { font-family: var(--mono); font-size: 12px; background: var(--chip); paddi
 <div id="drawer" hidden></div>
 <div id="modal" hidden></div>
 
+<script>
+/* nav.js:begin */
+// The sidebar both documents draw: the app (web/templates/index.html) loads this file, and the data
+// browser (browse/index.html) carries a copy between markers, written by scripts/sync_nav.py and
+// checked by tests/test_viewer_page.py. Nothing here touches the document, storage or the messages:
+// the caller passes the state and a label(key, english) function that returns escaped text.
+
+// the browser's views: id (its hash and TABS), English name, icon
+var NAV_DATA = [['overview', 'Summary', 'dashboard'], ['patrols', 'Patrols', 'hiking'], ['rangers', 'Rangers', 'groups'],
+  ['map', 'Map', 'map'], ['observations', 'Observations', 'visibility'], ['datamodel', 'Data model', 'account_tree'],
+  ['profiles', 'Profiles', 'badge'], ['schema', 'Schema', 'schema']];
+// the dataset page's parts that migrate it: the app's tab name, English name, icon, message key
+var NAV_MIGRATION = [['loads', 'Loads', 'upload', 'nav.loads'], ['rangers', 'Match rangers', 'how_to_reg', 'nav.matchRangers'],
+  ['backup', 'Backup', 'inventory_2', 'nav.backup']];
+
+function _navEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function _navIcon(name) { return '<span class="mi" aria-hidden="true">' + name + '</span>'; }
+// one entry: a link, the current one marked, or a span when it cannot be opened. text is escaped already.
+function _navEntry(current, nav, href, icon, text, off) {
+  var inner = _navIcon(icon) + '<span class="label">' + text + '</span>';
+  if (off) return '<span class="off" aria-disabled="true" title="' + text + '">' + inner + '</span>';
+  return '<a href="' + _navEsc(href) + '" data-nav="' + nav + '"' + (current === nav ? ' class="on" aria-current="page"' : '') + ' title="' + text + '">' + inner + '</a>';
+}
+
+// state: { doc: 'app'|'browser', hosted, signedIn, dataset: null|{id, name, ready, loadTabs}, current,
+//          lang, languages: [{code, name}], theme: 'system'|'light'|'dark', email, version }
+function renderRail(state, label) {
+  var s = state || {}, d = s.dataset, browser = s.doc === 'browser', hosted = s.hosted !== false;
+  var app = browser ? '/' : '';   // the app's addresses, as seen from each document
+  var h = '<div class="rail-top">' +
+    (hosted ? '<span class="rail-brand"><img class="logo-light" src="/static/img/er-lockup-h.svg" alt="EarthRanger"><img class="logo-dark" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger"></span>' : '') +
+    '<span class="rail-app">' + label('shell.appName', 'SMART migration') + '</span>' +
+    '<button id="railToggle" type="button" aria-controls="rail" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
+
+  h += '<div class="rail-main">';
+  if (hosted && s.signedIn) {
+    if (d) h += _navEntry(null, 'home', app + '#/', 'arrow_back', label('nav.datasets', 'Datasets'));
+    else {
+      h += _navEntry(s.current, 'home', app + '#/', 'folder', label('nav.datasets', 'Datasets'));
+      if (!browser) h += _navEntry(s.current, 'sites', '#/sites', 'public', label('nav.sites', 'Sites'));
+    }
+  }
+  if (d) {
+    h += '<div class="rail-dataset" title="' + _navEsc(d.name) + '">' + _navEsc(d.name) + '</div>' +
+      _navEntry(s.current, 'overview', app + '#/datasets/' + d.id, 'info', label('nav.overview', 'Overview'));
+  }
+  if (d || browser) {
+    h += '<div class="rail-group"><span>' + label('nav.data', 'Data') + '</span>' +
+      (hosted && s.lang && s.lang !== 'en' ? ' <span class="rail-note">' + label('dataset.browseInEnglish', 'in English') + '</span>' : '') + '</div>' +
+      '<div id="railFilter"></div>';
+    for (var i = 0; i < NAV_DATA.length; i++) {
+      var v = NAV_DATA[i];
+      h += _navEntry(s.current, 'data:' + v[0], browser ? '#' + v[0] : '/d/' + d.id + '/#' + v[0], v[2], label('nav.view.' + v[0], v[1]), !browser && !d.ready);
+    }
+  }
+  if (d && hosted) {
+    h += '<div class="rail-group"><span>' + label('nav.migration', 'Migration') + '</span></div>';
+    for (var j = 0; j < NAV_MIGRATION.length; j++) {
+      var m = NAV_MIGRATION[j];
+      h += _navEntry(s.current, 'migration:' + m[0], app + '#/datasets/' + d.id + '/' + m[0], m[2], label(m[3], m[1]), m[0] !== 'backup' && !d.loadTabs);
+    }
+  }
+  h += '</div>';
+  if (!hosted) return h;
+
+  var themes = [['system', 'shell.themeSystem', 'System'], ['light', 'shell.themeLight', 'Light'], ['dark', 'shell.themeDark', 'Dark']];
+  h += '<div class="rail-foot">' +
+    '<details class="rail-menu" id="themeMenu"><summary title="' + label('shell.theme', 'Theme') + '">' + _navIcon('dark_mode') + '<span class="label">' + label('shell.theme', 'Theme') + '</span></summary><fieldset class="menu-theme">' +
+    themes.map(function (t) { return '<label><input type="radio" name="theme" value="' + t[0] + '"' + (s.theme === t[0] ? ' checked' : '') + '><span>' + label(t[1], t[2]) + '</span></label>'; }).join('') +
+    '</fieldset></details>' +
+    '<label class="rail-lang" title="' + label('shell.language', 'Language') + '">' + _navIcon('translate') + '<select id="lang" class="lang-select" aria-label="' + label('shell.language', 'Language') + '">' +
+    (s.languages || []).map(function (l) { return '<option value="' + _navEsc(l.code) + '" lang="' + _navEsc(l.code) + '"' + (l.code === s.lang ? ' selected' : '') + '>' + _navEsc(l.name) + '</option>'; }).join('') +
+    '</select></label>';
+  if (s.signedIn) {
+    h += '<button id="helpBtn" type="button" title="' + label('shell.help', 'Help') + '">' + _navIcon('help') + '<span class="label">' + label('shell.help', 'Help') + '</span></button>' +
+      '<details class="rail-menu" id="account"><summary id="whoEmail" title="' + _navEsc(s.email) + '">' + _navIcon('account_circle') + '<span class="label">' + _navEsc(s.email) + '</span></summary>' +
+      '<button id="signOut" type="button" class="menu-item">' + _navIcon('logout') + '<span>' + label('shell.signOut', 'Sign out') + '</span></button>' +
+      (s.version ? '<p class="tiny menu-version">' + _navEsc(s.version) + '</p>' : '') + '</details>';
+  }
+  return h + '</div>';
+}
+/* nav.js:end */
+</script>
 <script>
 'use strict';
 const $ = (s, el) => (el || document).querySelector(s);
@@ -583,30 +690,75 @@ async function getJSON(name) {
   return r.json();
 }
 
-// Served by the web app at /d/{id}/: show the way back and which dataset this is.
-// Opened from a local folder there is no list to go back to, so nothing shows.
-async function hostedHeader() {
-  const m = location.pathname.match(/^\/d\/([^/]+)\//);
-  if (!m) return;
-  $('#home').hidden = false;
-  const back = location.pathname.match(/^\/d\/([A-Za-z0-9]+)\//);
-  if (back) {
-    const h = $('#home');
-    h.href = '/#/datasets/' + back[1]; h.title = 'Back to dataset';
-    h.lastChild.textContent = 'Back to dataset';
+// ---- the sidebar: the app's (renderRail, copied above from web/static/nav.js). Served by the app at
+// /d/{id}/ it names the dataset, links to the app's pages for it, and follows the reader's language.
+// Opened from a local folder there is no server: only the views and the fold control show.
+const HOSTED = location.pathname.match(/^\/d\/([A-Za-z0-9]+)\//);
+const RAIL = { dataset: null, email: '', languages: [], lang: 'en', messages: null, ready: false };
+function railLabel(key, english) {
+  let node = RAIL.messages;
+  for (const part of key.split('.')) node = node && typeof node === 'object' ? node[part] : undefined;
+  return esc(typeof node === 'string' ? node : english);
+}
+function storedTheme() { try { const t = localStorage.getItem('theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } }
+function setTheme(choice) {
+  if (choice === 'light' || choice === 'dark') document.documentElement.setAttribute('data-theme', choice); else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('theme', choice); } catch (e) {}
+}
+function drawRail() {
+  $('#caHold').appendChild($('#caSel'));   // the filter outlives the redraw
+  $('#rail').innerHTML = renderRail({ doc: 'browser', hosted: !!HOSTED, signedIn: !!HOSTED, dataset: RAIL.dataset, current: 'data:' + TAB,
+    lang: RAIL.lang, languages: RAIL.languages, theme: storedTheme(), email: RAIL.email, version: '' }, railLabel);
+  if (RAIL.ready) $('#railFilter').appendChild($('#caSel'));
+  $('#railToggle').onclick = () => setNav(document.documentElement.getAttribute('data-nav') === 'closed' ? 'open' : 'closed');
+  $('#rail').querySelectorAll('a[data-nav^="data:"]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    if (!RAIL.ready) return;   // the data is still loading
+    const id = a.dataset.nav.slice(5);
+    if (id !== TAB || curView().dr) go(null, id);
+    if (narrow()) setNav('closed');
+  });
+  $('#rail').querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
+  $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(m => m.addEventListener('click', () => { if (document.documentElement.getAttribute('data-nav') === 'closed') setNav('open'); }));
+  const lang = $('#lang'), help = $('#helpBtn'), out = $('#signOut');
+  if (lang) lang.onchange = () => { try { localStorage.setItem('lang', lang.value); } catch (e) {} hostedRail(lang.value); };
+  if (help) help.onclick = () => window.open('/#/', '_blank', 'noopener');   // the help is a drawer of the app's own page
+  if (out) out.onclick = async () => { try { await fetchApp('/api/signout', { method: 'POST' }); } catch (e) {} location.href = '/'; };
+  markRail();
+}
+function markRail() {
+  $('#rail').querySelectorAll('a[data-nav^="data:"]').forEach(a => {
+    const on = a.dataset.nav === 'data:' + TAB;
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+}
+let fetchApp = () => Promise.reject(new Error('no server'));   // set by hostedRail: nothing outside it asks the app
+// Everything asked of the app is asked here. Any answer that fails leaves what the sidebar has, in English.
+async function hostedRail(lang) {
+  if (!HOSTED) return;
+  fetchApp = (path, opts) => fetch(path, Object.assign({ credentials: 'same-origin' }, opts));
+  const ask = async path => { try { const r = await fetchApp(path); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  if (!lang) {
+    const [d, me, langs] = await Promise.all([ask('/api/datasets/' + HOSTED[1]), ask('/api/me'), ask('/static/locales/languages.json')]);
+    if (d && d.name) {
+      RAIL.dataset = { id: HOSTED[1], name: d.name, ready: d.status === 'ready', loadTabs: !!((d.export || []).length || d.status === 'ready') };
+      document.title = d.name + ' · smart-able';
+    }
+    if (me && me.email) RAIL.email = me.email;
+    if (Array.isArray(langs)) RAIL.languages = langs;
+    let stored = null; try { stored = localStorage.getItem('lang'); } catch (e) {}
+    const codes = RAIL.languages.map(l => l.code);
+    lang = codes.includes(stored) ? stored : (navigator.languages || []).map(l => String(l).slice(0, 2).toLowerCase()).find(l => codes.includes(l)) || 'en';
   }
-  try {
-    const r = await fetch('/api/datasets/' + m[1]);
-    if (!r.ok) return;
-    const name = (await r.json()).name;
-    if (!name) return;
-    const n = $('#dsName'); n.textContent = name; n.title = name; n.hidden = false;
-    document.title = name + ' · smart-able';
-  } catch (e) {}
+  const messages = lang === 'en' ? null : await ask('/static/locales/' + lang + '.json');
+  RAIL.lang = messages || lang === 'en' ? lang : 'en'; RAIL.messages = messages;
+  drawRail();
 }
 
 async function boot() {
-  hostedHeader();
+  drawRail();     // the views at once; the dataset's name and the app's links when the app answers
+  hostedRail();
   try {
     const [meta, cats, patrols, bounds, emps, atts] = await Promise.all(
       ['meta','categories','patrols','boundaries','employees','attachments'].map(getJSON));
@@ -625,7 +777,6 @@ async function boot() {
     for (const k of ['profiles', 'types', 'entities', 'records']) D.profiles[k] = D.profiles[k] || [];
     try { D.tz = await getJSON('timezones'); } catch (e) { D.tz = null; } // optional (infer_timezones.py)
     try { D.dm = await getJSON('datamodel'); } catch (e) { D.dm = null; } // optional (./smart-able export)
-    $('#dbver').textContent = D.meta.db_version ? '· SMART database ' + D.meta.db_version : '';
     index();
     $('#loading').textContent = 'Loading waypoints and observations…';
     const [wps, obs] = await Promise.all([getJSON('waypoints'), getJSON('observations')]);
@@ -830,42 +981,29 @@ const narrow = () => window.innerWidth < 700;
 function setNav(state, remember = true) {
   document.documentElement.setAttribute('data-nav', state);
   if (remember) { try { localStorage.setItem('sidenav', state); } catch (e) {} }
-  const t = $('#navToggle'), open = state === 'open';
-  t.setAttribute('aria-expanded', String(open));
-  t.title = open ? 'Collapse the list' : 'Expand the list';
-  t.setAttribute('aria-label', t.title);
-  t.firstChild.textContent = open ? 'chevron_left' : 'chevron_right';
+  const t = $('#railToggle');
+  if (t) t.setAttribute('aria-expanded', String(state === 'open'));
 }
 
 function buildHeader() {
-  const tabs = [['overview','Overview','dashboard'],['patrols','Patrols','hiking'],['rangers','Rangers','groups'],
-    ['map','Map','map'],['observations','Observations','visibility'],['datamodel','Data model','account_tree'],
-    ['profiles','Profiles','badge'],['schema','Schema','schema']];
-  const nav = $('#tabs'); nav.innerHTML = '';
-  for (const [id, label, icon] of tabs) {
-    const b = el('button'); b.id = 'tab-' + id; b.title = label; b.setAttribute('aria-label', label);
-    b.innerHTML = '<span class="mi" aria-hidden="true">' + icon + '</span><span class="label">' + esc(label) + '</span>';
-    b.onclick = () => { if (id !== TAB || curView().dr) go(null, id); if (narrow()) setNav('closed'); };
-    nav.appendChild(b);
-  }
-  $('#navToggle').onclick = () => setNav(document.documentElement.getAttribute('data-nav') === 'closed' ? 'open' : 'closed');
-  $('#caIcon').onclick = () => { setNav('open'); $('#caSel').focus(); };
   $('#scrim').onclick = () => setNav('closed');
   setNav(document.documentElement.getAttribute('data-nav') || 'open', false);
   const sel = $('#caSel'); sel.innerHTML = '';
   sel.appendChild(new Option('All conservation areas', 'all'));
   for (const c of D.meta.cas) if (c.id !== 'CCAA') sel.appendChild(new Option(c.n, c.id));
   sel.onchange = () => { CA = sel.value; if (curView().dr) closeView(); render(); };
+  RAIL.ready = true; drawRail();   // the data is in: the filter takes its slot and the views open
 }
 
 function render() {
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.id === 'tab-' + TAB));
+  markRail();
   const v = $('#view'); v.innerHTML = '';
   ({overview: rOverview, patrols: rPatrols, rangers: rRangers, map: rMap, observations: rObs, datamodel: rDataModel, profiles: rProfiles, schema: rSchema})[TAB](v);
 }
 
-/* ---------------- Overview ---------------- */
+/* ---------------- Summary (the view's id stays 'overview': its address and the stored tab keep working) ---------------- */
 function rOverview(v) {
+  if (D.meta.db_version) v.appendChild(el('p', 'muted dbver', 'SMART database ' + esc(D.meta.db_version)));
   const wps = wpsFiltered();
   const patrols = D.patrols.filter(p => caOk(p.ca));
   const obsN = wps.reduce((s, w) => s + w.n, 0);
