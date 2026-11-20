@@ -53,6 +53,8 @@ Le plan liste chaque type d'événement du site qui diffère de SMART, avec les 
 
 Quand un chargement laisse les types d'événement tels quels et que le modèle de cette zone de conservation a un champ qui manque au type d'événement du site, le plan vous en avertit. Ajoutez le champ sur le site, ou refaites le plan avec une mise à jour.
 
+Un site qui a encore des types d'événement SMART sous l'ancienne forme d'EarthRanger (version 1) fait exception : choisissez **Les mettre à jour depuis SMART** pour son premier chargement, afin que le chargement les convertisse. Un chargement qui laisse les types d'événement tels quels ne les convertit pas, ignore ceux qui ont la même valeur, et le contrôle préalable signale alors ces types d'événement comme manquants.
+
 Le choix porte sur les types d'événement et leurs listes d'options. Les types de patrouille et les champs de patrouille universels sont configurés comme avant.
 
 ## Charger une partie d'un jeu de données

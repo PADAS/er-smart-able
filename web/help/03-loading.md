@@ -53,6 +53,8 @@ The plan lists every event type on the site that differs from SMART, with the fi
 
 When a load leaves the event types as they are and this conservation area's model has a field the site's event type lacks, the plan warns you. Add the field on the site, or plan again with an update.
 
+A site that still has SMART event types in EarthRanger's older form (version 1) is the exception: choose **Update them from SMART** for its first load, so the load converts them. A load that leaves event types as they are does not convert them, skips the ones with the same value, and the readiness check then reports those event types as missing.
+
 The choice covers event types and their dropdown lists. Patrol types and the universal patrol fields are set up as before.
 
 ## Loading part of a dataset

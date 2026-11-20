@@ -53,6 +53,8 @@ Mpango unaorodhesha kila aina ya tukio ya tovuti inayotofautiana na SMART, pamoj
 
 Pale uingizaji unapoziacha aina za matukio kama zilivyo na moduli ya eneo hili la hifadhi ina sehemu ya kujaza ambayo aina ya tukio ya tovuti haina, mpango unakuonya. Ongeza sehemu hiyo kwenye tovuti, au tengeneza mpango upya ukichagua kusasisha.
 
+Tovuti ambayo bado ina aina za matukio za SMART katika muundo wa zamani wa EarthRanger (toleo la 1) ni tofauti: chagua **Zisasishe kutoka SMART** kwa uingizaji wake wa kwanza, ili uingizaji uzibadilishe. Uingizaji unaoziacha aina za matukio kama zilivyo hauzibadilishi, unaruka zile zenye thamani ileile, na ukaguzi wa awali kisha unaripoti kuwa aina hizo za matukio hazipo.
+
 Chaguo hili linahusu aina za matukio na orodha zake za machaguo. Aina za doria na sehemu za jumla za kujaza za doria zinawekwa kama awali.
 
 ## Kuingiza sehemu ya seti ya data

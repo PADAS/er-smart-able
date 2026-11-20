@@ -53,6 +53,8 @@ O plano lista cada tipo de evento do site que difere do SMART, com os campos que
 
 Quando uma carga deixa os tipos de evento como estão e o modelo desta área de conservação tem um campo que falta ao tipo de evento do site, o plano avisa você. Adicione o campo no site, ou refaça o plano com uma atualização.
 
+Um site que ainda tem tipos de evento do SMART na forma antiga do EarthRanger (versão 1) é a exceção: escolha **Atualizá-los a partir do SMART** na primeira carga, para que a carga os converta. Uma carga que deixa os tipos de evento como estão não os converte, ignora os que têm o mesmo valor, e a verificação prévia indica então que esses tipos de evento faltam.
+
 A escolha abrange os tipos de evento e as suas listas de opções. Os tipos de patrulha e os campos universais de patrulha são configurados como antes.
 
 ## Carregar parte de um conjunto de dados
