@@ -147,8 +147,6 @@ table.rangers { margin-top: 6px; }
 .page-head h1 { margin: 0; }
 .cards { display: flex; flex-direction: column; gap: 10px; }
 /* the home page's second section, the EarthRanger sites, under the datasets */
-.home-section { margin-top: 32px; }
-.home-section .page-head h2 { margin: 0; font-size: 20px; }
 .backup-reminder a { margin-left: 2px; }
 /* support staff only: the switch that lists every user's datasets and sites, and the line on a page they may only look at */
 .page-head .switch { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }

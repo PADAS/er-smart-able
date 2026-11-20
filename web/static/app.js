@@ -94,7 +94,7 @@ function renderRoute(route) {
   if (route.page === 'home') showHome();
   else if (route.page === 'dataset') showDataset(route);
   else if (route.page === 'load') showLoad(route);
-  else if (route.page === 'sites') showHome(true);   // the sites are a section of the home page; the old address still opens them
+  else if (route.page === 'sites') showSites();
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
 }
@@ -203,26 +203,37 @@ function listQuery() { return seesAll() ? '?all=1' : ''; }
 
 // the home page's polling: a fetch is current only while its gen is, so a superseded response is dropped
 // toSites: arrived by the sites' own address (#/sites), so the page opens at that section
-async function showHome(toSites) {
+async function showHome() {
   clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++listGen;
-  setRail({ page: toSites ? 'sites' : 'home' });
-  let list, sites = null, sitesError = '';
-  // the two lists are asked for together; the page shows the datasets even if the sites cannot be fetched
-  const sitesAsked = api('/api/sites' + listQuery()).then(r => { sites = r; }, e => { sitesError = e.message; });
+  setRail({ page: 'home' });
+  let list;
   try { list = await api('/api/datasets' + listQuery()); } catch (e) { if (gen === listGen && e.status !== 401) mountPage('<p class="empty">' + esc(e.message) + '</p>'); return; }
-  await sitesAsked;
   if (gen !== listGen) return;
-  mountPage(renderHome(list, sites, sitesError, { support: !!(ME && ME.support), all: seesAll() }));
+  mountPage(renderHome(list, { support: !!(ME && ME.support), all: seesAll() }));
   $('#uploadBtn').onclick = uploadDialog;
+  bindAllUsers(showHome);
+  pollHome(list, gen);
+}
+// the sites page: its own address (#/sites), opened from the sidebar
+async function showSites() {
+  clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
+  const gen = ++listGen;
+  setRail({ page: 'sites' });
+  let sites = null, error = '';
+  try { sites = await api('/api/sites' + listQuery()); } catch (e) { if (e.status === 401) return; error = e.message; }
+  if (gen !== listGen) return;
+  mountPage(renderSitesPage(sites, error, { support: !!(ME && ME.support), all: seesAll() }));
+  bindAllUsers(showSites);
+  bindSites(sites || []);
+}
+// the support switch: one stored choice, which both lists follow
+function bindAllUsers(redraw) {
   const everyone = $('#allUsers');
   if (everyone) everyone.onchange = () => {
     try { if (everyone.checked) localStorage.allUsers = '1'; else localStorage.removeItem('allUsers'); } catch (e) { /* storage blocked: the switch cannot be kept, so it stays off */ }
-    showHome();
+    redraw();
   };
-  bindSites(sites || []);
-  if (toSites) { const sec = $('#sites'); if (sec) sec.scrollIntoView({ block: 'start' }); }
-  pollHome(list, gen);
 }
 // the sites section's buttons: add, and for a site's owner edit, share and remove. Each change redraws the page.
 function bindSites(list) {
@@ -233,7 +244,7 @@ function bindSites(list) {
       if (b.dataset.act === 'siteEdit') return siteEditDialog(s);
       if (b.dataset.act === 'siteShare') return shareDialog(s, '/api/sites/');
       if (!confirm(t('confirm.removeSite', { name: s.name }))) return;
-      await api('/api/sites/' + s.id, { method: 'DELETE' }); showHome();
+      await api('/api/sites/' + s.id, { method: 'DELETE' }); showSites();
     } catch (e) { if (e.status !== 401) alert(e.message); }
   });
 }
@@ -304,7 +315,7 @@ function modalKeydown(e) {   // the helpKeydown pattern, plus Escape and a focus
 }
 
 function shareDialog(d, base = '/api/datasets/') {
-  const refresh = () => { if (base === '/api/sites/') return showHome(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
+  const refresh = () => { if (base === '/api/sites/') return showSites(); const r = parseRoute(location.hash); if (r.page === 'home') showHome(); else if (r.page === 'dataset') showDataset(r); };
   const allowed = Array.isArray(CONFIG.allowed) ? CONFIG.allowed : CONFIG.allowed ? [CONFIG.allowed] : [];
   const domain = allowed.find(e => e.startsWith('@'));   // the placeholder's suggestion; whole addresses give none
   const render = shared => {
@@ -475,7 +486,7 @@ function siteDialog(onCreated, onCancel) {
     try {
       const site = await api('/api/sites', { method: 'POST', body: JSON.stringify({ name: $('#siteName').value, url: $('#siteUrl').value, token: $('#siteToken').value }) });
       closeDialog();
-      if (['home', 'sites'].includes(parseRoute(location.hash).page)) showHome();
+      if (parseRoute(location.hash).page === 'sites') showSites();
       if (onCreated) onCreated(site);
     } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
   };
@@ -493,7 +504,7 @@ function siteEditDialog(s) {
     try {
       await api('/api/sites/' + s.id, { method: 'PATCH', body: JSON.stringify(token ? { name: $('#siteName').value, token: token } : { name: $('#siteName').value }) });
       closeDialog();
-      if (['home', 'sites'].includes(parseRoute(location.hash).page)) showHome();
+      if (parseRoute(location.hash).page === 'sites') showSites();
     } catch (e) { if (e.status === 401) return; err.textContent = e.message; btn.disabled = false; }
   };
 }
