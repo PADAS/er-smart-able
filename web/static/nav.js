@@ -23,14 +23,15 @@ function _navEntry(current, nav, href, icon, text, off) {
 }
 
 // state: { doc: 'app'|'browser', hosted, signedIn, dataset: null|{id, name, ready, loadTabs}, current,
-//          lang, languages: [{code, name}], theme: 'system'|'light'|'dark', email, version }
+//          lang, languages: [{code, name}], theme: 'system'|'light'|'dark', email, version,
+//          open: false when the sidebar is folded }
 function renderRail(state, label) {
   var s = state || {}, d = s.dataset, browser = s.doc === 'browser', hosted = s.hosted !== false;
   var app = browser ? '/' : '';   // the app's addresses, as seen from each document
   var h = '<div class="rail-top">' +
     (hosted ? '<span class="rail-brand"><img class="logo-light" src="/static/img/er-lockup-h.svg" alt="EarthRanger"><img class="logo-dark" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger"></span>' : '') +
     '<span class="rail-app">' + label('shell.appName', 'SMART migration') + '</span>' +
-    '<button id="railToggle" type="button" aria-controls="rail" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
+    '<button id="railToggle" type="button" aria-controls="rail" aria-expanded="' + (s.open === false ? 'false' : 'true') + '" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
 
   h += '<div class="rail-main">';
   if (hosted && s.signedIn) {

@@ -34,7 +34,7 @@ function mountPage(html) { $('#page').innerHTML = html; }
 let railRoute = null, railDataset = null, railHtml = null;
 function setRail(route, dataset) { railRoute = route || null; railDataset = dataset || null; drawRail(); }
 function drawRail() {
-  const html = renderRail(railState(ME ? railRoute : null, ME, { dataset: railDataset, lang: currentLang(), languages: LANGS, theme: themeChoice, version: $('meta[name="app-version"]').content }), k => T(k));
+  const html = renderRail(railState(ME ? railRoute : null, ME, { dataset: railDataset, lang: currentLang(), languages: LANGS, theme: themeChoice, version: $('meta[name="app-version"]').content, open: document.documentElement.dataset.nav !== 'closed' }), k => T(k));
   if (html === railHtml) return;   // a page's refresh draws nothing new: an open menu and the scroll place stay
   railHtml = html;
   $('#rail').innerHTML = html;
@@ -44,12 +44,14 @@ function drawRail() {
     await useLang($('#lang').value, true);
     closeLayers();   // a dialog or the drawer holds the old language
     if (ME) renderRoute(parseRoute(location.hash)); else showSignIn();
+    $('#lang').focus();   // the menu was drawn again in the new language: the keyboard stays on it
   };
   // folded, a menu has no room to open: its icon opens the sidebar first
   $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(el => el.addEventListener('click', () => { if (document.documentElement.dataset.nav === 'closed') setNav('open'); }));
   // on a narrow screen the open sidebar lies over the page: choosing an entry folds it
   $('#rail').querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', () => { if (narrow()) setNav('closed'); }));
   if (!$('#helpBtn')) return;   // signed out: no help, no account
+  $('#helpBtn').onclick = () => openHelp();
   $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
   $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
 }
@@ -58,6 +60,9 @@ function narrow() { return window.innerWidth < 700; }
 function setNav(state, remember) {
   document.documentElement.dataset.nav = state === 'closed' ? 'closed' : 'open';
   if (remember !== false) { try { localStorage.sidenav = document.documentElement.dataset.nav; } catch (e) { /* storage blocked: the choice lasts this page */ } }
+  const toggle = $('#railToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', String(state !== 'closed'));
+  railHtml = null;   // the markup on the page no longer matches the last draw
 }
 // data-theme is always 'light' or 'dark'. 'system' resolves it from the OS and follows a switch
 // while the page is open; 'light' and 'dark' pin it. The choice (system|light|dark) is remembered.

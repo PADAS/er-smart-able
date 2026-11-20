@@ -70,14 +70,14 @@ function pill(status, label) {
 }
 
 // ---- the frame: what the sidebar (nav.js) shows for a route. route and me are null when signed out;
-// extra: { dataset, lang, languages, theme, version }. A dataset not fetched yet (or refused) gives the
+// extra: { dataset, lang, languages, theme, version, open }. A dataset not fetched yet (or refused) gives the
 // list form with nothing marked. The name goes whole: the stylesheet cuts a long one.
 function railState(route, me, extra) {
   extra = extra || {};
   var d = me && route && (route.page === 'dataset' || route.page === 'load') ? extra.dataset : null;
   var current = !me || !route ? null : route.page === 'home' ? 'home' : route.page === 'sites' ? 'sites'
     : !d ? null : route.page === 'load' ? 'migration:loads' : !route.tab || route.tab === 'overview' ? 'overview' : 'migration:' + route.tab;
-  return { doc: 'app', hosted: true, signedIn: !!me, current: current,
+  return { doc: 'app', hosted: true, signedIn: !!me, current: current, open: extra.open !== false,
     dataset: d ? { id: d.id, name: d.name, ready: d.status === 'ready', loadTabs: hasLoadTabs(d) } : null,
     lang: extra.lang || 'en', languages: extra.languages || [], theme: extra.theme || 'system', email: me && me.email || '', version: extra.version || '' };
 }

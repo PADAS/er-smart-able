@@ -600,14 +600,15 @@ function _navEntry(current, nav, href, icon, text, off) {
 }
 
 // state: { doc: 'app'|'browser', hosted, signedIn, dataset: null|{id, name, ready, loadTabs}, current,
-//          lang, languages: [{code, name}], theme: 'system'|'light'|'dark', email, version }
+//          lang, languages: [{code, name}], theme: 'system'|'light'|'dark', email, version,
+//          open: false when the sidebar is folded }
 function renderRail(state, label) {
   var s = state || {}, d = s.dataset, browser = s.doc === 'browser', hosted = s.hosted !== false;
   var app = browser ? '/' : '';   // the app's addresses, as seen from each document
   var h = '<div class="rail-top">' +
     (hosted ? '<span class="rail-brand"><img class="logo-light" src="/static/img/er-lockup-h.svg" alt="EarthRanger"><img class="logo-dark" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger"></span>' : '') +
     '<span class="rail-app">' + label('shell.appName', 'SMART migration') + '</span>' +
-    '<button id="railToggle" type="button" aria-controls="rail" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
+    '<button id="railToggle" type="button" aria-controls="rail" aria-expanded="' + (s.open === false ? 'false' : 'true') + '" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
 
   h += '<div class="rail-main">';
   if (hosted && s.signedIn) {
@@ -708,7 +709,8 @@ function setTheme(choice) {
 function drawRail() {
   $('#caHold').appendChild($('#caSel'));   // the filter outlives the redraw
   $('#rail').innerHTML = renderRail({ doc: 'browser', hosted: !!HOSTED, signedIn: !!HOSTED, dataset: RAIL.dataset, current: 'data:' + TAB,
-    lang: RAIL.lang, languages: RAIL.languages, theme: storedTheme(), email: RAIL.email, version: '' }, railLabel);
+    lang: RAIL.lang, languages: RAIL.languages, theme: storedTheme(), email: RAIL.email, version: '',
+    open: document.documentElement.getAttribute('data-nav') !== 'closed' }, railLabel);
   if (RAIL.ready) $('#railFilter').appendChild($('#caSel'));
   $('#railToggle').onclick = () => setNav(document.documentElement.getAttribute('data-nav') === 'closed' ? 'open' : 'closed');
   $('#rail').querySelectorAll('a[data-nav^="data:"]').forEach(a => a.onclick = e => {
@@ -721,7 +723,7 @@ function drawRail() {
   $('#rail').querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
   $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(m => m.addEventListener('click', () => { if (document.documentElement.getAttribute('data-nav') === 'closed') setNav('open'); }));
   const lang = $('#lang'), help = $('#helpBtn'), out = $('#signOut');
-  if (lang) lang.onchange = () => { try { localStorage.setItem('lang', lang.value); } catch (e) {} hostedRail(lang.value); };
+  if (lang) lang.onchange = () => { try { localStorage.setItem('lang', lang.value); } catch (e) {} hostedRail(lang.value, true); };
   if (help) help.onclick = () => window.open('/#/', '_blank', 'noopener');   // the help is a drawer of the app's own page
   if (out) out.onclick = async () => { try { await fetchApp('/api/signout', { method: 'POST' }); } catch (e) {} location.href = '/'; };
   markRail();
@@ -735,7 +737,7 @@ function markRail() {
 }
 let fetchApp = () => Promise.reject(new Error('no server'));   // set by hostedRail: nothing outside it asks the app
 // Everything asked of the app is asked here. Any answer that fails leaves what the sidebar has, in English.
-async function hostedRail(lang) {
+async function hostedRail(lang, refocus) {
   if (!HOSTED) return;
   fetchApp = (path, opts) => fetch(path, Object.assign({ credentials: 'same-origin' }, opts));
   const ask = async path => { try { const r = await fetchApp(path); return r.ok ? await r.json() : null; } catch (e) { return null; } };
@@ -754,6 +756,7 @@ async function hostedRail(lang) {
   const messages = lang === 'en' ? null : await ask('/static/locales/' + lang + '.json');
   RAIL.lang = messages || lang === 'en' ? lang : 'en'; RAIL.messages = messages;
   drawRail();
+  if (refocus) $('#lang').focus();   // the menu was drawn again: the keyboard stays on it
 }
 
 async function boot() {

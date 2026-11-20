@@ -48,3 +48,25 @@ test('the chosen theme and language are marked, and the account is named', () =>
   const h = rail({ theme: 'dark', lang: 'fr' });
   assert.match(h, /value="dark" checked/); assert.match(h, /<option value="fr"[^>]*selected/); assert.match(h, /ana@example\.org/); assert.match(h, /0\.0\.0/);
 });
+
+// ---- from the whole-branch review
+const fs = require('node:fs'); const path = require('node:path');
+const APP = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
+const BROWSER = fs.readFileSync(path.join(__dirname, '..', '..', 'browse', 'index.html'), 'utf8');
+const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}\n', i)); };
+test('the fold control says whether the sidebar is open', () => {
+  assert.match(rail({ open: true }), /id="railToggle"[^>]*aria-expanded="true"/);
+  assert.match(rail({ open: false }), /id="railToggle"[^>]*aria-expanded="false"/);
+  assert.match(rail({}), /id="railToggle"[^>]*aria-expanded="true"/, 'open unless told otherwise');
+  assert.match(fn(APP, 'function drawRail() {'), /open: document\.documentElement\.dataset\.nav !== 'closed'/);
+  assert.match(fn(APP, 'function setNav(state, remember) {'), /setAttribute\('aria-expanded'/);
+  assert.match(fn(BROWSER, 'function drawRail() {'), /open: document\.documentElement\.getAttribute\('data-nav'\) !== 'closed'/);
+});
+test('the sidebar the app draws has its Help button bound, every time it is drawn', () => {
+  assert.match(fn(APP, 'function drawRail() {'), /\$\('#helpBtn'\)\.onclick = \(\) => openHelp\(\);/);
+  assert.doesNotMatch(fn(APP, 'async function boot() {'), /#helpBtn|#signOut|#account|#lang'\)\.onchange/, 'boot binds nothing the sidebar re-creates');
+});
+test('choosing a language keeps the keyboard on the language menu', () => {
+  assert.match(fn(APP, 'function drawRail() {'), /await useLang\(\$\('#lang'\)\.value, true\);[\s\S]*\$\('#lang'\)\.focus\(\);/);
+  assert.match(fn(BROWSER, 'async function hostedRail(lang, refocus) {'), /drawRail\(\);\s*if \(refocus\) \$\('#lang'\)\.focus\(\);/);
+});

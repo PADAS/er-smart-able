@@ -41,7 +41,7 @@ def test_the_viewer_has_no_band_and_no_list_of_its_own():
 def test_from_a_folder_the_viewer_asks_no_server():
     html = (ROOT / "browse" / "index.html").read_text()
     # everything asked of the app is asked in one function, which leaves at once when the page is not under /d/{id}/
-    start = html.index("async function hostedRail(lang) {")
+    start = html.index("async function hostedRail(lang, refocus) {")
     body = html[start:html.index("\n}\n", start)]
     assert body.split("\n")[1].strip() == "if (!HOSTED) return;"
     outside = html.split("/* nav.js:end */", 1)[1].replace(body, "")
