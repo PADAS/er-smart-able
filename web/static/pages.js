@@ -36,6 +36,7 @@ function parseRoute(hash) {
   var m = /^#load\/([A-Za-z0-9]+)$/.exec(h);
   if (m) return { page: 'legacy-load', load: m[1] };
   if (h === '#/sites') return { page: 'sites' };
+  if (h === '#/help') return { page: 'home', help: true };   // the data browser's Help: the list, with the help open
   m = /^#\/datasets\/([A-Za-z0-9]+)(?:\/(loads|rangers|backup))?$/.exec(h);
   if (m) return { page: 'dataset', id: m[1], tab: m[2] || 'overview' };
   m = /^#\/datasets\/([A-Za-z0-9]+)\/loads\/([A-Za-z0-9]+)$/.exec(h);

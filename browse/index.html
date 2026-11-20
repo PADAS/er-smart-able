@@ -724,7 +724,7 @@ function drawRail() {
   $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(m => m.addEventListener('click', () => { if (document.documentElement.getAttribute('data-nav') === 'closed') setNav('open'); }));
   const lang = $('#lang'), help = $('#helpBtn'), out = $('#signOut');
   if (lang) lang.onchange = () => { try { localStorage.setItem('lang', lang.value); } catch (e) {} hostedRail(lang.value, true); };
-  if (help) help.onclick = () => window.open('/#/', '_blank', 'noopener');   // the help is a drawer of the app's own page
+  if (help) help.onclick = () => window.open('/#/help', '_blank', 'noopener');   // the help is a drawer of the app's own page: #/help opens it
   if (out) out.onclick = async () => { try { await fetchApp('/api/signout', { method: 'POST' }); } catch (e) {} location.href = '/'; };
   markRail();
 }

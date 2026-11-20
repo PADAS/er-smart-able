@@ -102,6 +102,7 @@ function renderRoute(route) {
   else if (route.page === 'sites') showSites();
   else if (route.page === 'legacy-load') openLegacyLoad(route.load);
   else console.log('no page built yet for', route);
+  if (route.help) openHelp();   // #/help, from the data browser's sidebar; the entry was already rewritten to the list's address
 }
 // an old #load/<id> link: look up the load's dataset and swap the entry for the load's route
 async function openLegacyLoad(id) {
