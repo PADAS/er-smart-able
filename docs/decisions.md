@@ -186,3 +186,29 @@ the app: a much larger change that ends its use from a folder.
 Reopen if the copy in the browser drifts despite the test, or if the page
 load between a Data view and a Migration page is felt in use; then the
 browser moves into the app.
+
+## 2026-11-20: A migrated patrol's track belongs to its leader only
+
+SMART records one track for a patrol leg, not one for each person on it.
+The import gives that track to the leg's leader, or to the first member
+when the leg has no leader, and writes the leader, the members and the
+team on the leg. EarthRanger's team patrol view computes each tracked
+subject's distance from that subject's own track, so on a migrated leg
+the leader has a distance and the other members have none (GUNDI-5947,
+checked on a staging site: 6 of 8 sampled leaders had track points in the
+leg's time range, and none of 29 other members).
+
+Tracking the leader only is enough. The import does not copy the leg's
+track to every member.
+
+Not a copy for each member: it multiplies the track points by the size of
+the team (about four times for LAWIN), slows every load, needs a backfill
+of the areas already loaded, and shows as recorded movement what SMART
+never recorded for that person.
+
+A report that needs distance for each member takes it from the leg: its
+leader's track, credited to the members the leg names. Which fields the
+EcoScope effort report reads is not established (GUNDI-5962).
+
+Reopen if a report or the web app can only credit a member from that
+member's own track and neither can be changed.
