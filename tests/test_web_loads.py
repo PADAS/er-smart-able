@@ -161,7 +161,7 @@ def test_create_load_plans_first(client, launches):
     load = r.json()
     assert load["status"] == "planning" and load["site"] == {"id": site, "name": "s", "url": "x.pamdas.org"}
     assert load["options"] == {"language": "en", "configurable_model": None, "event_type_set": None, "roster_group": "Rangers",
-                               "event_category": "smart-050500", "scope": "all", "since": None, "until": None}
+                               "event_category": "smart-050500", "existing_event_types": "keep", "scope": "all", "since": None, "until": None}
     assert launches == [(load["id"], "plan")]
     listed = c.get(f"/api/datasets/{ds}/loads").json()[0]
     assert listed["id"] == load["id"]
@@ -477,3 +477,25 @@ def test_a_long_model_name_is_the_set_name_whole(client, launches):
     assert r.status_code == 201 and r.json()["options"]["event_type_set"] == long   # not cut: a cut name is another set
     store.update_load(r.json()["id"], status="done")
     assert post(configurable_model="abc", event_type_set=long).status_code == 201   # what the dialog sends back
+
+
+def test_a_load_keeps_existing_event_types_unless_asked_to_update_them(client, launches):
+    app, c = client
+    store = app.get_store()
+    ds, site = _dataset(store), _site(store)
+    post = lambda **options: c.post(f"/api/datasets/{ds}/loads", json={"ca_id": "ALPHA", "site_id": site, "options": options})
+    for given, stored in (({}, "keep"), ({"existing_event_types": None}, "keep"), ({"existing_event_types": "keep"}, "keep"),
+                          ({"existing_event_types": "update"}, "update")):
+        r = post(**given)
+        assert r.status_code == 201 and r.json()["options"]["existing_event_types"] == stored, given
+        store.update_load(r.json()["id"], status="done")
+    for bad in ("merge", 1, ["keep"], ""):
+        r = post(existing_event_types=bad)
+        assert r.status_code == 400 and r.json()["code"] == "existing_event_types_invalid", bad
+
+
+def test_a_load_made_before_the_choice_reads_as_an_update(client, launches):
+    app, c = client
+    store = app.get_store()
+    load = _load(store, _dataset(store), _site(store))   # its options have no existing_event_types: its plan showed updates
+    assert c.get(f"/api/loads/{load}").json()["options"]["existing_event_types"] == "update"

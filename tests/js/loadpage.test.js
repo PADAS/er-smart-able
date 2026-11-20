@@ -146,3 +146,8 @@ test('a load in support view says so and has no run, plan-again or delete', () =
   assert.match(h, /The job stopped without reporting\.</); assert.doesNotMatch(h, /continue to resume/);
   assert.match(P.renderLoadPage({ ...stale, access: 'shared' }, false), /continue to resume/);
 });
+test('the title block says what the load does with event types the site already has', () => {
+  assert.match(P.renderLoadTitle({ ...base, options: { ...base.options, existing_event_types: 'keep' } }), /existing event types kept/);
+  assert.match(P.renderLoadTitle({ ...base, options: { ...base.options, existing_event_types: 'update' } }), /existing event types updated from SMART/);
+  assert.doesNotMatch(P.renderLoadTitle(base), /existing event types/);
+});

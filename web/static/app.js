@@ -547,6 +547,8 @@ async function loadDialog(d, caId, keep) {
     '<label>' + T('loadDialog.roster') + ' <input type="text" id="ldRoster" placeholder="' + T('loadDialog.rosterPlaceholder') + '"></label>' +
     '<label>' + T('loadDialog.category') + ' <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
     '<p class="muted tiny">' + T('loadDialog.categoryHint') + '</p>' +
+    '<label>' + T('loadDialog.existing') + ' <select id="ldExisting"><option value="keep">' + T('loadDialog.existingKeep') + '</option><option value="update">' + T('loadDialog.existingUpdate') + '</option></select></label>' +
+    '<p class="muted tiny">' + T('loadDialog.existingHint') + '</p>' +
     '<label>' + T('loadDialog.what') + ' <select id="ldScope"><option value="all">' + T('loadDialog.modelAndPatrols') + '</option><option value="datamodel">' + T('loadDialog.modelOnly') + '</option></select></label>' +
     '<div class="row" id="ldWindow"><label>' + T('loadDialog.patrolsFrom') + ' <input type="date" id="ldSince"></label><label>' + T('loadDialog.to') + ' <input type="date" id="ldUntil"></label></div>' +
     '<p class="muted tiny" id="ldScopeHint"></p>' +
@@ -558,7 +560,7 @@ async function loadDialog(d, caId, keep) {
     else $('#ldScopeHint').textContent = t('loadDialog.hintAll');
   };
   if (caId) $('#ldCa').value = caId;
-  const ids = ['ldRoster', 'ldCategory', 'ldScope', 'ldSince', 'ldUntil'];
+  const ids = ['ldRoster', 'ldCategory', 'ldExisting', 'ldScope', 'ldSince', 'ldUntil'];
   if (keep && keep.ca) $('#ldCa').value = keep.ca;
   render();
   if (keep) { ids.forEach(i => { $('#' + i).value = keep[i]; }); $('#ldLang').value = keep.ldLang; $('#ldCm').value = keep.ldCm; $('#ldSetRow').hidden = !keep.ldCm; $('#ldSet').value = keep.ldSet || ''; if (keep.site) $('#ldSite').value = keep.site;
@@ -580,7 +582,7 @@ async function loadDialog(d, caId, keep) {
     try {
       const l = await api('/api/datasets/' + d.id + '/loads', { method: 'POST', body: JSON.stringify({ ca_id: $('#ldCa').value, site_id: $('#ldSite').value,
         options: { language: $('#ldLang').value, configurable_model: $('#ldCm').value || null, event_type_set: $('#ldCm').value ? $('#ldSet').value.trim() || null : null, roster_group: $('#ldRoster').value,
-        event_category: $('#ldCategory').value.trim(), scope: $('#ldScope').value, since: since || null, until: until || null } }) });
+        event_category: $('#ldCategory').value.trim(), existing_event_types: $('#ldExisting').value, scope: $('#ldScope').value, since: since || null, until: until || null } }) });
       closeDialog(); navigate({ page: 'load', id: d.id, load: l.id });
     } catch (e) { oops(e); }
   };
