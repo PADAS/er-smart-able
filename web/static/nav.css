@@ -5,8 +5,8 @@
 #rail .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-size: 20px; line-height: 1; flex: none; color: var(--er-ui-icons); }
 #rail .rail-top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 4px 8px 8px; }
 #rail .rail-brand { flex: 1 1 100%; }
-#rail .rail-brand img { height: 26px; display: block; }
-#rail .logo-dark { display: none; }
+#rail .rail-brand img { display: block; height: auto; max-height: 28px; max-width: 100%; }
+#rail .rail-brand .logo-dark { display: none; }
 #rail .rail-app { flex: 1; min-width: 0; font-size: 13px; color: var(--er-ui-text-secondary-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #rail .rail-main { display: flex; flex-direction: column; gap: 2px; flex: 1 0 auto; }
 #rail .rail-foot { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--er-ui-divider-lines); }
@@ -37,11 +37,11 @@
 #railScrim { display: none; }
 
 /* the dark theme: the app always sets data-theme; the browser leaves it unset to follow the system */
-html[data-theme="dark"] #rail .logo-light { display: none; }
-html[data-theme="dark"] #rail .logo-dark { display: block; }
+html[data-theme="dark"] #rail .rail-brand .logo-light { display: none; }
+html[data-theme="dark"] #rail .rail-brand .logo-dark { display: block; }
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) #rail .logo-light { display: none; }
-  html:not([data-theme="light"]) #rail .logo-dark { display: block; }
+  html:not([data-theme="light"]) #rail .rail-brand .logo-light { display: none; }
+  html:not([data-theme="light"]) #rail .rail-brand .logo-dark { display: block; }
 }
 
 /* folded: icons only */

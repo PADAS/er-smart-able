@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "SMART migration",
-    "home": "Back to the dataset list",
     "help": "Help",
     "sites": "EarthRanger sites",
     "theme": "Theme",
@@ -67,7 +66,6 @@
     "notFoundLoad": "This load does not exist, or its dataset's owner has not shared the dataset with you.",
     "notFoundDataset": "This dataset does not exist, or its owner has not shared it with you.",
     "backToDatasets": "Back to datasets",
-    "tabOverview": "Overview",
     "tabLoads": "Loads",
     "extraction": "Extraction",
     "started": "Started {{when}}",
@@ -97,7 +95,6 @@
     "sharedWith": "shared with {{list}}",
     "uploaded": "uploaded {{date}}",
     "ownedByYou": "owned by you",
-    "notFoundCrumb": "Not found",
     "tabBackup": "Backup"
   },
   "backup": {

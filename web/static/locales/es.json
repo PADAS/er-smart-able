@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "Migración SMART",
-    "home": "Volver a la lista de conjuntos de datos",
     "help": "Ayuda",
     "sites": "Sitios de EarthRanger",
     "theme": "Tema",
@@ -67,7 +66,6 @@
     "notFoundLoad": "Esta carga no existe, o el propietario de su conjunto de datos no ha compartido el conjunto de datos con usted.",
     "notFoundDataset": "Este conjunto de datos no existe, o su propietario no lo ha compartido con usted.",
     "backToDatasets": "Volver a los conjuntos de datos",
-    "tabOverview": "Resumen",
     "tabLoads": "Cargas",
     "extraction": "Extracción",
     "started": "Inicio: {{when}}",
@@ -97,7 +95,6 @@
     "sharedWith": "compartido con {{list}}",
     "uploaded": "subido el {{date}}",
     "ownedByYou": "de su propiedad",
-    "notFoundCrumb": "No encontrado",
     "tabBackup": "Copia de seguridad"
   },
   "backup": {

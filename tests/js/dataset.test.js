@@ -1,5 +1,8 @@
 const test = require('node:test'); const assert = require('node:assert/strict'); const { load } = require('./shim');
 const P = load();
+// the sidebar as the dataset page draws it: where the tabs' links and their disabled state now live
+const railOf = (P, ds, tab) => P.renderRail(P.railState({ page: 'dataset', id: ds.id, tab: tab }, { email: 'ana@example.org' }, { dataset: ds, lang: 'en', languages: [], theme: 'system', version: '' }), k => P.T(k));
+const offIn = (h, name) => new RegExp('class="off" aria-disabled="true" title="' + name + '"').test(h);
 const d = { id: 'a1', name: 'R5 Lawin', source_name: 'r5.zip', source_size: 1000, created_at: '2026-10-07T00:00:00+00:00', status: 'ready', mine: true, shared_with: [],
             export: [{ dir: 'ALPHA', ca_id: '050500', name: 'Albay', patrols: 1527, waypoints: 30000 }, { dir: 'BETA', ca_id: '050504', name: 'Guinobatan', patrols: 0 }],
             counts: { patrols: 1527, waypoints: 30000 }, log_tail: 'done' };
@@ -26,8 +29,8 @@ test('no Load is offered while the dataset is being extracted: the bundle is bei
   assert.match(P.renderDatasetPage({ ...d, status: 'running', extract_held: false }, 'overview', {}), /data-act="load" data-ca="ALPHA"/);
 });
 test('a failed re-extract keeps the Loads and Rangers tabs reachable while the export is there', () => {
-  const h = P.renderDatasetPage({ ...d, status: 'failed', error: 'boom' }, 'overview', {});
-  assert.doesNotMatch(h, /href="#\/datasets\/a1\/loads"[^>]*aria-disabled/); assert.doesNotMatch(h, /href="#\/datasets\/a1\/rangers"[^>]*aria-disabled/);
+  const h = railOf(P, { ...d, status: 'failed', error: 'boom' }, 'overview');
+  assert.match(h, /href="#\/datasets\/a1\/loads"/); assert.match(h, /href="#\/datasets\/a1\/rangers"/);
   assert.equal(P.hasLoadTabs({ status: 'failed', export: [] }), false); assert.equal(P.hasLoadTabs({ status: 'ready' }), true);
 });
 test('a ready dataset without export entries still lists its areas for Browse', () => {
@@ -37,7 +40,9 @@ test('a ready dataset without export entries still lists its areas for Browse', 
 test('a dataset still extracting disables the actions and the other tabs', () => {
   const h = P.renderDatasetPage({ ...d, status: 'running', extract_held: true, export: [] }, 'overview', {});
   assert.match(h, /id="deleteBtn"[^>]*disabled/); assert.match(h, /id="extractBtn"[^>]*disabled/); assert.doesNotMatch(h, /id="shareBtn"[^>]*disabled/);   // sharing changes nothing the job touches
-  assert.match(h, /href="#\/datasets\/a1\/loads"[^>]*aria-disabled="true"/); assert.match(h, /<details open/);
+  assert.match(h, /<details open/); assert.doesNotMatch(h, /class="tabs"/);
+  const r = railOf(P, { ...d, status: 'running', extract_held: true, export: [] }, 'overview');
+  assert.ok(offIn(r, 'Loads') && offIn(r, 'Match rangers') && offIn(r, 'Patrols')); assert.doesNotMatch(r, /href="#\/datasets\/a1\/loads"/);
 });
 test('a failed extraction still opens, with its error', () => {
   assert.match(P.renderDatasetPage({ ...d, status: 'failed', error: 'boom', export: [] }, 'overview', {}), /st-error[\s\S]*boom/);
@@ -149,12 +154,12 @@ test('the uploaded backup has its own tab, and the Overview no longer carries th
   const ds = { ...own, upload: up };
   assert.equal(JSON.stringify(P.parseRoute('#/datasets/a1/backup')), JSON.stringify({ page: 'dataset', id: 'a1', tab: 'backup' }));
   assert.equal(P.routeHash({ page: 'dataset', id: 'a1', tab: 'backup' }), '#/datasets/a1/backup');
-  const tabs = P.renderTabs(ds, 'backup');
-  assert.match(tabs, /<a href="#\/datasets\/a1\/backup" class="active" aria-current="page">Backup<\/a>/);
-  assert.ok(tabs.indexOf('/rangers') < tabs.indexOf('/backup'), 'Overview, Loads, Rangers, Backup');
+  const tabs = railOf(P, ds, 'backup');
+  assert.match(tabs, /<a href="#\/datasets\/a1\/backup" data-nav="migration:backup" class="on" aria-current="page"/);
+  assert.ok(tabs.indexOf('/rangers"') < tabs.indexOf('/backup"'), 'Overview, Loads, Match rangers, Backup');
   assert.match(P.renderDatasetPage(ds, 'backup'), /id="backup"/); assert.match(P.renderDatasetPage(ds, 'backup'), /Delete the backup now/);
   assert.doesNotMatch(P.renderDatasetPage(ds, 'overview'), /id="backup"/);
-  assert.doesNotMatch(P.renderTabs({ ...own, status: 'failed', export: [] }, 'overview'), /backup"[^>]*aria-disabled/, 'the tab is there whatever the extraction did');
+  assert.match(railOf(P, { ...own, status: 'failed', export: [] }, 'overview'), /href="#\/datasets\/a1\/backup"/, 'the entry is there whatever the extraction did');
 });
 test('the Overview reminds the reader only when the backup goes within a week or has gone', () => {
   const P = at(load()), on = (u, extra) => P.renderOverview({ ...own, upload: u, ...extra });
@@ -178,12 +183,11 @@ test('a tab the bar offers is a tab the route opens: Backup on a dataset that fa
   assert.equal(P.tabAllowed(failed, 'backup'), true); assert.equal(P.tabAllowed(failed, 'overview'), true);
   assert.equal(P.tabAllowed(failed, 'loads'), false); assert.equal(P.tabAllowed(failed, 'rangers'), false);
   assert.equal(P.tabAllowed({ ...failed, status: 'ready' }, 'loads'), true);
-  const tabs = P.renderTabs(failed, 'backup');
-  for (const [tab, off] of [['', false], ['/loads', true], ['/rangers', true], ['/backup', false]])
-    assert.equal(new RegExp('href="#/datasets/a1' + tab + '"[^>]*aria-disabled="true"').test(tabs), off, tab || 'overview');
+  const tabs = railOf(P, failed, 'backup');
+  for (const [name, off] of [['Overview', false], ['Loads', true], ['Match rangers', true], ['Backup', false]]) assert.equal(offIn(tabs, name), off, name);
   assert.match(P.renderDatasetPage(failed, 'backup'), /Delete the backup now/, 'the owner can still delete the backup of a dataset that never extracted');
   const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
-  assert.match(src, /if \(!tabAllowed\(d, tab\)\) \{ tab = 'overview';/, 'the route asks the same question as the tab bar');
+  assert.match(src, /if \(!tabAllowed\(d, tab\)\) \{ tab = 'overview';/, 'the route asks the same question as the sidebar');
   assert.doesNotMatch(src, /hasLoadTabs\(/, 'and no second rule of its own');
 });
 // ---- support view: support staff may open any dataset and are drawn nothing that changes it

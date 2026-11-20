@@ -8,9 +8,26 @@ test('every status maps to a token class', () => {
   assert.equal(P.pill('needs_attention'), '<span class="pill st-warning">needs attention</span>');
   assert.equal(P.pill('done', 'Done'), '<span class="pill st-success">Done</span>');
 });
-test('breadcrumb links all but the last part and escapes', () => {
-  const h = P.renderBreadcrumb([{ label: 'Datasets', hash: '#/' }, { label: 'R5 <Lawin>', hash: '#/datasets/a1' }, { label: 'Load' }]);
-  assert.match(h, /<a href="#\/">Datasets<\/a>/); assert.match(h, /R5 &lt;Lawin&gt;/); assert.doesNotMatch(h, /<a[^>]*>Load</);
+test('the sidebar marks where the reader is, for every route', () => {
+  const me = { email: 'ana@example.org' }, ds = { id: 'a1', name: 'R5 <Lawin>', status: 'ready', export: [{ dir: 'x' }] };
+  const at = (route, dataset) => P.railState(route, me, { dataset: dataset, lang: 'en', languages: [], theme: 'dark', version: '1.2.3' });
+  assert.equal(at({ page: 'home' }).current, 'home'); assert.equal(at({ page: 'sites' }).current, 'sites');
+  assert.equal(at({ page: 'dataset', id: 'a1', tab: 'overview' }, ds).current, 'overview');
+  for (const tab of ['loads', 'rangers', 'backup']) assert.equal(at({ page: 'dataset', id: 'a1', tab: tab }, ds).current, 'migration:' + tab);
+  assert.equal(at({ page: 'load', id: 'a1', load: 'b2' }, ds).current, 'migration:loads');
+  const s = at({ page: 'dataset', id: 'a1', tab: 'overview' }, ds);
+  assert.deepEqual(JSON.parse(JSON.stringify(s.dataset)), { id: 'a1', name: 'R5 <Lawin>', ready: true, loadTabs: true });   // the name whole: the stylesheet cuts it
+  assert.equal(s.doc, 'app'); assert.equal(s.signedIn, true); assert.equal(s.email, 'ana@example.org'); assert.equal(s.theme, 'dark'); assert.equal(s.version, '1.2.3');
+});
+test('a dataset still extracting is not ready, and one not fetched yet shows the list form', () => {
+  const st = (dataset) => P.railState({ page: 'dataset', id: 'a1', tab: 'overview' }, { email: 'a@example.org' }, { dataset: dataset, lang: 'en', languages: [], theme: 'system', version: '' });
+  const s = st({ id: 'a1', name: 'A', status: 'running', export: [] });
+  assert.equal(s.dataset.ready, false); assert.equal(s.dataset.loadTabs, false);
+  assert.equal(st(null).dataset, null); assert.equal(st(null).current, null);
+});
+test('signed out, the sidebar state says so and names no one', () => {
+  const s = P.railState(null, null, { lang: 'fr', languages: [], theme: 'system', version: '1.2.3' });
+  assert.equal(s.signedIn, false); assert.equal(s.dataset, null); assert.equal(s.current, null); assert.equal(s.email, '');
 });
 test('sign-in names the product and the allowed domain', () => {
   const h = P.renderSignIn({ allowed: ['@earthranger.com'] });

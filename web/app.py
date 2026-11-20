@@ -63,7 +63,7 @@ QUIRKS = ROOT / "browse" / "quirks.html"
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 # the page asks for its script and stylesheet by content, so a browser holding the previous
 # deploy's copies fetches the new ones
-ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "i18n.js", "pages.js", "er-tokens.css", "fonts/roboto.css")}
+ASSETS = {name: hashlib.sha256((HERE / "static" / name).read_bytes()).hexdigest()[:12] for name in ("app.css", "app.js", "i18n.js", "nav.js", "nav.css", "pages.js", "er-tokens.css", "fonts/roboto.css")}
 # the language menu and the message files: the registry is read once, and one hash over every message
 # file keeps a browser from holding last deploy's messages
 LOCALES = HERE / "static" / "locales"

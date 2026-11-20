@@ -5,41 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>smart-able</title>
   <meta name="locales-v" content="{{ locales_v }}">
-  <!-- the tokens hang on data-theme, so it is set before anything paints; app.js keeps it in step afterwards -->
-  <script>(function () { var t; try { t = localStorage.theme; } catch (e) {} document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; })();</script>
+  <meta name="app-version" content="{{ version }}">
+  <!-- the tokens hang on data-theme and the sidebar's width on data-nav, so both are set before anything paints; app.js keeps them in step afterwards -->
+  <script>(function () { var t; try { t = localStorage.theme; } catch (e) {} document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; var n; try { n = localStorage.sidenav; } catch (e) {} document.documentElement.dataset.nav = n === 'open' || n === 'closed' ? n : window.innerWidth < 700 ? 'closed' : 'open'; })();</script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
   <link rel="stylesheet" href="/static/er-tokens.css?v={{ assets['er-tokens.css'] }}">
   <link rel="stylesheet" href="/static/fonts/roboto.css?v={{ assets['fonts/roboto.css'] }}">
   <link rel="stylesheet" href="/static/app.css?v={{ assets['app.css'] }}">
+  <link rel="stylesheet" href="/static/nav.css?v={{ assets['nav.css'] }}">
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
-  <header>
-    <a id="home" href="#/" title="Back to the dataset list" data-i18n-title="shell.home"><img src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger"></a><span id="appName" data-i18n="shell.appName">SMART migration</span><span id="version" class="tiny">{{ version }}</span>
-    <div class="header-right">
-      <select id="lang" class="lang-select" aria-label="Language" data-i18n-aria="shell.language">{% for l in languages %}<option value="{{ l.code }}" lang="{{ l.code }}">{{ l.name }}</option>{% endfor %}</select>
-      <button id="helpBtn" class="btn ghost" title="Help" aria-label="Help" data-i18n-title="shell.help" data-i18n-aria="shell.help" hidden><span class="mi" aria-hidden="true">help</span><span class="label" data-i18n="shell.help">Help</span></button>
-      <details id="account" hidden>
-        <summary id="whoEmail"></summary>
-        <div id="accountMenu">
-          <p id="menuEmail" class="menu-email"></p>
-          <fieldset class="menu-theme">
-            <legend data-i18n="shell.theme">Theme</legend>
-            <label><input type="radio" name="theme" value="system"><span data-i18n="shell.themeSystem">System</span></label>
-            <label><input type="radio" name="theme" value="light"><span data-i18n="shell.themeLight">Light</span></label>
-            <label><input type="radio" name="theme" value="dark"><span data-i18n="shell.themeDark">Dark</span></label>
-          </fieldset>
-          <button id="signOut" class="menu-item"><span class="mi" aria-hidden="true">logout</span><span data-i18n="shell.signOut">Sign out</span></button>
-          <p class="tiny menu-version">{{ version }}</p>
-        </div>
-      </details>
+  <div class="shell">
+    <!-- the sidebar: nav.js draws it, app.js says what it shows and binds it -->
+    <nav id="rail" aria-label="SMART migration" data-i18n-aria="shell.appName"></nav>
+    <div id="railScrim"></div>
+    <div class="shell-main">
+      <p id="langNote" class="lang-note" hidden data-i18n="shell.machineTranslated">This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English.</p>
+      <main id="page" class="wrap"></main>
     </div>
-  </header>
-  <p id="langNote" class="lang-note" hidden data-i18n="shell.machineTranslated">This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English.</p>
-  <div id="crumbs" class="crumbs" hidden></div>
-
-  <main id="page" class="wrap"></main>
+  </div>
 
   <div id="helpBackdrop" class="backdrop" hidden></div>
   <aside id="help" class="drawer" hidden role="dialog" aria-modal="true" aria-label="Help" data-i18n-aria="shell.help">
@@ -59,6 +45,7 @@
 
   <script type="application/json" id="languages">{{ languages | tojson }}</script>
   <script src="/static/i18n.js?v={{ assets['i18n.js'] }}"></script>
+  <script src="/static/nav.js?v={{ assets['nav.js'] }}"></script>
   <script src="/static/pages.js?v={{ assets['pages.js'] }}"></script>
   <script src="/static/app.js?v={{ assets['app.js'] }}"></script>
 </body>

@@ -102,7 +102,6 @@ const LOADS = [
   { ...LOAD, status: 'failed', mode: null, stage: 'datamodel', stages: undefined },
 ];
 const CALLS = {
-  renderBreadcrumb: [[[{ label: 'Zzcrumb a', hash: '#/' }, { label: 'Zzcrumb b' }]]],
   renderRail: [
     [{ doc: 'app', hosted: true, signedIn: true, dataset: null, current: 'home', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'system', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
     [{ doc: 'app', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: true, loadTabs: true }, current: 'migration:loads', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'dark', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
@@ -116,7 +115,6 @@ const CALLS = {
   renderRangersSection: [[{ ...LOAD, rangers: RANGERS, rangers_total: 3 }, true], [{ ...LOAD, rangers: RANGERS, rangers_total: 9, options: { scope: 'datamodel' } }], [LOAD]],
   renderNotFound: [['load'], ['dataset'], []],
   renderSites: [[SITES], [[]], [[{ ...SITES[0], mine: false, access: 'support', token_hint: null, owner_email: 'owner@example.org' }]]],
-  renderTabs: [[ownDs, 'overview'], [DATASETS[0], 'loads'], [ownDs, 'rangers']],
   renderOverview: [...DATASETS.map(d => [d]), [ownDs],
     // the uploaded backup: expiring, about to go, kept for good, deleted by the owner, gone by the rule
     [{ ...ownDs, upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } }], [{ ...ownDs, upload: { present: true, expires_at: '2001-01-01T00:00:00+00:00' } }],

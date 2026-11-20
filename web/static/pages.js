@@ -69,11 +69,17 @@ function pill(status, label) {
   return '<span class="pill st-' + statusClass(status) + '">' + esc(words) + '</span>';
 }
 
-// ---- the frame: a breadcrumb under the header, the last part where the reader is
-function renderBreadcrumb(parts) {
-  return (parts || []).map((p, i, all) => i < all.length - 1 && p.hash
-    ? '<a href="' + esc(p.hash) + '">' + esc(p.label) + '</a>'
-    : '<span>' + esc(p.label) + '</span>').join('<span class="sep" aria-hidden="true">›</span>');
+// ---- the frame: what the sidebar (nav.js) shows for a route. route and me are null when signed out;
+// extra: { dataset, lang, languages, theme, version }. A dataset not fetched yet (or refused) gives the
+// list form with nothing marked. The name goes whole: the stylesheet cuts a long one.
+function railState(route, me, extra) {
+  extra = extra || {};
+  var d = me && route && (route.page === 'dataset' || route.page === 'load') ? extra.dataset : null;
+  var current = !me || !route ? null : route.page === 'home' ? 'home' : route.page === 'sites' ? 'sites'
+    : !d ? null : route.page === 'load' ? 'migration:loads' : !route.tab || route.tab === 'overview' ? 'overview' : 'migration:' + route.tab;
+  return { doc: 'app', hosted: true, signedIn: !!me, current: current,
+    dataset: d ? { id: d.id, name: d.name, ready: d.status === 'ready', loadTabs: hasLoadTabs(d) } : null,
+    lang: extra.lang || 'en', languages: extra.languages || [], theme: extra.theme || 'system', email: me && me.email || '', version: extra.version || '' };
 }
 
 // ---- sign-in: the band without Help or the account menu, and one centred panel
@@ -215,13 +221,6 @@ function siteEditBody(s) {
     '<p class="tiny" id="siteError" role="alert"></p>' +
     '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary" id="siteBtn">' + T('siteEdit.submit') + '</button></div></form>';
 }
-function renderTabs(d, tab) {
-  return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers'], ['backup', T('dataset.tabBackup'), '/backup']].map(t => {
-    var off = !tabAllowed(d, t[0]);
-    return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
-  }).join('') + '</nav>';
-}
-
 // the link into the data browser, which is not translated: another language is told so beside it
 function browseLink(d) {
   return '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>' + T('dataset.browse') + '</a>' +
@@ -315,7 +314,7 @@ function renderDatasetPage(d, tab, extra) {
     : tab === 'backup' ? (backupPanel(d) || '<div class="panel"><p class="tiny">' + T(d.status === 'uploading' ? 'backup.uploading' : 'backup.unknown') + '</p></div>') : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
     '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div>' + (d.access === 'support' ? supportLine(d.owner_email) : '') + '</div>' + actions + '</div>' +
-    renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
+    '<div id="tabBody">' + body + '</div>';
 }
 
 // ---- the load page. Time is read through now(), so a test can pin it (P.now = () => ...).

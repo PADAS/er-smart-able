@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "Migration SMART",
-    "home": "Retour à la liste des jeux de données",
     "help": "Aide",
     "sites": "Sites EarthRanger",
     "theme": "Thème",
@@ -67,7 +66,6 @@
     "notFoundLoad": "Ce chargement n'existe pas, ou le propriétaire de son jeu de données n'a pas partagé ce jeu de données avec vous.",
     "notFoundDataset": "Ce jeu de données n'existe pas, ou son propriétaire ne l'a pas partagé avec vous.",
     "backToDatasets": "Retour aux jeux de données",
-    "tabOverview": "Vue d'ensemble",
     "tabLoads": "Chargements",
     "extraction": "Extraction",
     "started": "Début : {{when}}",
@@ -97,7 +95,6 @@
     "sharedWith": "partagé avec {{list}}",
     "uploaded": "téléversé le {{date}}",
     "ownedByYou": "vous appartient",
-    "notFoundCrumb": "Introuvable",
     "tabBackup": "Sauvegarde"
   },
   "backup": {

@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "Uhamishaji wa SMART",
-    "home": "Rudi kwenye orodha ya seti za data",
     "help": "Msaada",
     "sites": "Tovuti za EarthRanger",
     "theme": "Mandhari",
@@ -67,7 +66,6 @@
     "notFoundLoad": "Uingizaji huu haupo, au mmiliki wa seti yake ya data hajashiriki seti hiyo ya data nawe.",
     "notFoundDataset": "Seti hii ya data haipo, au mmiliki wake hajaishiriki nawe.",
     "backToDatasets": "Rudi kwenye seti za data",
-    "tabOverview": "Muhtasari",
     "tabLoads": "Uingizaji",
     "extraction": "Utoaji wa data",
     "started": "Mwanzo: {{when}}",
@@ -97,7 +95,6 @@
     "sharedWith": "imeshirikiwa na {{list}}",
     "uploaded": "ilipakiwa {{date}}",
     "ownedByYou": "ni yako",
-    "notFoundCrumb": "Haipatikani",
     "tabBackup": "Chelezo"
   },
   "backup": {

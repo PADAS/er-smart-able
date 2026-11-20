@@ -18,29 +18,46 @@ function showSignIn(err) {
   closeLayers();   // the form must not sit behind a dialog's scrim
   clearTimeout(pollTimer); clearTimeout(loadTimer); currentLoad = null;
   listGen++; datasetGen++; loadGen++;   // a page fetch still in flight cannot paint over the form
-  mountHeader(false); setBreadcrumb(null);
+  setRail(null);
   mountPage(renderSignIn(CONFIG));
   $('#signInBtn').onclick = signIn;
   $('#signInError').textContent = err || '';
 }
 function showApp() {
-  mountHeader(true);
-  $('#whoEmail').textContent = ME.email; $('#menuEmail').textContent = ME.email;   // the menu shows it where the band has no room
   navigate(parseRoute(location.hash), 'replace');   // the address says which page; the first entry is that page
 }
 
-// ---- the shell: the header band, the breadcrumb under it, and one page container
-// signed out, the band shows only the lockup, the name and the version
-function mountHeader(signedIn) {
-  $('#helpBtn').hidden = !signedIn; $('#account').hidden = !signedIn;
-  $('#account').open = false;
-}
+// ---- the shell: the sidebar (nav.js) and one page container
 function mountPage(html) { $('#page').innerHTML = html; }
-// parts: [{label, hash?}], the last one where the reader is; none hides the bar
-function setBreadcrumb(parts) {
-  const bar = $('#crumbs');
-  bar.hidden = !(parts && parts.length);
-  bar.innerHTML = parts && parts.length ? renderBreadcrumb(parts) : '';
+// What the sidebar shows: the route, and the dataset once it is known. Signed out (route null) it holds
+// only the theme and the language. Drawn again whenever the route, the dataset, the language or the theme changes.
+let railRoute = null, railDataset = null, railHtml = null;
+function setRail(route, dataset) { railRoute = route || null; railDataset = dataset || null; drawRail(); }
+function drawRail() {
+  const html = renderRail(railState(ME ? railRoute : null, ME, { dataset: railDataset, lang: currentLang(), languages: LANGS, theme: themeChoice, version: $('meta[name="app-version"]').content }), k => T(k));
+  if (html === railHtml) return;   // a page's refresh draws nothing new: an open menu and the scroll place stay
+  railHtml = html;
+  $('#rail').innerHTML = html;
+  $('#railToggle').onclick = () => setNav(document.documentElement.dataset.nav === 'closed' ? 'open' : 'closed');
+  $('#rail').querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
+  $('#lang').onchange = async () => {
+    await useLang($('#lang').value, true);
+    closeLayers();   // a dialog or the drawer holds the old language
+    if (ME) renderRoute(parseRoute(location.hash)); else showSignIn();
+  };
+  // folded, a menu has no room to open: its icon opens the sidebar first
+  $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(el => el.addEventListener('click', () => { if (document.documentElement.dataset.nav === 'closed') setNav('open'); }));
+  // on a narrow screen the open sidebar lies over the page: choosing an entry folds it
+  $('#rail').querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', () => { if (narrow()) setNav('closed'); }));
+  if (!$('#helpBtn')) return;   // signed out: no help, no account
+  $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
+  $('#signOut').onclick = async () => { await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
+}
+// the sidebar is open (icons and words) or closed (icons); the choice is remembered, and shared with the data browser
+function narrow() { return window.innerWidth < 700; }
+function setNav(state, remember) {
+  document.documentElement.dataset.nav = state === 'closed' ? 'closed' : 'open';
+  if (remember !== false) { try { localStorage.sidenav = document.documentElement.dataset.nav; } catch (e) { /* storage blocked: the choice lasts this page */ } }
 }
 // data-theme is always 'light' or 'dark'. 'system' resolves it from the OS and follows a switch
 // while the page is open; 'light' and 'dark' pin it. The choice (system|light|dark) is remembered.
@@ -127,8 +144,8 @@ async function useLang(lang, remember) {
   await loadMessages(lang);
   setLang(lang);
   document.documentElement.lang = lang;
-  $('#lang').value = lang;
   applyShell();
+  drawRail();
   const entry = LANGS.find(l => l.code === lang);
   $('#langNote').hidden = !entry || entry.reviewed !== false;
   HELP = null; helpLoading = null; helpGen++;   // the help text is per language: fetched again on the next open, and a fetch still pending is dropped
@@ -142,31 +159,21 @@ async function boot() {
   let stored = null;
   try { stored = localStorage.lang; } catch (e) { /* storage blocked */ }
   await useLang(pickLang(stored, navigator.languages, LANGS.map(l => l.code)), false);
-  $('#lang').onchange = async () => {
-    await useLang($('#lang').value, true);
-    closeLayers();   // a dialog or the drawer holds the old language
-    if (ME) renderRoute(parseRoute(location.hash)); else showSignIn();
-  };
+  $('#railScrim').onclick = () => setNav('closed');
   CONFIG = await (await fetch('/api/config')).json();
   if (!CONFIG.authDisabled) {
     firebase.initializeApp({ apiKey: CONFIG.apiKey, authDomain: CONFIG.authDomain, projectId: CONFIG.projectId });
     if (CONFIG.authEmulatorUrl) firebase.auth().useEmulator(CONFIG.authEmulatorUrl);
   }
-  $('#helpBtn').onclick = () => openHelp();
   $('#helpClose').onclick = closeHelp;
   $('#helpBody').onscroll = helpScrolled;
   $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
   // an open dialog takes the keys first (it sits above the help drawer); Escape closes one layer at a time
   document.addEventListener('keydown', e => { if (!$('#modal').hidden) modalKeydown(e); else if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
-  document.querySelectorAll('input[name="theme"]').forEach(r => { r.onchange = () => setTheme(r.value); });
-  // the menu closes on a click outside it or Escape, like any menu
-  document.addEventListener('click', e => { if ($('#account').open && !$('#account').contains(e.target)) $('#account').open = false; });
-  $('#account').onkeydown = e => { if (e.key === 'Escape') { $('#account').open = false; $('#whoEmail').focus(); } };
-  $('#signOut').onclick = async () => { $('#account').open = false; await api('/api/signout', { method: 'POST' }); if (!CONFIG.authDisabled) await firebase.auth().signOut(); showSignIn(); };
+  // a menu in the sidebar closes on a click outside it, like any menu
+  document.addEventListener('click', e => { document.querySelectorAll('#rail details[open]').forEach(m => { if (!m.contains(e.target)) m.open = false; }); });
   $('#modalClose').onclick = closeDialog;
-  // the title goes home from anywhere in the app; signed in, without reloading the page
-  $('#home').onclick = e => { if (ME) { e.preventDefault(); if (!$('#help').hidden) closeHelp(); if (!$('#modal').hidden) closeDialog(); showDatasets(); } };
   try { ME = await api('/api/me'); showApp(); } catch (e) { /* not signed in yet */ }
 }
 
@@ -199,7 +206,7 @@ function listQuery() { return seesAll() ? '?all=1' : ''; }
 async function showHome(toSites) {
   clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++listGen;
-  setBreadcrumb(null);
+  setRail({ page: toSites ? 'sites' : 'home' });
   let list, sites = null, sitesError = '';
   // the two lists are asked for together; the page shows the datasets even if the sites cannot be fetched
   const sitesAsked = api('/api/sites' + listQuery()).then(r => { sites = r; }, e => { sitesError = e.message; });
@@ -315,7 +322,7 @@ function shareDialog(d, base = '/api/datasets/') {
 // never lands on it; the page stays the not-found notice
 function showNotFound(what) {
   history.replaceState({ from: (history.state || {}).from }, '', location.pathname + location.search + routeHash({ page: 'home' }));
-  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: t('dataset.notFoundCrumb') }]);
+  setRail({ page: 'home' });
   mountPage(renderNotFound(what));
 }
 
@@ -327,10 +334,11 @@ async function showDataset(route, poll) {
   clearTimeout(loadTimer); clearTimeout(pollTimer); currentLoad = null;
   const gen = ++datasetGen, mine = routeHash(route);
   const current = () => gen === datasetGen && location.hash === mine;
+  if (!poll) setRail(route, railDataset && railDataset.id === route.id ? railDataset : null);   // moving within a dataset keeps its entries while the page loads
   const again = fails => { clearTimeout(pollTimer); pollTimer = setTimeout(() => { if (current()) showDataset(route, { fails }); }, 5000); };
   const failed = e => {
     if (poll) { retryNote($('#page .page-head'), poll.fails + 1 >= 2); again(poll.fails + 1); }
-    else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
+    else { setRail(route); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
   };
   let d;
   try { d = await api('/api/datasets/' + route.id); }
@@ -353,7 +361,7 @@ async function showDataset(route, poll) {
     }
   } catch (e) { if (!current() || e.status === 401) return; failed(e); return; }
   if (!current()) return;
-  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: d.name }]);
+  setRail(route, d);
   if (paintDataset(renderDatasetPage(d, tab, extra), !!poll)) bindDataset(d, tab, route, extra);
   if (d.extract_held || (tab === 'loads' && (extra.loads || []).some(l => l.held))) again(0);
 }
@@ -598,33 +606,27 @@ function showDatasets() {
   navigate({ page: 'home' }, onHome ? 'replace' : 'push');
 }
 
-// the load, its dataset's name for the breadcrumb, then the page; polls every 4 s while the load is held
+// the load, its dataset for the sidebar, then the page; polls every 4 s while the load is held
 async function showLoad(route) {
   clearTimeout(loadTimer); clearTimeout(pollTimer);
   currentLoad = route.load;
   const gen = ++loadGen, mine = routeHash(route);
   const current = () => gen === loadGen && location.hash === mine;
+  setRail(route, railDataset && railDataset.id === route.id ? railDataset : null);
   let l;
   try { l = await api('/api/loads/' + route.load); }
   catch (e) {
     if (!current() || e.status === 401) return;   // on 401 the sign-in form is already on the page
-    if (e.status === 404) showNotFound('load'); else { setBreadcrumb(null); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
+    if (e.status === 404) showNotFound('load'); else { setRail(route); mountPage('<p class="empty">' + esc(e.message) + '</p>'); }
     return;
   }
   if (!current()) return;
   if (l.dataset_id !== route.id) { navigate({ page: 'load', id: l.dataset_id, load: l.id }, 'replace'); return; }   // the address names the wrong dataset
-  let name = l.dataset_id;   // without the dataset's name the crumb shows its id rather than failing the page
-  try { name = (await api('/api/datasets/' + l.dataset_id)).name || name; } catch (e) { if (e.status === 401) return; }
+  let ds = null;   // without the dataset the sidebar keeps its list form rather than failing the page
+  try { ds = await api('/api/datasets/' + l.dataset_id); } catch (e) { if (e.status === 401) return; }
   if (!current()) return;
   const up = { page: 'dataset', id: l.dataset_id, tab: 'loads' };
-  setBreadcrumb([{ label: t('home.title'), hash: '#/' }, { label: name, hash: routeHash(up) }, { label: loadName(l) }]);
-  // the dataset crumb steps back when the reader came from that dataset's page, so Back after it does not return here
-  const crumb = $('#crumbs a[href="' + routeHash(up) + '"]');
-  if (crumb) crumb.onclick = ev => {
-    ev.preventDefault();
-    const from = parseRoute((history.state || {}).from);
-    if (from.page === 'dataset' && from.id === l.dataset_id) history.back(); else navigate(up);
-  };
+  setRail(route, ds);
   let fails = 0;
   const refresh = async () => {
     clearTimeout(loadTimer);
