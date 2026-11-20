@@ -13,6 +13,27 @@
     "language": "Language",
     "machineTranslated": "This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English."
   },
+  "nav": {
+    "datasets": "Datasets",
+    "sites": "Sites",
+    "overview": "Overview",
+    "data": "Data",
+    "migration": "Migration",
+    "fold": "Open or collapse the list",
+    "loads": "Loads",
+    "matchRangers": "Match rangers",
+    "backup": "Backup",
+    "view": {
+      "overview": "Summary",
+      "patrols": "Patrols",
+      "rangers": "Rangers",
+      "map": "Map",
+      "observations": "Observations",
+      "datamodel": "Data model",
+      "profiles": "Profiles",
+      "schema": "Schema"
+    }
+  },
   "signin": {
     "intro": "Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.",
     "prompt": "Sign in with {{who}}.",

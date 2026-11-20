@@ -13,6 +13,27 @@
     "language": "Langue",
     "machineTranslated": "Cette traduction a été faite par une machine et n'a pas encore été relue par une personne qui parle couramment le français. Si quelque chose n'est pas clair, passez à l'anglais."
   },
+  "nav": {
+    "datasets": "Jeux de données",
+    "sites": "Sites",
+    "overview": "Vue d'ensemble",
+    "data": "Données",
+    "migration": "Migration",
+    "fold": "Ouvrir ou réduire la liste",
+    "loads": "Chargements",
+    "matchRangers": "Associer les écogardes",
+    "backup": "Sauvegarde",
+    "view": {
+      "overview": "Résumé",
+      "patrols": "Patrouilles",
+      "rangers": "Écogardes",
+      "map": "Carte",
+      "observations": "Observations",
+      "datamodel": "Modèle de données",
+      "profiles": "Profils",
+      "schema": "Schéma"
+    }
+  },
   "signin": {
     "intro": "Téléversez une sauvegarde de zone de conservation SMART, parcourez-la et chargez-la dans un site EarthRanger.",
     "prompt": "Connectez-vous avec {{who}}.",

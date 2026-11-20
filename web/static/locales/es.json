@@ -13,6 +13,27 @@
     "language": "Idioma",
     "machineTranslated": "Esta traducción la hizo una máquina y todavía no la ha revisado una persona que hable español con fluidez. Si algo no está claro, cambie al inglés."
   },
+  "nav": {
+    "datasets": "Conjuntos de datos",
+    "sites": "Sitios",
+    "overview": "Resumen",
+    "data": "Datos",
+    "migration": "Migración",
+    "fold": "Abrir o contraer la lista",
+    "loads": "Cargas",
+    "matchRangers": "Vincular guardaparques",
+    "backup": "Copia de seguridad",
+    "view": {
+      "overview": "Resumen de datos",
+      "patrols": "Patrullajes",
+      "rangers": "Guardaparques",
+      "map": "Mapa",
+      "observations": "Observaciones",
+      "datamodel": "Modelo de datos",
+      "profiles": "Perfiles",
+      "schema": "Esquema"
+    }
+  },
   "signin": {
     "intro": "Suba una copia de seguridad de un área de conservación de SMART, explórela y cárguela en un sitio de EarthRanger.",
     "prompt": "Inicie sesión con {{who}}.",

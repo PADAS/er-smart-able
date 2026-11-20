@@ -103,6 +103,12 @@ const LOADS = [
 ];
 const CALLS = {
   renderBreadcrumb: [[[{ label: 'Zzcrumb a', hash: '#/' }, { label: 'Zzcrumb b' }]]],
+  renderRail: [
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: null, current: 'home', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'system', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: true, loadTabs: true }, current: 'migration:loads', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'dark', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: false, loadTabs: false }, current: 'overview', lang: 'xx', languages: [], theme: 'light', email: 'zz@one.example.org', version: '' }, k => P.T(k)],
+    [{ doc: 'browser', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: true, loadTabs: true }, current: 'data:map', lang: 'xx', languages: [], theme: 'system', email: 'zz@one.example.org', version: '' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: false, dataset: null, current: null, lang: 'xx', languages: [], theme: 'system', email: '', version: '' }, k => P.T(k)]],
   renderSignIn: [[{}], [{ allowed: ['@one.example.org'] }], [{ allowed: ['@a.example.org', '@b.example.org', '@c.example.org'] }], [{ allowed: '@str.example.org' }]],
   renderDatasetCard: DATASETS.map(d => [d]),
   renderCardList: [[DATASETS], [[]]],

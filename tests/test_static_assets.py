@@ -23,6 +23,18 @@ def test_the_app_stylesheet_has_no_raw_colour():
     assert offenders == []
 
 
+def test_the_sidebar_stylesheet_has_no_raw_colour_and_cuts_a_long_name():
+    css = (STATIC / "nav.css").read_text()
+    assert [l for l in css.splitlines() if RAW_COLOUR.search(l) and "/*" not in l] == []
+    assert re.search(r"\.rail-dataset \{[^}]*text-overflow: ellipsis;", css)
+    assert 'html[data-nav="closed"] #rail' in css
+
+
+def test_the_sidebar_builder_touches_no_storage_and_no_document():
+    js = (STATIC / "nav.js").read_text()
+    assert "localStorage" not in js and "document." not in js and "window." not in js
+
+
 def test_fonts_are_self_hosted_with_a_fallback_and_optional_display():
     css = (STATIC / "fonts" / "roboto.css").read_text()
     assert "font-weight: 400 700;" in css and "roboto.woff2" in css
