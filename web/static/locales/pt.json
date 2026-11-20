@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "Migração SMART",
-    "home": "Voltar à lista de conjuntos de dados",
     "help": "Ajuda",
     "sites": "Sites do EarthRanger",
     "theme": "Tema",
@@ -12,6 +11,27 @@
     "close": "Fechar",
     "language": "Idioma",
     "machineTranslated": "Esta tradução foi feita por máquina e ainda não foi revisada por uma pessoa fluente em português. Se algo não estiver claro, mude para o inglês."
+  },
+  "nav": {
+    "datasets": "Conjuntos de dados",
+    "sites": "Sites",
+    "overview": "Visão geral",
+    "data": "Dados",
+    "migration": "Migração",
+    "fold": "Abrir ou recolher a lista",
+    "loads": "Cargas",
+    "matchRangers": "Associar guarda-parques",
+    "backup": "Backup",
+    "view": {
+      "overview": "Resumo",
+      "patrols": "Patrulhas",
+      "rangers": "Guarda-parques",
+      "map": "Mapa",
+      "observations": "Observações",
+      "datamodel": "Modelo de dados",
+      "profiles": "Perfis",
+      "schema": "Esquema"
+    }
   },
   "signin": {
     "intro": "Envie um backup de uma área de conservação do SMART, explore-o e carregue-o em um site do EarthRanger.",
@@ -46,7 +66,6 @@
     "notFoundLoad": "Esta carga não existe, ou o proprietário do conjunto de dados dela não compartilhou o conjunto de dados com você.",
     "notFoundDataset": "Este conjunto de dados não existe, ou o proprietário dele não o compartilhou com você.",
     "backToDatasets": "Voltar aos conjuntos de dados",
-    "tabOverview": "Visão geral",
     "tabLoads": "Cargas",
     "extraction": "Extração",
     "started": "Início: {{when}}",
@@ -76,7 +95,6 @@
     "sharedWith": "compartilhado com {{list}}",
     "uploaded": "enviado em {{date}}",
     "ownedByYou": "pertence a você",
-    "notFoundCrumb": "Não encontrado",
     "tabBackup": "Backup"
   },
   "backup": {

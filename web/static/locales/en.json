@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "SMART migration",
-    "home": "Back to the dataset list",
     "help": "Help",
     "sites": "EarthRanger sites",
     "theme": "Theme",
@@ -12,6 +11,27 @@
     "close": "Close",
     "language": "Language",
     "machineTranslated": "This translation was made by machine and has not yet been reviewed by a fluent speaker. If something is unclear, switch to English."
+  },
+  "nav": {
+    "datasets": "Datasets",
+    "sites": "Sites",
+    "overview": "Overview",
+    "data": "Data",
+    "migration": "Migration",
+    "fold": "Open or collapse the list",
+    "loads": "Loads",
+    "matchRangers": "Match rangers",
+    "backup": "Backup",
+    "view": {
+      "overview": "Summary",
+      "patrols": "Patrols",
+      "rangers": "Rangers",
+      "map": "Map",
+      "observations": "Observations",
+      "datamodel": "Data model",
+      "profiles": "Profiles",
+      "schema": "Schema"
+    }
   },
   "signin": {
     "intro": "Upload a SMART conservation-area backup, browse it, and load it into an EarthRanger site.",
@@ -46,7 +66,6 @@
     "notFoundLoad": "This load does not exist, or its dataset's owner has not shared the dataset with you.",
     "notFoundDataset": "This dataset does not exist, or its owner has not shared it with you.",
     "backToDatasets": "Back to datasets",
-    "tabOverview": "Overview",
     "tabLoads": "Loads",
     "extraction": "Extraction",
     "started": "Started {{when}}",
@@ -76,7 +95,6 @@
     "sharedWith": "shared with {{list}}",
     "uploaded": "uploaded {{date}}",
     "ownedByYou": "owned by you",
-    "notFoundCrumb": "Not found",
     "tabBackup": "Backup"
   },
   "backup": {

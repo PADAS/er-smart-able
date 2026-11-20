@@ -56,7 +56,7 @@ Un avertissement. SMART n'a pas enregistré le fuseau horaire de la zone de cons
 
 ### Des libellés manquent dans la langue choisie {#finding-language}
 
-Un avertissement. Certains éléments du modèle de données n'ont pas de libellé dans la langue avec laquelle le chargement a été créé ; ils se rabattent donc sur la langue par défaut du lot ou sur n'importe quelle langue qui en a un. L'onglet Data Model du jeu de données montre dans quelle mesure chaque langue est couverte ; refaites le plan du chargement avec la mieux couverte si les libellés comptent.
+Un avertissement. Certains éléments du modèle de données n'ont pas de libellé dans la langue avec laquelle le chargement a été créé ; ils se rabattent donc sur la langue par défaut du lot ou sur n'importe quelle langue qui en a un. La vue **Modèle de données** du jeu de données (sous **Données** dans la barre latérale) montre dans quelle mesure chaque langue est couverte ; refaites le plan du chargement avec la mieux couverte si les libellés comptent.
 
 ### Jours d'étape de patrouille sans information d'heure {#finding-time_coverage}
 

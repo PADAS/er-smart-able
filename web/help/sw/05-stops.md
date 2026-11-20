@@ -56,7 +56,7 @@ Ni onyo. SMART haikurekodi kanda ya saa ya eneo la hifadhi, kwa hiyo utoaji wa d
 
 ### Lebo zinakosekana katika lugha iliyochaguliwa {#finding-language}
 
-Ni onyo. Baadhi ya vipengele vya moduli data havina lebo katika lugha ambayo uingizaji uliundwa nayo, kwa hiyo vinatumia lugha ya chaguo-msingi ya kifurushi au lugha yoyote iliyo na lebo. Kichupo cha Data Model cha seti ya data kinaonyesha jinsi kila lugha ilivyokamilika; panga uingizaji tena kwa lugha iliyokamilika zaidi kama lebo ni muhimu.
+Ni onyo. Baadhi ya vipengele vya moduli data havina lebo katika lugha ambayo uingizaji uliundwa nayo, kwa hiyo vinatumia lugha ya chaguo-msingi ya kifurushi au lugha yoyote iliyo na lebo. Mwonekano wa **Moduli data** wa seti ya data (chini ya **Data** kwenye upau wa pembeni) unaonyesha jinsi kila lugha ilivyokamilika; panga uingizaji tena kwa lugha iliyokamilika zaidi kama lebo ni muhimu.
 
 ### Siku za kituo cha doria zisizo na taarifa za saa {#finding-time_coverage}
 

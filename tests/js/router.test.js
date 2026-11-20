@@ -19,3 +19,18 @@ test('routeHash inverts parseRoute', () => {
   for (const h of ['#/', '#/datasets/abc123', '#/datasets/abc123/loads', '#/datasets/abc123/rangers', '#/datasets/abc123/loads/ld9', '#/sites'])
     assert.equal(P.routeHash(P.parseRoute(h)), h);
 });
+
+// Help on the data browser's sidebar opens the app at #/help: the dataset list with the help drawer open
+test('#/help is the list with the help open, and its entry becomes the list\'s address', () => {
+  const r = P.parseRoute('#/help');
+  assert.equal(r.page, 'home'); assert.equal(r.help, true);
+  assert.equal(P.routeHash(r), '#/', 'reloading or going Back does not open the help again');
+  assert.equal(P.parseRoute('#/').help, undefined);
+  const fs = require('node:fs'), path = require('node:path');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
+  const render = app.slice(app.indexOf('function renderRoute(route) {'), app.indexOf('\n}\n', app.indexOf('function renderRoute(route) {')));
+  assert.match(render, /if \(route\.help\) openHelp\(\);/);
+  assert.ok(render.indexOf('if (route.help) openHelp();') > render.indexOf('closeLayers();'), 'opened after the page\'s layers are closed');
+  const browser = fs.readFileSync(path.join(__dirname, '..', '..', 'browse', 'index.html'), 'utf8');
+  assert.match(browser, /window\.open\('\/#\/help', '_blank', 'noopener'\)/);
+});

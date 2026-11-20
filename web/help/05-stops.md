@@ -54,7 +54,7 @@ A warning. SMART did not record the conservation area's timezone, so the extract
 
 ### Labels are missing in the chosen language {#finding-language}
 
-A warning. Some data-model elements have no label in the language the load was created with, so they fall back to the bundle's default language or any language that has one. The dataset's Data Model tab shows how well each language is covered; plan the load again with the best-covered one if the labels matter.
+A warning. Some data-model elements have no label in the language the load was created with, so they fall back to the bundle's default language or any language that has one. The dataset's **Data model** view (under **Data** in the sidebar) shows how well each language is covered; plan the load again with the best-covered one if the labels matter.
 
 ### Leg days with no time information {#finding-time_coverage}
 

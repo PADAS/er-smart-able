@@ -1,6 +1,6 @@
 # Kuingiza seti ya data
 
-Uingizaji unaweka eneo moja la hifadhi kutoka seti moja ya data kwenye tovuti moja. Uanzishe kutoka kwenye ukurasa wa seti ya data kwa **Ingiza kwenye EarthRanger**, kwenye kichupo cha **Muhtasari** au **Uingizaji**, ukichagua eneo la hifadhi, tovuti, lugha ya lebo, modeli inayoweza kusanidiwa (si lazima), kundi (orodha ya askari) ambamo askari wanachaguliwa, na kategoria ya matukio.
+Uingizaji unaweka eneo moja la hifadhi kutoka seti moja ya data kwenye tovuti moja. Uanzishe kutoka kwenye ukurasa wa seti ya data kwa **Ingiza kwenye EarthRanger**, kwenye **Muhtasari** wake, au chini ya **Uingizaji** kwenye upau wa pembeni, ukichagua eneo la hifadhi, tovuti, lugha ya lebo, modeli inayoweza kusanidiwa (si lazima), kundi (orodha ya askari) ambamo askari wanachaguliwa, na kategoria ya matukio.
 
 ## Mpango kwanza, kisha thibitisha
 
@@ -64,7 +64,7 @@ Chaguo hili linahusu aina za matukio na orodha zake za machaguo. Aina za doria n
 - **Moduli data na doria**, ambalo ndilo chaguo-msingi. Acha **Doria kuanzia** na **hadi** wazi ili kuingiza kila doria, au jaza moja au zote mbili ili kuingiza tu doria zinazoanza siku hizo au kati yake. Vielelezo, picha na alama ya doria vinakuja pamoja nayo. Tarehe ni za eneo la hifadhi lenyewe, jinsi SMART ilivyozirekodi. Doria ambayo SMART iliihifadhi bila tarehe ya kuanza inaachwa nje ya kipindi chochote. Kipindi kinapunguza doria tu: uingizaji bado unaweka moduli data nzima, kwa hiyo hatua unazomwomba msimamizi azifanye, kama kuunda timu, zinahusu kila timu ya eneo la hifadhi, zikiwemo timu zilizotumiwa na doria za zamani tu.
 - **Moduli data pekee**: aina za matukio, aina za doria na sehemu zake za kujaza, askari wakiwa wahusika, na orodha ya askari. Hicho ndicho timu inachohitaji ili kuanza kufanya doria na kurekodi kwenye EarthRanger bila kuleta historia yake. Uingizaji bado unasimama kwenye jambo lolote ambalo msimamizi lazima alifanye kwanza kwenye tovuti, kama kuunda timu.
 
-Uingizaji wa baadaye kwenye tovuti ileile unaweza kupanua kipindi au kuongeza doria. Chochote kilichokwisha kuingizwa kinarukwa. Ukurasa wa uingizaji na kichupo cha **Uingizaji** cha seti ya data vinataja kile ambacho kila uingizaji uliandika, kwa mfano "Moduli data pekee" au "Doria kuanzia 2023-01-01 hadi 2024-12-31".
+Uingizaji wa baadaye kwenye tovuti ileile unaweza kupanua kipindi au kuongeza doria. Chochote kilichokwisha kuingizwa kinarukwa. Ukurasa wa uingizaji na ukurasa wa **Uingizaji** wa seti ya data zinataja kile ambacho kila uingizaji uliandika, kwa mfano "Moduli data pekee" au "Doria kuanzia 2023-01-01 hadi 2024-12-31".
 
 ## Utekelezaji mrefu na mwendelezo
 
@@ -80,7 +80,7 @@ Kazi ikikatizwa ghafla, kwa mfano kwa hitilafu ya huduma, haiwezi kutoa taarifa.
 
 Maandalizi ya doria yanaunda mhusika mmoja kwa kila mfanyakazi wa SMART anayeonekana kwenye doria au ambaye bado ameajiriwa, na uingizaji unaweka doria zake, alama zake na ripoti zake kwa mhusika huyo. Askari atakayetumia EarthRanger Mobile baadaye anahitaji akaunti ya mtumiaji **iliyounganishwa na mhusika huyo**: alama za mtumiaji zinakwenda kwa mhusika aliyeunganishwa naye, na matukio anayoripoti yanamtaja kama *reported by* (imeripotiwa na). Bila muunganisho huo, kuingia kwake mara ya kwanza kunaunda mhusika wa pili na historia inagawanyika.
 
-Sehemu ya **Askari** ya ukurasa wa uingizaji, na kichupo cha **Askari** cha seti ya data (kinachoonyesha uingizaji wa karibuni zaidi uliofikia maandalizi ya doria), vinaorodhesha kila mmoja wa watu hao, pamoja na jina jinsi lilivyo hasa kwenye tovuti, kama mtu huyo bado ni amilifu (active) kwenye SMART, na idadi mbili za doria: katika doria ambazo uingizaji huu unaziingiza (kipindi chake cha tarehe, kama kiliwekwa) na katika seti nzima ya data. Askari ambaye bado ameajiriwa na hana doria anaonyesha 0, na uingizaji wa moduli data pekee, ambao hauingizi doria, unaonyesha tu idadi ya seti nzima ya data. Faili ya CSV ya kupakua ina mistari ileile pamoja na safu tupu ya barua pepe.
+Sehemu ya **Askari** ya ukurasa wa uingizaji, na ukurasa wa **Oanisha askari** wa seti ya data (unaoonyesha uingizaji wa karibuni zaidi uliofikia maandalizi ya doria), vinaorodhesha kila mmoja wa watu hao, pamoja na jina jinsi lilivyo hasa kwenye tovuti, kama mtu huyo bado ni amilifu (active) kwenye SMART, na idadi mbili za doria: katika doria ambazo uingizaji huu unaziingiza (kipindi chake cha tarehe, kama kiliwekwa) na katika seti nzima ya data. Askari ambaye bado ameajiriwa na hana doria anaonyesha 0, na uingizaji wa moduli data pekee, ambao hauingizi doria, unaonyesha tu idadi ya seti nzima ya data. Faili ya CSV ya kupakua ina mistari ileile pamoja na safu tupu ya barua pepe.
 
 Mstari wenye alama *rekodi ya mfanyakazi imefutwa kwenye SMART* ni mwanachama wa doria ambaye rekodi yake ya mfanyakazi haipo tena; mhusika wake amepewa jina la kitambulisho. Hakuna anayeweza kuingia kwa jina lake, kwa hiyo hahitaji akaunti.
 

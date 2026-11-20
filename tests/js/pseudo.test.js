@@ -102,15 +102,20 @@ const LOADS = [
   { ...LOAD, status: 'failed', mode: null, stage: 'datamodel', stages: undefined },
 ];
 const CALLS = {
-  renderBreadcrumb: [[[{ label: 'Zzcrumb a', hash: '#/' }, { label: 'Zzcrumb b' }]]],
+  renderRail: [
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: null, current: 'home', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'system', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: true, loadTabs: true }, current: 'migration:loads', lang: 'xx', languages: [{ code: 'xx', name: 'Zzlang' }], theme: 'dark', email: 'zz@one.example.org', version: '9.9.9' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: false, loadTabs: false }, current: 'overview', lang: 'xx', languages: [], theme: 'light', email: 'zz@one.example.org', version: '' }, k => P.T(k)],
+    [{ doc: 'browser', hosted: true, signedIn: true, dataset: { id: 'a1', name: 'Zzdataset', ready: true, loadTabs: true }, current: 'data:map', lang: 'xx', languages: [], theme: 'system', email: 'zz@one.example.org', version: '' }, k => P.T(k)],
+    [{ doc: 'app', hosted: true, signedIn: false, dataset: null, current: null, lang: 'xx', languages: [], theme: 'system', email: '', version: '' }, k => P.T(k)]],
   renderSignIn: [[{}], [{ allowed: ['@one.example.org'] }], [{ allowed: ['@a.example.org', '@b.example.org', '@c.example.org'] }], [{ allowed: '@str.example.org' }]],
   renderDatasetCard: DATASETS.map(d => [d]),
   renderCardList: [[DATASETS], [[]]],
-  renderHome: [[DATASETS], [[]], [DATASETS, SITES], [[], []], [DATASETS, null, 'Stored detail lines'], [DATASETS, SITES, null, { support: true, all: true }], [[], [], null, { support: true }]],
+  renderHome: [[DATASETS], [[]], [DATASETS, { support: true, all: true }], [[], { support: true }]],
+  renderSitesPage: [[SITES], [[]], [null, 'Stored detail lines'], [SITES, null, { support: true, all: true }], [[], null, { support: true }]],
   renderRangersSection: [[{ ...LOAD, rangers: RANGERS, rangers_total: 3 }, true], [{ ...LOAD, rangers: RANGERS, rangers_total: 9, options: { scope: 'datamodel' } }], [LOAD]],
   renderNotFound: [['load'], ['dataset'], []],
   renderSites: [[SITES], [[]], [[{ ...SITES[0], mine: false, access: 'support', token_hint: null, owner_email: 'owner@example.org' }]]],
-  renderTabs: [[ownDs, 'overview'], [DATASETS[0], 'loads'], [ownDs, 'rangers']],
   renderOverview: [...DATASETS.map(d => [d]), [ownDs],
     // the uploaded backup: expiring, about to go, kept for good, deleted by the owner, gone by the rule
     [{ ...ownDs, upload: { present: true, expires_at: '2099-01-01T00:00:00+00:00' } }], [{ ...ownDs, upload: { present: true, expires_at: '2001-01-01T00:00:00+00:00' } }],

@@ -1,7 +1,6 @@
 {
   "shell": {
     "appName": "Uhamishaji wa SMART",
-    "home": "Rudi kwenye orodha ya seti za data",
     "help": "Msaada",
     "sites": "Tovuti za EarthRanger",
     "theme": "Mandhari",
@@ -12,6 +11,27 @@
     "close": "Funga",
     "language": "Lugha",
     "machineTranslated": "Tafsiri hii imefanywa na mashine na bado haijakaguliwa na mtu anayezungumza Kiswahili kwa ufasaha. Kama kuna jambo lisiloeleweka, badilisha kwenda Kiingereza."
+  },
+  "nav": {
+    "datasets": "Seti za data",
+    "sites": "Tovuti",
+    "overview": "Muhtasari",
+    "data": "Data",
+    "migration": "Uhamishaji",
+    "fold": "Fungua au kunja orodha",
+    "loads": "Uingizaji",
+    "matchRangers": "Oanisha askari",
+    "backup": "Chelezo",
+    "view": {
+      "overview": "Muhtasari wa data",
+      "patrols": "Doria",
+      "rangers": "Askari",
+      "map": "Ramani",
+      "observations": "Vielelezo",
+      "datamodel": "Moduli data",
+      "profiles": "Wasifu",
+      "schema": "Skima"
+    }
   },
   "signin": {
     "intro": "Pakia chelezo ya eneo la hifadhi la SMART, ivinjari, kisha iingize kwenye tovuti ya EarthRanger.",
@@ -46,7 +66,6 @@
     "notFoundLoad": "Uingizaji huu haupo, au mmiliki wa seti yake ya data hajashiriki seti hiyo ya data nawe.",
     "notFoundDataset": "Seti hii ya data haipo, au mmiliki wake hajaishiriki nawe.",
     "backToDatasets": "Rudi kwenye seti za data",
-    "tabOverview": "Muhtasari",
     "tabLoads": "Uingizaji",
     "extraction": "Utoaji wa data",
     "started": "Mwanzo: {{when}}",
@@ -76,7 +95,6 @@
     "sharedWith": "imeshirikiwa na {{list}}",
     "uploaded": "ilipakiwa {{date}}",
     "ownedByYou": "ni yako",
-    "notFoundCrumb": "Haipatikani",
     "tabBackup": "Chelezo"
   },
   "backup": {

@@ -9,8 +9,8 @@ const { load } = require('./shim');
 const EN = Object.fromEntries(flat(JSON.parse(read('static/locales/en.json'))));
 
 test('every key the code and the template ask for is in the English file', () => {
-  const src = read('static/pages.js') + read('static/app.js');
-  const asked = new Set([...src.matchAll(/\b(?:T|t|hasMessage)\(\s*'([\w.]+)'/g)].map(m => m[1]));
+  const src = read('static/pages.js') + read('static/app.js') + read('static/nav.js');
+  const asked = new Set([...src.matchAll(/\b(?:T|t|hasMessage|label)\(\s*'([\w.]+)'/g)].map(m => m[1]));
   for (const m of src.matchAll(/\btn\(\s*'([\w.]+)'/g)) asked.add(m[1] + '_other');
   for (const m of read('templates/index.html').matchAll(/data-i18n(?:-title|-aria)?="([\w.]+)"/g)) asked.add(m[1]);
   // a key ending in '.' is a prefix a later lookup completes from the data, such as T('status.' + status)
@@ -50,8 +50,8 @@ test('the wiring script holds no confirm or alert with words of its own', () => 
   assert.deepEqual([...src.matchAll(/\b(?:alert|confirm)\(\s*'[^']*[A-Za-z]{3,} [a-z]/g)].map(m => m[0]), []);
 });
 test('every English message is used by the code or the template', () => {
-  const src = read('static/pages.js') + read('static/app.js') + read('templates/index.html');
-  const dynamic = [/^status\./, /^stages\./, /^findings\.severity\./, /^errors\./, /^findingText\./, /^findings\.valueLabel\./, /^csv\./, /^plan\.(?:create|update|deactivate)$/];   // looked up by a value from the data
+  const src = read('static/pages.js') + read('static/app.js') + read('static/nav.js') + read('templates/index.html');
+  const dynamic = [/^nav\.view\./, /^status\./, /^stages\./, /^findings\.severity\./, /^errors\./, /^findingText\./, /^findings\.valueLabel\./, /^csv\./, /^plan\.(?:create|update|deactivate)$/];   // looked up by a value from the data
   const unused = Object.keys(EN).filter(k => !dynamic.some(d => d.test(k)) && !src.includes("'" + k.replace(/_(one|other)$/, '') + "'") && !src.includes('"' + k + '"'));
   assert.deepEqual(unused, []);
 });

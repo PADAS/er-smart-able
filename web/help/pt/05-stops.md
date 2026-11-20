@@ -56,7 +56,7 @@ Um aviso. O SMART não registrou o fuso horário da área de conservação, ent�
 
 ### Faltam rótulos no idioma escolhido {#finding-language}
 
-Um aviso. Alguns elementos do modelo de dados não têm rótulo no idioma com o qual a carga foi criada, então recorrem ao idioma padrão do pacote ou a qualquer idioma que tenha um. A aba Data Model do conjunto de dados mostra o quanto cada idioma está coberto; planeje a carga de novo com o mais bem coberto se os rótulos importarem.
+Um aviso. Alguns elementos do modelo de dados não têm rótulo no idioma com o qual a carga foi criada, então recorrem ao idioma padrão do pacote ou a qualquer idioma que tenha um. A vista **Modelo de dados** do conjunto de dados (em **Dados** na barra lateral) mostra o quanto cada idioma está coberto; planeje a carga de novo com o mais bem coberto se os rótulos importarem.
 
 ### Dias de perna sem informação de horário {#finding-time_coverage}
 

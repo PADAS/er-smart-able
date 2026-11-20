@@ -56,7 +56,7 @@ Una advertencia. SMART no registró la zona horaria del área de conservación, 
 
 ### Faltan etiquetas en el idioma elegido {#finding-language}
 
-Una advertencia. Algunos elementos del modelo de datos no tienen etiqueta en el idioma con el que se creó la carga, así que recurren al idioma predeterminado del paquete o a cualquier idioma que la tenga. La pestaña Data Model del conjunto de datos muestra lo bien cubierto que está cada idioma; planifique de nuevo la carga con el mejor cubierto si las etiquetas importan.
+Una advertencia. Algunos elementos del modelo de datos no tienen etiqueta en el idioma con el que se creó la carga, así que recurren al idioma predeterminado del paquete o a cualquier idioma que la tenga. La vista **Modelo de datos** del conjunto de datos (bajo **Datos** en la barra lateral) muestra lo bien cubierto que está cada idioma; planifique de nuevo la carga con el mejor cubierto si las etiquetas importan.
 
 ### Días de tramo sin información de hora {#finding-time_coverage}
 

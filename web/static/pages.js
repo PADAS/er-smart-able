@@ -36,6 +36,7 @@ function parseRoute(hash) {
   var m = /^#load\/([A-Za-z0-9]+)$/.exec(h);
   if (m) return { page: 'legacy-load', load: m[1] };
   if (h === '#/sites') return { page: 'sites' };
+  if (h === '#/help') return { page: 'home', help: true };   // the data browser's Help: the list, with the help open
   m = /^#\/datasets\/([A-Za-z0-9]+)(?:\/(loads|rangers|backup))?$/.exec(h);
   if (m) return { page: 'dataset', id: m[1], tab: m[2] || 'overview' };
   m = /^#\/datasets\/([A-Za-z0-9]+)\/loads\/([A-Za-z0-9]+)$/.exec(h);
@@ -69,11 +70,17 @@ function pill(status, label) {
   return '<span class="pill st-' + statusClass(status) + '">' + esc(words) + '</span>';
 }
 
-// ---- the frame: a breadcrumb under the header, the last part where the reader is
-function renderBreadcrumb(parts) {
-  return (parts || []).map((p, i, all) => i < all.length - 1 && p.hash
-    ? '<a href="' + esc(p.hash) + '">' + esc(p.label) + '</a>'
-    : '<span>' + esc(p.label) + '</span>').join('<span class="sep" aria-hidden="true">›</span>');
+// ---- the frame: what the sidebar (nav.js) shows for a route. route and me are null when signed out;
+// extra: { dataset, lang, languages, theme, version, open }. A dataset not fetched yet (or refused) gives the
+// list form with nothing marked. The name goes whole: the stylesheet cuts a long one.
+function railState(route, me, extra) {
+  extra = extra || {};
+  var d = me && route && (route.page === 'dataset' || route.page === 'load') ? extra.dataset : null;
+  var current = !me || !route ? null : route.page === 'home' ? 'home' : route.page === 'sites' ? 'sites'
+    : !d ? null : route.page === 'load' ? 'migration:loads' : !route.tab || route.tab === 'overview' ? 'overview' : 'migration:' + route.tab;
+  return { doc: 'app', hosted: true, signedIn: !!me, current: current, open: extra.open !== false,
+    dataset: d ? { id: d.id, name: d.name, ready: d.status === 'ready', loadTabs: hasLoadTabs(d) } : null,
+    lang: extra.lang || 'en', languages: extra.languages || [], theme: extra.theme || 'system', email: me && me.email || '', version: extra.version || '' };
 }
 
 // ---- sign-in: the band without Help or the account menu, and one centred panel
@@ -122,13 +129,14 @@ function renderCardList(datasets) {
 // they could not be fetched; the section then says why (sitesError) and the datasets still show.
 // opts.support: the reader is support staff, who get a switch to list every user's datasets and sites
 // (opts.all: it is on). Nobody else is shown it, and the server ignores the request from anyone else.
-function renderHome(datasets, sites, sitesError, opts) {
-  opts = opts || {};
-  var everyone = opts.support ? '<label class="switch" title="' + T('home.allUsersTitle') + '"><input type="checkbox" id="allUsers"' + (opts.all ? ' checked' : '') + '>' + T('home.allUsers') + '</label>' : '';
-  return '<div class="page-head"><h1>' + T('home.title') + '</h1>' + everyone +
+// the switch support staff have on the datasets and the sites pages: everyone's, or their own
+function allUsersSwitch(opts) {
+  return opts && opts.support ? '<label class="switch" title="' + T('home.allUsersTitle') + '"><input type="checkbox" id="allUsers"' + (opts.all ? ' checked' : '') + '>' + T('home.allUsers') + '</label>' : '';
+}
+function renderHome(datasets, opts) {
+  return '<div class="page-head"><h1>' + T('home.title') + '</h1>' + allUsersSwitch(opts) +
     '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>' + T('home.upload') + '</button></div>' +
-    '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>' +
-    (sites === undefined ? '' : sites ? renderSites(sites) : '<section id="sites" class="home-section"><div class="page-head"><h2>' + T('shell.sites') + '</h2></div><p class="empty">' + esc(sitesError) + '</p></section>');
+    '<div id="cards" class="cards">' + renderCardList(datasets) + '</div>';
 }
 
 // One section of the help drawer. s.html is the server's rendering of a help page. A section in another
@@ -188,8 +196,13 @@ function tabAllowed(d, tab) { return !(tab === 'loads' || tab === 'rangers') || 
 function areaName(d, dir) { var e = (d.export || []).find(x => x.dir === dir); return e ? (e.name || e.ca_id || dir) : dir; }
 
 // ---- the sites page. Only the token hint is shown; the token itself never reaches the page.
-// ---- sites: the home page's second section. A row per site; its owner can edit, share and remove it.
-function renderSites(sites) {
+// ---- sites: a page of their own. A row per site; its owner can edit, share and remove it.
+// sites null: they could not be fetched, and error says why.
+function renderSitesPage(sites, error, opts) {
+  if (sites) return renderSites(sites, opts);
+  return '<section id="sites"><div class="page-head"><h1>' + T('shell.sites') + '</h1>' + allUsersSwitch(opts) + '</div><p class="empty">' + esc(error) + '</p></section>';
+}
+function renderSites(sites, opts) {
   var rows = (sites || []).map(s => '<tr>' +
     '<td><b>' + esc(s.name) + '</b><div class="tiny">' + esc(s.url) + '</div></td>' +
     '<td class="tiny">' + (s.token_hint ? T('sites.tokenAs', { hint: s.token_hint, user: s.checked_as }) : s.checked_as ? T('sites.checkedAs', { user: s.checked_as }) : '—') + '</td>' +
@@ -199,7 +212,7 @@ function renderSites(sites) {
       '<button data-act="siteEdit" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">edit</span>' + T('sites.edit') + '</button>' +
       '<button data-act="siteShare" data-id="' + esc(s.id) + '"><span class="mi" aria-hidden="true">share</span>' + T('sites.share') + '</button>' +
       '<button data-act="siteDelete" data-id="' + esc(s.id) + '" class="danger" title="' + T('sites.removeTitle') + '"><span class="mi" aria-hidden="true">delete</span>' + T('sites.remove') + '</button>' : '') + '</td></tr>').join('');
-  return '<section id="sites" class="home-section"><div class="page-head"><h2>' + T('shell.sites') + '</h2>' +
+  return '<section id="sites"><div class="page-head"><h1>' + T('shell.sites') + '</h1>' + allUsersSwitch(opts) +
     '<button id="addSiteBtn" class="btn"><span class="mi" aria-hidden="true">add</span>' + T('sites.add') + '</button></div>' +
     ((sites || []).length ? '<div class="panel"><table><thead><tr><th>' + T('sites.colSite') + '</th><th>' + T('sites.colToken') + '</th><th>' + T('sites.colOwner') + '</th><th>' + T('sites.colShared') + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p class="empty">' + T('sites.empty') + '</p>') + '</section>';
@@ -215,13 +228,6 @@ function siteEditBody(s) {
     '<p class="tiny" id="siteError" role="alert"></p>' +
     '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary" id="siteBtn">' + T('siteEdit.submit') + '</button></div></form>';
 }
-function renderTabs(d, tab) {
-  return '<nav class="tabs">' + [['overview', T('dataset.tabOverview'), ''], ['loads', T('dataset.tabLoads'), '/loads'], ['rangers', T('rangers.title'), '/rangers'], ['backup', T('dataset.tabBackup'), '/backup']].map(t => {
-    var off = !tabAllowed(d, t[0]);
-    return '<a href="#/datasets/' + esc(d.id) + t[2] + '"' + (tab === t[0] ? ' class="active" aria-current="page"' : '') + (off ? ' aria-disabled="true" tabindex="-1"' : '') + '>' + t[1] + '</a>';
-  }).join('') + '</nav>';
-}
-
 // the link into the data browser, which is not translated: another language is told so beside it
 function browseLink(d) {
   return '<a class="btn" href="/d/' + esc(d.id) + '/"><span class="mi" aria-hidden="true">travel_explore</span>' + T('dataset.browse') + '</a>' +
@@ -315,7 +321,7 @@ function renderDatasetPage(d, tab, extra) {
     : tab === 'backup' ? (backupPanel(d) || '<div class="panel"><p class="tiny">' + T(d.status === 'uploading' ? 'backup.uploading' : 'backup.unknown') + '</p></div>') : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
     '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div>' + (d.access === 'support' ? supportLine(d.owner_email) : '') + '</div>' + actions + '</div>' +
-    renderTabs(d, tab) + '<div id="tabBody">' + body + '</div>';
+    '<div id="tabBody">' + body + '</div>';
 }
 
 // ---- the load page. Time is read through now(), so a test can pin it (P.now = () => ...).

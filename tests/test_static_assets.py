@@ -23,6 +23,18 @@ def test_the_app_stylesheet_has_no_raw_colour():
     assert offenders == []
 
 
+def test_the_sidebar_stylesheet_has_no_raw_colour_and_cuts_a_long_name():
+    css = (STATIC / "nav.css").read_text()
+    assert [l for l in css.splitlines() if RAW_COLOUR.search(l) and "/*" not in l] == []
+    assert re.search(r"\.rail-dataset \{[^}]*text-overflow: ellipsis;", css)
+    assert 'html[data-nav="closed"] #rail' in css
+
+
+def test_the_sidebar_builder_touches_no_storage_and_no_document():
+    js = (STATIC / "nav.js").read_text()
+    assert "localStorage" not in js and "document." not in js and "window." not in js
+
+
 def test_fonts_are_self_hosted_with_a_fallback_and_optional_display():
     css = (STATIC / "fonts" / "roboto.css").read_text()
     assert "font-weight: 400 700;" in css and "roboto.woff2" in css
@@ -42,9 +54,14 @@ def test_the_page_builders_pass_their_node_tests():
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_the_narrowest_phones_give_the_language_menu_its_own_header_row():
-    css = (STATIC / "app.css").read_text()
-    block = re.search(r"@media \(max-width: 379\.98px\) \{(.*?)\n\}", css, re.S).group(1)
-    assert "header { flex-wrap: wrap; height: auto;" in block
-    assert ".header-right { display: contents; }" in block
-    assert re.search(r"\.lang-select \{[^}]*order: 1;[^}]*flex-basis: 100%;", block)
+def test_the_page_is_a_sidebar_beside_the_content_with_no_band_or_breadcrumb():
+    html = (ROOT / "web" / "templates" / "index.html").read_text()
+    assert 'id="rail"' in html and "<header" not in html and 'id="crumbs"' not in html
+    assert "/static/nav.js?v={{ assets['nav.js'] }}" in html and "/static/nav.css?v={{ assets['nav.css'] }}" in html
+    assert html.index("/static/nav.js") < html.index("/static/pages.js") < html.index("/static/app.js")
+    assert "localStorage.sidenav" in html   # the fold state is set before anything paints
+
+
+def test_the_page_builders_and_the_sidebar_touch_no_storage():
+    for name in ("nav.js", "pages.js"):
+        assert "localStorage" not in (STATIC / name).read_text(), name
