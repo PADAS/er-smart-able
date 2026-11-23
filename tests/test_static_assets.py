@@ -58,7 +58,7 @@ def test_the_page_is_a_sidebar_beside_the_content_under_a_band_that_only_names_t
     html = (ROOT / "web" / "templates" / "index.html").read_text()
     assert 'id="rail"' in html and 'id="crumbs"' not in html
     band = html[html.index('<header id="band">'):html.index("</header>")]
-    assert 'alt="EarthRanger"' in band and 'data-i18n="shell.appName"' in band and '<span id="version" class="tiny">{{ version }}</span>' in band
+    assert 'alt="EarthRanger"' in band and 'data-i18n="shell.appName"' in band and "version" not in band   # the version is at the sidebar's foot
     assert "<button" not in band and "<select" not in band and band.count("<a ") == 1   # the lockup, home; all else is the sidebar's
     css = (STATIC / "app.css").read_text()
     assert "--band-h: 48px" in css and "#rail .rail-brand, #rail .rail-app { display: none; }" in css

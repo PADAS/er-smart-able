@@ -19,6 +19,7 @@
 #rail .off .mi { color: inherit; }
 #rail #railToggle { width: auto; min-height: 32px; padding: 6px; }
 .rail-dataset { padding: 10px 10px 2px; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rail .rail-heading { flex: 1; min-width: 0; padding-left: 2px; font-size: 11px; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--er-ui-text-secondary-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #rail .rail-group { padding: 12px 10px 2px; font-size: 11px; line-height: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--er-ui-text-secondary-text); }
 #rail .rail-note { text-transform: none; letter-spacing: 0; }
 #rail #railFilter:empty { display: none; }
@@ -52,7 +53,7 @@ html[data-theme="dark"] #rail .rail-brand .logo-dark { display: block; }
 /* folded: icons only */
 html[data-nav="closed"] #rail { width: 52px; padding: 10px 6px; }
 html[data-nav="closed"] #rail .label, html[data-nav="closed"] #rail .rail-brand, html[data-nav="closed"] #rail .rail-app, html[data-nav="closed"] #rail .rail-dataset,
-html[data-nav="closed"] #rail .rail-group span, html[data-nav="closed"] #rail #railFilter, html[data-nav="closed"] #rail .rail-lang select,
+html[data-nav="closed"] #rail .rail-heading, html[data-nav="closed"] #rail .menu-version, html[data-nav="closed"] #rail .rail-group span, html[data-nav="closed"] #rail #railFilter, html[data-nav="closed"] #rail .rail-lang select,
 html[data-nav="closed"] #rail .rail-menu > :not(summary), html[data-nav="closed"] #rail .rail-theme label:not(:has(input:checked)) { display: none; }
 html[data-nav="closed"] #rail .rail-theme { margin: 2px 0 6px; }   /* folded: the chosen theme's icon alone, which opens the sidebar */
 html[data-nav="closed"] #rail .rail-group { padding: 0; margin: 6px 8px; border-top: 1px solid var(--er-ui-divider-lines); }
