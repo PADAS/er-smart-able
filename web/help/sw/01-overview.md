@@ -11,3 +11,13 @@ smart-able inachukua chelezo au faili iliyohamishwa (export) ya eneo la hifadhi 
 Kila unachopakia, kutoa na kuingiza kinashirikishwa tu na watu unaowashirikisha. Timu ya usaidizi ya EarthRanger pia inaweza kuona seti za data na tovuti, ili kusaidia katika uhamishaji; haiwezi kuzibadilisha wala kuingiza data. Kufuta seti ya data kunafuta data zake zilizotolewa, vifurushi vyake na kumbukumbu zake za uingizaji; hakuondoi kamwe chochote kwenye EarthRanger.
 
 Chelezo iliyopakiwa yenyewe inahifadhiwa kwa muda maalum (siku 30 kwenye programu ya mtandaoni), kisha inafutwa kiotomatiki. Ukurasa wa seti ya data unaonyesha tarehe, na mmiliki wa seti ya data anaweza kuifuta chelezo mapema. Data zilizotolewa haziathiriki: zinabaki hadi seti ya data itakapofutwa. Ili kutoa data tena baada ya chelezo kuondoka, ipakie tena.
+
+## Kutoka SMART: chelezo au faili iliyohamishwa {#upload-file}
+
+Unahitaji faili moja tu, si zote tatu. Programu inakubali mojawapo ya hizi, kama faili moja ya `.zip`:
+
+- **Eneo la hifadhi lililohamishwa (export).** Lina eneo moja la hifadhi. SMART inaliita `SMART_<area identifier>_<date>.bak.zip` (kitambulisho cha eneo, kisha tarehe).
+- **Chelezo ya mfumo wa SMART.** SMART inaiita `SMART_<date>.bak.zip`. Ina kila eneo la hifadhi lililomo kwenye nakala hiyo ya SMART; utachagua baadaye lipi la kuingiza.
+- **Folda ya SMART Desktop iliyobanwa (zip).** Bana folda nzima ambayo SMART Desktop inaendeshwa kutoka kwake, SMART Desktop ikiwa imefungwa. Tumia njia hii usipoweza kuendesha SMART ili kuhamisha eneo au kutengeneza chelezo.
+
+Pakia `.zip` jinsi ilivyo. Usiibanue (unzip), na usipakie faili iliyo ndani yake.

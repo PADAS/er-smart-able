@@ -25,11 +25,20 @@ After patrol setup and after preflight, the run stops if any finding is **blocki
 
 Patrols that fail during the import do not stop the others. At the end they become one blocking finding listing each error; **Continue** retries only those patrols.
 
-## Event category
+## Roster group {#load-roster}
+
+The roster group is the EarthRanger subject group that rangers are picked from for a patrol. The load creates one subject for each SMART employee who patrolled and adds them to this group.
+
+- **Leave it empty** to use the first group listed under **Patrol configuration › member subject groups** on the site.
+- **Name a group** to use that one. It must already exist on the site: the load does not create it.
+
+If none is named and the site's patrol configuration lists no group, the rangers are still created, and the load page gives you the step to [put them in a group](#finding-roster_group).
+
+## Event category {#load-category}
 
 The event category is the EarthRanger category that the event types this load creates go into. The default is `smart-<conservation area id>`, or `smart-<event type set name>` for a load with a configurable model. When the site already has this load's event types, they stay in the category they are in and new ones join them there, whatever is entered here. The load page names that category once the plan is made.
 
-## Several conservation areas in one site
+## Several conservation areas in one site {#load-sets}
 
 Conservation areas that use the same data model share its event types on a site, so one query covers all of them.
 
@@ -42,7 +51,7 @@ If this conservation area's model differs from what the site already has under t
 
 A conservation area loaded before event types were shared keeps its own event types on that site. The load page says so, and the set name does not apply.
 
-## Changes made on the site
+## Changes made on the site {#load-existing}
 
 After a load, an administrator may change the migrated event types on the site: add a field, rename an event type, reword or reorder dropdown options, turn one off. The load form asks what a later load does with **event types already on the site**.
 
@@ -57,7 +66,7 @@ A site that still has SMART event types in EarthRanger's older form (version 1) 
 
 The choice covers event types and their dropdown lists. Patrol types and the universal patrol fields are set up as before.
 
-## Loading part of a dataset
+## Loading part of a dataset {#load-part}
 
 **What to load** in the load dialog has two choices.
 

@@ -11,3 +11,13 @@ O smart-able recebe um backup ou uma exportação de uma área de conservação 
 Tudo o que você envia, extrai e carrega é compartilhado apenas com as pessoas com quem você compartilha. A equipe de suporte do EarthRanger também pode ver os conjuntos de dados e os sites, para ajudar em uma migração; ela não pode alterá-los nem carregar dados. Excluir um conjunto de dados exclui os dados extraídos, os pacotes e os registros de carga dele; nunca remove nada do EarthRanger.
 
 O backup enviado fica guardado por um tempo limitado (30 dias no aplicativo hospedado) e depois é excluído automaticamente. A página do conjunto de dados mostra a data, e o dono do conjunto de dados pode excluir o backup antes. Os dados extraídos não são afetados: eles ficam até o conjunto de dados ser excluído. Para extrair de novo depois que o backup não existir mais, envie-o novamente.
+
+## Do SMART: um backup ou uma exportação {#upload-file}
+
+Você precisa de um arquivo só, não dos três. O aplicativo aceita qualquer um destes, como um único arquivo `.zip`:
+
+- **Uma exportação de Área de Conservação.** Ela contém uma única área de conservação. O SMART a nomeia `SMART_<area identifier>_<date>.bak.zip` (identificador da área e data).
+- **Um backup do sistema SMART.** O SMART o nomeia `SMART_<date>.bak.zip`. Ele contém todas as áreas de conservação daquela cópia do SMART; mais tarde você escolhe qual carregar.
+- **Uma pasta do SMART Desktop compactada.** Compacte em zip a pasta inteira a partir da qual o SMART Desktop é executado, com o SMART Desktop fechado. Use esta opção quando não puder executar o SMART para fazer uma exportação ou um backup.
+
+Envie o `.zip` como ele está. Não o descompacte, e não envie um arquivo de dentro dele.

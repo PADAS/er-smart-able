@@ -53,6 +53,10 @@ input[type="text"], input[type="email"], input[type="password"], input[type="dat
   padding: 7px 10px; border: 1px solid var(--er-ui-field-outline); border-radius: 8px; background: var(--er-ui-background-primary-background); color: var(--er-ui-text-primary-text); font: inherit; }
 .row input[type="text"], .row input[type="email"], .row input[type="password"] { flex: 1; min-width: 220px; }
 input[type="file"] { font: inherit; color: var(--er-ui-text-secondary-text); }
+.file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+/* the browser's own Choose File button, drawn as the app's secondary button */
+input[type="file"]::file-selector-button { font: 600 14px/20px var(--sans); border-radius: 8px; padding: 7px 12px; margin-right: 10px; cursor: pointer; background: none; border: 1px solid var(--er-ui-field-outline); color: var(--er-ui-text-primary-text); }
+input[type="file"]::file-selector-button:hover { background: var(--er-ui-background-hover-background); }
 label, .field > span { color: var(--er-ui-text-form-labels); }
 .field, .col label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .field input, .field select, .field textarea { font-size: 14px; }
@@ -104,6 +108,23 @@ pre.log { background: var(--er-ui-background-elevated-component-0); border: 1px 
 /* ---- dialog and drawer */
 .modal { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .dialog { background: var(--er-ui-background-elevated-component); color: var(--er-ui-text-primary-text); border: 1px solid var(--er-ui-divider-lines); border-radius: 12px; padding: 18px 20px; width: min(520px, 92vw); max-height: 85vh; overflow: auto; box-shadow: 0 12px 32px var(--shadow); }
+/* the load form: short fields side by side, each hint behind its info button, the buttons always in view */
+.dialog:has(.ld-grid) { width: min(600px, 92vw); box-sizing: border-box; }
+.ld-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; align-items: end; }
+.ld-grid > .wide, .ld-grid > .dialog-foot { grid-column: 1 / -1; }
+.ld-grid select, .ld-grid input { width: 100%; box-sizing: border-box; min-width: 0; }
+/* the help drawer opened from a dialog sits above it, and on a wide window the dialog moves aside to stay readable */
+body:has(#modal:not([hidden])) #help { z-index: 55; }
+@media (min-width: 1100px) { body:has(#help:not([hidden])) .modal { padding-right: min(520px, 94vw); } }
+/* a hint's bubble: fixed to the window (app.js places it by its info button), --ax is where its pointer sits */
+.bubble { position: fixed; z-index: 60; width: min(300px, calc(100vw - 24px)); box-sizing: border-box; padding: 10px 12px; border-radius: 8px; background: var(--er-ui-text-primary-text); color: var(--er-ui-text-primary-text-reversed); font-size: 12.5px; line-height: 18px; box-shadow: 0 6px 18px var(--shadow); pointer-events: none; animation: bubble-in 0.12s ease-out; }
+.bubble::before { content: ""; position: absolute; left: calc(var(--ax, 50%) - 5px); top: -5px; width: 10px; height: 10px; background: inherit; transform: rotate(45deg); }
+.bubble.above::before { top: auto; bottom: -5px; }
+@keyframes bubble-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-height: 20px; }
+.dialog-foot { position: sticky; bottom: -18px; margin: 4px -20px -18px; padding: 10px 20px 18px; background: var(--er-ui-background-elevated-component); border-top: 1px solid var(--er-ui-divider-lines); }
+@media (max-width: 480px) { .ld-grid { grid-template-columns: minmax(0, 1fr); } }
 .backdrop { position: fixed; inset: 0; background: var(--scrim); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 94vw); background: var(--er-ui-background-elevated-component); color: var(--er-ui-text-primary-text); border-left: 1px solid var(--er-ui-divider-lines); box-shadow: -8px 0 24px var(--shadow); z-index: 45; display: flex; flex-direction: column; animation: slide-in 0.18s ease-out; }
 @keyframes slide-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }

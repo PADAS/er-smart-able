@@ -11,3 +11,13 @@ smart-able takes a SMART conservation-area backup or export, extracts it so you 
 Everything you upload, extract and load is shared only with the people you share it with. EarthRanger support staff can also view datasets and sites, to help with a migration; they cannot change them or load data. Deleting a dataset deletes its extracted data, bundles and load records; it never removes anything from EarthRanger.
 
 The uploaded backup itself is stored for a limited time (30 days on the hosted app) and then deleted automatically. The dataset page shows the date, and the dataset's owner can delete the backup sooner. The extracted data is not affected: it stays until the dataset is deleted. To extract again after the backup has gone, upload it again.
+
+## From SMART: a backup or an export {#upload-file}
+
+You need one file, not all three. The app accepts any one of these, as a single `.zip` file:
+
+- **A Conservation Area export.** It holds one conservation area. SMART names it `SMART_<area identifier>_<date>.bak.zip`.
+- **A SMART system backup.** SMART names it `SMART_<date>.bak.zip`. It holds every conservation area in that copy of SMART; you choose which to load later.
+- **A zipped SMART Desktop folder.** Zip the whole folder SMART Desktop runs from, with SMART Desktop closed. Use this when you cannot run SMART to make an export or a backup.
+
+Upload the `.zip` as it is. Do not unzip it, and do not upload a file from inside it.

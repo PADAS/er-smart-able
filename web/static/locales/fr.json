@@ -528,6 +528,9 @@
     "name": "Nom",
     "namePlaceholder": "p. ex. Zone Nord 2025",
     "file": "Fichier",
+    "fileHint": "Un seul fichier .zip venant de SMART : un export de zone de conservation, une sauvegarde du système ou un dossier SMART Desktop compressé. Téléversez-le tel quel, sans le décompresser.",
+    "choose": "Choisir un fichier",
+    "noFile": "Aucun fichier choisi",
     "submit": "Téléverser",
     "preparing": "Préparation…",
     "progress": "Téléversement : {{done}} sur {{total}}",
@@ -566,6 +569,7 @@
     "eventTypeSetHint": "Les zones de conservation chargées sous le même nom partagent un seul ensemble de types d'événement et de listes d'options sur le site. Changez-le pour garder à part ceux de ce modèle.",
     "roster": "Groupe des écogardes",
     "rosterPlaceholder": "facultatif ; par défaut : le premier groupe de membres de la configuration des patrouilles",
+    "rosterHint": "Le groupe de sujets dans lequel on choisit les écogardes d'une patrouille. Le chargement y ajoute les écogardes qu'il crée. Le groupe doit déjà exister sur le site. Laissez vide pour utiliser le premier groupe de membres de la configuration des patrouilles.",
     "category": "Catégorie d'événements",
     "categoryHint": "Là où vont les types d'événement que ce chargement crée. Si le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent.",
     "existing": "Types d'événement déjà sur le site",
@@ -580,7 +584,8 @@
     "hintDatamodel": "Types d'événement, types de patrouille et leurs champs, écogardes et liste des écogardes : ce dont une équipe a besoin pour patrouiller et enregistrer dans EarthRanger. Ni patrouilles, ni observations, ni tracés.",
     "hintAll": "Laissez les dates vides pour charger toutes les patrouilles. Une patrouille est dans la période si elle commence à l'une des dates ou entre les deux.",
     "makePlan": "Établir le plan",
-    "windowBackwards": "La période commence après sa fin."
+    "windowBackwards": "La période commence après sa fin.",
+    "about": "En savoir plus : {{field}}"
   },
   "share": {
     "title": "Partager « {{name}} »",

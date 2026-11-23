@@ -11,3 +11,13 @@ smart-able prend une sauvegarde ou un export de zone de conservation SMART, l'ex
 Tout ce que vous téléversez, extrayez et chargez n'est partagé qu'avec les personnes avec qui vous le partagez. L'équipe d'assistance d'EarthRanger peut aussi consulter les jeux de données et les sites, pour aider à une migration ; elle ne peut ni les modifier ni charger de données. Supprimer un jeu de données supprime ses données extraites, ses lots et ses enregistrements de chargement ; cela ne retire jamais rien d'EarthRanger.
 
 La sauvegarde téléversée elle-même est conservée pendant une durée limitée (30 jours sur l'application hébergée), puis supprimée automatiquement. La page du jeu de données indique la date, et le propriétaire du jeu de données peut supprimer la sauvegarde plus tôt. Les données extraites ne sont pas concernées : elles restent jusqu'à la suppression du jeu de données. Pour extraire de nouveau une fois la sauvegarde disparue, téléversez-la de nouveau.
+
+## De SMART : une sauvegarde ou un export {#upload-file}
+
+Il vous faut un seul fichier, pas les trois. L'application accepte n'importe lequel de ceux-ci, sous la forme d'un seul fichier `.zip` :
+
+- **Un export de zone de conservation.** Il contient une seule zone de conservation. SMART le nomme `SMART_<area identifier>_<date>.bak.zip` (identifiant de la zone, puis date).
+- **Une sauvegarde du système SMART.** SMART la nomme `SMART_<date>.bak.zip`. Elle contient toutes les zones de conservation de cette copie de SMART ; vous choisirez plus tard laquelle charger.
+- **Un dossier SMART Desktop compressé.** Compressez en zip tout le dossier à partir duquel SMART Desktop s'exécute, SMART Desktop étant fermé. Utilisez cette solution lorsque vous ne pouvez pas lancer SMART pour faire un export ou une sauvegarde.
+
+Téléversez le `.zip` tel quel. Ne le décompressez pas, et ne téléversez pas un fichier qui se trouve à l'intérieur.

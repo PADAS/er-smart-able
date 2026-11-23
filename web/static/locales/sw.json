@@ -528,6 +528,9 @@
     "name": "Jina",
     "namePlaceholder": "mf. Eneo la Kaskazini 2025",
     "file": "Faili",
+    "fileHint": "Faili moja la .zip kutoka SMART: eneo la hifadhi lililohamishwa, chelezo ya mfumo, au folda ya SMART Desktop iliyobanwa. Lipakie jinsi lilivyo, bila kulifungua.",
+    "choose": "Chagua faili",
+    "noFile": "Hakuna faili lililochaguliwa",
     "submit": "Pakia",
     "preparing": "Inaandaa…",
     "progress": "Inapakia {{done}} kati ya {{total}}",
@@ -566,6 +569,7 @@
     "eventTypeSetHint": "Maeneo ya hifadhi yanayoingizwa kwa jina moja yanashiriki kundi moja la aina za matukio na orodha za machaguo kwenye tovuti. Libadilishe ili kutenga zile za moduli hii.",
     "roster": "Kundi la askari",
     "rosterPlaceholder": "si lazima; chaguo-msingi: kundi la kwanza la wanachama katika usanidi wa doria",
+    "rosterHint": "Kundi la wahusika ambamo askari wa doria wanachaguliwa. Uingizaji unaongeza humo askari unaowaunda. Kundi lazima liwe tayari lipo kwenye tovuti. Acha wazi ili kutumia kundi la kwanza la wanachama katika usanidi wa doria.",
     "category": "Kategoria ya matukio",
     "categoryHint": "Mahali ambapo aina za matukio zinazoundwa na uingizaji huu zinawekwa. Tovuti ikiwa tayari ina aina za matukio za uingizaji huu, zinabaki katika kategoria yake na mpya zinajiunga nazo humo.",
     "existing": "Aina za matukio ambazo tayari ziko kwenye tovuti",
@@ -580,7 +584,8 @@
     "hintDatamodel": "Aina za matukio, aina za doria na sehemu zake za kujaza, askari na orodha ya askari: kile ambacho timu inahitaji ili kufanya doria na kurekodi kwenye EarthRanger. Hakuna doria, vielelezo wala alama.",
     "hintAll": "Acha tarehe wazi ili kuingiza doria zote. Doria iko ndani ya kipindi ikianza katika mojawapo ya tarehe hizo au kati yake.",
     "makePlan": "Tengeneza mpango",
-    "windowBackwards": "Kipindi kinaanza baada ya mwisho wake."
+    "windowBackwards": "Kipindi kinaanza baada ya mwisho wake.",
+    "about": "Maelezo zaidi: {{field}}"
   },
   "share": {
     "title": "Shiriki \"{{name}}\"",

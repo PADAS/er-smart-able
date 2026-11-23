@@ -25,11 +25,20 @@ Les **avertissements** n'arrêtent jamais une exécution. Ils consignent quelque
 
 Les patrouilles qui échouent pendant l'import n'arrêtent pas les autres. À la fin, elles deviennent un seul constat bloquant qui énumère chaque erreur ; **Continuer** ne réessaie que ces patrouilles.
 
-## Catégorie d'événements
+## Groupe des écogardes {#load-roster}
+
+Le groupe des écogardes est le groupe de sujets EarthRanger dans lequel on choisit les écogardes d'une patrouille. Le chargement crée un sujet pour chaque employé SMART qui a patrouillé et les ajoute à ce groupe.
+
+- **Laissez le champ vide** pour utiliser le premier groupe listé sous **Patrol configuration › member subject groups** sur le site.
+- **Nommez un groupe** pour utiliser celui-là. Il doit déjà exister sur le site : le chargement ne le crée pas.
+
+Si aucun groupe n'est nommé et que la configuration des patrouilles du site n'en liste aucun, les écogardes sont créés quand même, et la page du chargement vous donne l'étape pour [les mettre dans un groupe](#finding-roster_group).
+
+## Catégorie d'événements {#load-category}
 
 La catégorie d'événements est la catégorie EarthRanger où vont les types d'événement que ce chargement crée. Par défaut, c'est `smart-<conservation area id>`, ou `smart-<event type set name>` pour un chargement avec un modèle configurable. Quand le site a déjà les types d'événement de ce chargement, ils restent dans leur catégorie et les nouveaux les y rejoignent, quoi qu'on saisisse ici. La page du chargement nomme cette catégorie une fois le plan établi.
 
-## Plusieurs zones de conservation sur un même site
+## Plusieurs zones de conservation sur un même site {#load-sets}
 
 Les zones de conservation qui utilisent le même modèle de données partagent ses types d'événement sur un site ; une seule requête les couvre donc toutes.
 
@@ -42,7 +51,7 @@ Si le modèle de cette zone de conservation diffère de ce que le site a déjà 
 
 Une zone de conservation chargée avant le partage des types d'événement garde ses propres types d'événement sur ce site. La page du chargement le dit, et le nom de l'ensemble ne s'applique pas.
 
-## Modifications faites sur le site
+## Modifications faites sur le site {#load-existing}
 
 Après un chargement, un administrateur peut modifier sur le site les types d'événement migrés : ajouter un champ, renommer un type d'événement, reformuler ou réordonner des options de liste, en désactiver une. Le formulaire de chargement demande ce qu'un chargement ultérieur fait des **types d'événement déjà sur le site**.
 
@@ -57,7 +66,7 @@ Un site qui a encore des types d'événement SMART sous l'ancienne forme d'Earth
 
 Le choix porte sur les types d'événement et leurs listes d'options. Les types de patrouille et les champs de patrouille universels sont configurés comme avant.
 
-## Charger une partie d'un jeu de données
+## Charger une partie d'un jeu de données {#load-part}
 
 **Que charger**, dans la boîte de dialogue du chargement, propose deux choix.
 
