@@ -31,8 +31,20 @@ code, pre, kbd, .mono { font-family: var(--mono); }
 .empty { padding: 24px 16px; text-align: center; color: var(--er-ui-text-secondary-text); }
 .empty .btn { margin-top: 10px; }
 
+/* ---- the band: the lockup, the app's name and its version. --band-h is what the sidebar (nav.css) starts below */
+:root { --band-h: 48px; }
+#band { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: var(--band-h); box-sizing: border-box; padding: 0 16px; background: var(--er-ui-cta-secondary); color: var(--er-ui-cta-text); }
+#home { flex: none; display: flex; align-items: center; }
+#home img { height: 26px; display: block; }
+#appName { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 18px; font-weight: 500; white-space: nowrap; }
+#version { flex: none; color: inherit; opacity: 0.8; white-space: nowrap; }
+@media (max-width: 480px) { #version { display: none; } }
+/* the band says them, so the sidebar's own lockup and name stay out; its fold control keeps its corner */
+#rail .rail-brand, #rail .rail-app { display: none; }
+#rail .rail-top { justify-content: flex-end; }
+
 /* ---- the shell: the sidebar (nav.css) beside the page */
-.shell { display: flex; min-height: 100vh; }
+.shell { display: flex; min-height: calc(100vh - var(--band-h)); }
 .shell-main { flex: 1; min-width: 0; }
 .lang-note { margin: 0; padding: 8px 16px; font-size: 13px; line-height: 18px; background: var(--er-ui-background-hover-background); color: var(--er-ui-text-secondary-text); border-bottom: 1px solid var(--er-ui-divider-lines); }
 

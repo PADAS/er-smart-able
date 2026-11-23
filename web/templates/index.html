@@ -17,6 +17,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+  <!-- the band: whose app this is and which version; everything to do is in the sidebar -->
+  <header id="band">
+    <a id="home" href="#/"><img src="/static/img/er-lockup-white-h-short.svg" alt="EarthRanger"></a><span id="appName" data-i18n="shell.appName">SMART migration</span><span id="version" class="tiny">{{ version }}</span>
+  </header>
   <div class="shell">
     <!-- the sidebar: nav.js draws it, app.js says what it shows and binds it -->
     <nav id="rail" aria-label="SMART migration" data-i18n-aria="shell.appName"></nav>
