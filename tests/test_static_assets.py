@@ -54,9 +54,16 @@ def test_the_page_builders_pass_their_node_tests():
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_the_page_is_a_sidebar_beside_the_content_with_no_band_or_breadcrumb():
+def test_the_page_is_a_sidebar_beside_the_content_under_a_band_that_only_names_the_app():
     html = (ROOT / "web" / "templates" / "index.html").read_text()
-    assert 'id="rail"' in html and "<header" not in html and 'id="crumbs"' not in html
+    assert 'id="rail"' in html and 'id="crumbs"' not in html
+    band = html[html.index('<header id="band">'):html.index("</header>")]
+    assert 'alt="EarthRanger"' in band and 'data-i18n="shell.appName"' in band and '<span id="version" class="tiny">{{ version }}</span>' in band
+    assert "<button" not in band and "<select" not in band and band.count("<a ") == 1   # the lockup, home; all else is the sidebar's
+    css = (STATIC / "app.css").read_text()
+    assert "--band-h: 48px" in css and "#rail .rail-brand, #rail .rail-app { display: none; }" in css
+    nav = (STATIC / "nav.css").read_text()
+    assert "top: var(--band-h, 0px)" in nav and "calc(100vh - var(--band-h, 0px))" in nav   # 0 in the browser, which has no band
     assert "/static/nav.js?v={{ assets['nav.js'] }}" in html and "/static/nav.css?v={{ assets['nav.css'] }}" in html
     assert html.index("/static/nav.js") < html.index("/static/pages.js") < html.index("/static/app.js")
     assert "localStorage.sidenav" in html   # the fold state is set before anything paints

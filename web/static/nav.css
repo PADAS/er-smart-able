@@ -1,6 +1,6 @@
 /* The sidebar of the app and of the data browser (web/static/nav.js draws it). The browser carries a copy of
    this file between markers; scripts/sync_nav.py writes it. Every colour is a token from er-tokens.css. */
-#rail { flex: none; width: 220px; height: 100vh; position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+#rail { flex: none; width: 220px; height: calc(100vh - var(--band-h, 0px)); position: sticky; top: var(--band-h, 0px); display: flex; flex-direction: column; gap: 2px; padding: 10px 8px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
   background: var(--er-ui-background-primary-background); color: var(--er-ui-text-primary-text); border-right: 1px solid var(--er-ui-divider-lines); font: 500 14px/20px Roboto, system-ui, "Helvetica Neue", Arial, sans-serif; }
 #rail .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-size: 20px; line-height: 1; flex: none; color: var(--er-ui-icons); }
 #rail .rail-top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 4px 8px 8px; }
@@ -55,7 +55,7 @@ html[data-nav="closed"] #rail a, html[data-nav="closed"] #rail .off, html[data-n
 
 /* a narrow screen: the open sidebar lies over the page, with a scrim behind it */
 @media (max-width: 699.98px) {
-  html[data-nav="open"] #rail { position: fixed; left: 0; top: 0; bottom: 0; z-index: 40; box-shadow: 4px 0 16px color-mix(in srgb, var(--er-ui-text-primary-text) 18%, transparent); }
+  html[data-nav="open"] #rail { position: fixed; left: 0; top: var(--band-h, 0px); bottom: 0; z-index: 40; box-shadow: 4px 0 16px color-mix(in srgb, var(--er-ui-text-primary-text) 18%, transparent); }
   html[data-nav="open"] #railScrim { display: block; position: fixed; inset: 0; z-index: 39; background: color-mix(in srgb, var(--er-ui-cta-secondary) 55%, transparent); }
   html[data-nav="open"] body { padding-left: 52px; }
 }

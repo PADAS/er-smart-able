@@ -809,12 +809,13 @@ async function openHelp(anchor) {
       HELP = sections;
       body.innerHTML = HELP.map(helpSection).join('');
       $('#helpToc').innerHTML = HELP.map(s => '<button class="link" data-goto="help-' + esc(s.id) + '">' + esc(s.title) + '</button>').join('');
-      $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto));
-      body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1)); });
+      $('#helpToc').querySelectorAll('button').forEach(b => b.onclick = () => gotoHelp(b.dataset.goto, true));
+      body.querySelectorAll('a[href^="#"]').forEach(a => a.onclick = ev => { ev.preventDefault(); gotoHelp(a.getAttribute('href').slice(1), true); });
     }
   }
+  const wasOpen = !drawer.hidden;
   drawer.hidden = false; $('#helpBackdrop').hidden = false;
-  if (anchor) gotoHelp(anchor);
+  if (anchor) gotoHelp(anchor, wasOpen);   // opening: already there as it slides in; open: it travels
   else {
     $('#helpNote').hidden = true;
     let saved = 0; try { saved = Number(localStorage.getItem('help.scroll') || 0); } catch (e) {}
@@ -823,7 +824,9 @@ async function openHelp(anchor) {
   $('#helpClose').focus();
 }
 
-function gotoHelp(id) {
+// travel: the drawer is open and the reader is looking at it, so it scrolls there rather than jumps.
+// Either way the heading it lands on is marked for a moment.
+function gotoHelp(id, travel) {
   const body = $('#helpBody'), note = $('#helpNote');
   let el = body.querySelector('#' + CSS.escape(id));
   note.hidden = true;
@@ -835,8 +838,13 @@ function gotoHelp(id) {
   if (!el) return;
   body.querySelectorAll('.target').forEach(t => t.classList.remove('target'));
   if (/^finding-/.test(id)) { el.classList.add('target'); }
-  body.scrollTo({ top: el.offsetTop - 8, behavior: 'instant' });   // a jump, so the highlight below reads the new position
-  helpScrolled();
+  const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  body.scrollTo({ top: el.offsetTop - 8, behavior: travel && !still ? 'smooth' : 'instant' });
+  helpScrolled();   // a jump is read here; a scroll that travels is followed by the body's own onscroll
+  const mark = /^H\d$/.test(el.tagName) ? el : el.querySelector('h1, h2, h3') || el;
+  body.querySelectorAll('.arrived').forEach(m => m.classList.remove('arrived'));
+  void mark.offsetWidth;   // the same heading twice in a row marks twice
+  mark.classList.add('arrived');
 }
 
 function closeHelp() {

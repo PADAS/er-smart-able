@@ -29,9 +29,13 @@ def test_the_sync_script_agrees():
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_the_viewer_has_no_band_and_no_list_of_its_own():
+def test_the_viewer_has_the_apps_band_and_no_list_of_its_own():
     html = (ROOT / "browse" / "index.html").read_text()
-    assert "<header" not in html and 'id="sidenav"' not in html and "Back to dataset" not in html and 'id="navToggle"' not in html
+    assert 'id="sidenav"' not in html and "Back to dataset" not in html and 'id="navToggle"' not in html
+    # the band names the app and its version and holds nothing to do; the lockup is the page's own drawing, for a folder
+    assert '<header id="band"><a id="home"></a><span id="appName">SMART migration</span><span id="version"></span></header>' in html
+    assert "$('#lockupMark').content.cloneNode(true)" in html and "if (HOSTED) { home.setAttribute('href', '/#/');" in html
+    assert "--band-h: 48px" in html and "#rail .rail-brand, #rail .rail-app { display: none; }" in html
     assert '<nav id="rail"' in html and "renderRail(" in html
     assert "localStorage.getItem('sidenav')" in html, "the fold state is the app's, applied before first paint"
     assert "doc: 'browser'" in html and "'data:' + TAB" in html

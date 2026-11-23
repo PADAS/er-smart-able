@@ -31,8 +31,20 @@ code, pre, kbd, .mono { font-family: var(--mono); }
 .empty { padding: 24px 16px; text-align: center; color: var(--er-ui-text-secondary-text); }
 .empty .btn { margin-top: 10px; }
 
+/* ---- the band: the lockup, the app's name and its version. --band-h is what the sidebar (nav.css) starts below */
+:root { --band-h: 48px; }
+#band { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: var(--band-h); box-sizing: border-box; padding: 0 16px; background: var(--er-ui-cta-secondary); color: var(--er-ui-cta-text); }
+#home { flex: none; display: flex; align-items: center; }
+#home img { height: 26px; display: block; }
+#appName { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 18px; font-weight: 500; white-space: nowrap; }
+#version { flex: none; color: inherit; opacity: 0.8; white-space: nowrap; }
+@media (max-width: 480px) { #version { display: none; } }
+/* the band says them, so the sidebar's own lockup and name stay out; its fold control keeps its corner */
+#rail .rail-brand, #rail .rail-app { display: none; }
+#rail .rail-top { justify-content: flex-end; }
+
 /* ---- the shell: the sidebar (nav.css) beside the page */
-.shell { display: flex; min-height: 100vh; }
+.shell { display: flex; min-height: calc(100vh - var(--band-h)); }
 .shell-main { flex: 1; min-width: 0; }
 .lang-note { margin: 0; padding: 8px 16px; font-size: 13px; line-height: 18px; background: var(--er-ui-background-hover-background); color: var(--er-ui-text-secondary-text); border-bottom: 1px solid var(--er-ui-divider-lines); }
 
@@ -126,8 +138,9 @@ body:has(#modal:not([hidden])) #help { z-index: 55; }
 .dialog-foot { position: sticky; bottom: -18px; margin: 4px -20px -18px; padding: 10px 20px 18px; background: var(--er-ui-background-elevated-component); border-top: 1px solid var(--er-ui-divider-lines); }
 @media (max-width: 480px) { .ld-grid { grid-template-columns: minmax(0, 1fr); } }
 .backdrop { position: fixed; inset: 0; background: var(--scrim); z-index: 40; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 94vw); background: var(--er-ui-background-elevated-component); color: var(--er-ui-text-primary-text); border-left: 1px solid var(--er-ui-divider-lines); box-shadow: -8px 0 24px var(--shadow); z-index: 45; display: flex; flex-direction: column; animation: slide-in 0.18s ease-out; }
-@keyframes slide-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 94vw); background: var(--er-ui-background-elevated-component); color: var(--er-ui-text-primary-text); border-left: 1px solid var(--er-ui-divider-lines); box-shadow: -8px 0 24px var(--shadow); z-index: 45; display: flex; flex-direction: column; animation: slide-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }   /* from off the window's edge, so it is seen to arrive */
+@media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--er-ui-divider-lines); }
 .drawer-head h2 { margin: 0; }
 .help-toc { padding: 8px 16px; border-bottom: 1px solid var(--er-ui-divider-lines); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
@@ -142,6 +155,15 @@ body:has(#modal:not([hidden])) #help { z-index: 55; }
 .help-body code { background: var(--er-ui-background-elevated-component-0); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
 .help-body table { font-size: 13px; margin: 8px 0; }
 .help-body .target { background: var(--er-ui-background-selected-background); border-radius: 6px; }
+/* the heading the drawer has just gone to is marked for a moment, so the eye finds where it landed. The mark is
+   drawn behind the heading's words and outside them: a bar in the body's gutter, clear of the first letter, and
+   below an h2's rule and the space under it (--mark-top) */
+.help-body h2 { --mark-top: 14px; }
+.help-body section:first-child h2 { --mark-top: 0px; }
+.help-body .arrived { position: relative; isolation: isolate; }
+.help-body .arrived::before { content: ""; position: absolute; z-index: -1; left: -14px; right: -8px; top: calc(var(--mark-top, 0px) - 3px); bottom: -3px; border-left: 3px solid var(--er-ui-cta-primary); border-radius: 4px; background: var(--er-ui-background-selected-background); opacity: 0; animation: arrived 1.8s ease-out; }
+@keyframes arrived { 0%, 35% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .help-body .arrived::before { animation-duration: 3s; animation-timing-function: step-end; } }
 
 /* ---- the load page: stages, findings, plan, rangers, progress */
 .stagetable td:nth-child(2) { white-space: nowrap; }
