@@ -487,19 +487,25 @@ function uploadDialog() {
   wireHints(form);
   $('#dsPick', form).onclick = () => $('#dsFile', form).click();
   $('label[for="dsPick"]', form).onclick = ev => ev.preventDefault();   // the label names the button; a click on it does not press it
-  // Upload waits for a file; a chooser that is cancelled can leave none
+  // Upload waits for a file; a chooser that is cancelled can leave none. While one upload is on its way the
+  // file cannot be changed and Upload stays off: a second submit would make a second dataset on the same form.
+  let uploading = false;
+  const syncUpload = () => {
+    $('#uploadSubmit', form).disabled = !canUpload($('#dsFile', form).files[0], uploading);
+    $('#dsPick', form).disabled = uploading;
+  };
   $('#dsFile', form).onchange = () => {
     const f = $('#dsFile', form).files[0];
     if (f) $('#dsFileName', form).textContent = f.name;
     else $('#dsFileName', form).textContent = t('upload.noFile');
-    $('#uploadSubmit', form).disabled = !f;
+    syncUpload();
   };
   form.onsubmit = async ev => {
     ev.preventDefault();
-    const file = $('#dsFile', form).files[0]; if (!file) return;
-    const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
+    const file = $('#dsFile', form).files[0]; if (!canUpload(file, uploading)) return;
+    const prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
     const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
-    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
+    uploading = true; syncUpload(); prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
     try {
       const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
       if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
@@ -520,7 +526,8 @@ function uploadDialog() {
       if (at.page === 'home') showHome();                              // the new dataset appears, extracting
       else if (at.page === 'dataset' && at.id === created.id) showDataset(at);   // opened while it uploaded: now it extracts, and polls
     } catch (e) {
-      if (onScreen()) { text.textContent = e.message; btn.disabled = false; }
+      uploading = false; syncUpload();                                 // the reader may try again, or choose another file
+      if (onScreen()) text.textContent = e.message;
       else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
     }
   };
