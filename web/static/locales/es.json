@@ -528,6 +528,9 @@
     "name": "Nombre",
     "namePlaceholder": "p. ej. Zona Norte 2025",
     "file": "Archivo",
+    "fileHint": "Un solo archivo .zip de SMART: una exportación de Área de Conservación, una copia de seguridad del sistema o una carpeta de SMART Desktop comprimida. Súbalo tal cual, sin descomprimirlo.",
+    "choose": "Elegir archivo",
+    "noFile": "Ningún archivo elegido",
     "submit": "Subir",
     "preparing": "Preparando…",
     "progress": "Subiendo {{done}} de {{total}}",
@@ -566,6 +569,7 @@
     "eventTypeSetHint": "Las áreas de conservación cargadas con el mismo nombre comparten un solo grupo de tipos de evento y de listas de opciones en el sitio. Cámbielo para mantener aparte los de este modelo.",
     "roster": "Grupo de guardaparques",
     "rosterPlaceholder": "opcional; por defecto: el primer grupo de miembros de la configuración de patrullas",
+    "rosterHint": "El grupo de sujetos del que se eligen los guardaparques de una patrulla. La carga añade a él los guardaparques que crea. El grupo ya debe existir en el sitio. Déjelo vacío para usar el primer grupo de miembros de la configuración de patrullas.",
     "category": "Categoría de eventos",
     "categoryHint": "A dónde van los tipos de evento que crea esta carga. Si el sitio ya tiene los tipos de evento de esta carga, se quedan en su categoría y los nuevos se unen a ellos allí.",
     "existing": "Tipos de evento que ya están en el sitio",
@@ -580,7 +584,8 @@
     "hintDatamodel": "Tipos de evento, tipos de patrullaje y sus campos, guardaparques y la lista de guardaparques: lo que un equipo necesita para patrullar y registrar en EarthRanger. Sin patrullas, observaciones ni trayectos.",
     "hintAll": "Deje las fechas vacías para cargar todas las patrullas. Una patrulla está en el intervalo si empieza en una de las fechas o entre ellas.",
     "makePlan": "Hacer el plan",
-    "windowBackwards": "El intervalo empieza después de su fin."
+    "windowBackwards": "El intervalo empieza después de su fin.",
+    "about": "Más información: {{field}}"
   },
   "share": {
     "title": "Compartir «{{name}}»",

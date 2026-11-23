@@ -528,6 +528,9 @@
     "name": "Nome",
     "namePlaceholder": "ex.: Zona Norte 2025",
     "file": "Arquivo",
+    "fileHint": "Um único arquivo .zip do SMART: uma exportação de Área de Conservação, um backup do sistema ou uma pasta do SMART Desktop compactada. Envie-o como está, sem descompactar.",
+    "choose": "Escolher arquivo",
+    "noFile": "Nenhum arquivo escolhido",
     "submit": "Enviar",
     "preparing": "Preparando…",
     "progress": "Enviando {{done}} de {{total}}",
@@ -566,6 +569,7 @@
     "eventTypeSetHint": "As áreas de conservação carregadas com o mesmo nome compartilham um só grupo de tipos de evento e de listas de opções no site. Altere-o para manter à parte os deste modelo.",
     "roster": "Grupo de guarda-parques",
     "rosterPlaceholder": "opcional; padrão: o primeiro grupo de membros da configuração de patrulhas",
+    "rosterHint": "O grupo de sujeitos do qual os guarda-parques de uma patrulha são escolhidos. A carga adiciona a ele os guarda-parques que cria. O grupo já deve existir no site. Deixe vazio para usar o primeiro grupo de membros da configuração de patrulhas.",
     "category": "Categoria de eventos",
     "categoryHint": "Para onde vão os tipos de evento que esta carga cria. Se o site já tem os tipos de evento desta carga, eles ficam na sua categoria e os novos se juntam a eles ali.",
     "existing": "Tipos de evento que já estão no site",
@@ -580,7 +584,8 @@
     "hintDatamodel": "Tipos de evento, tipos de patrulha e seus campos, guarda-parques e a lista de guarda-parques: o que uma equipe precisa para patrulhar e registrar no EarthRanger. Sem patrulhas, observações nem trilhas.",
     "hintAll": "Deixe as datas vazias para carregar todas as patrulhas. Uma patrulha está no intervalo quando começa em uma das datas ou entre elas.",
     "makePlan": "Fazer o plano",
-    "windowBackwards": "O intervalo começa depois do fim."
+    "windowBackwards": "O intervalo começa depois do fim.",
+    "about": "Mais informações: {{field}}"
   },
   "share": {
     "title": "Compartilhar \"{{name}}\"",

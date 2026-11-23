@@ -25,11 +25,20 @@ Baada ya maandalizi ya doria na baada ya ukaguzi wa awali, utekelezaji unasimama
 
 Doria zinazoshindwa wakati wa uingizaji hazisimamishi nyingine. Mwishoni zinakuwa tokeo moja linalozuia linaloorodhesha kila hitilafu; **Endelea** inajaribu tena doria hizo tu.
 
-## Kategoria ya matukio
+## Kundi la askari {#load-roster}
+
+Kundi la askari ni kundi la wahusika la EarthRanger ambamo askari wa doria wanachaguliwa. Uingizaji unaunda mhusika mmoja kwa kila mfanyakazi wa SMART aliyefanya doria na kuwaongeza kwenye kundi hili.
+
+- **Acha wazi** ili kutumia kundi la kwanza lililoorodheshwa chini ya **Patrol configuration › member subject groups** kwenye tovuti.
+- **Taja kundi** ili kutumia hilo. Lazima liwe tayari lipo kwenye tovuti: uingizaji haliundi.
+
+Ikiwa hakuna kundi lililotajwa na usanidi wa doria wa tovuti hauna kundi lolote, askari wanaundwa hata hivyo, na ukurasa wa uingizaji unakupa hatua ya [kuwaweka kwenye kundi](#finding-roster_group).
+
+## Kategoria ya matukio {#load-category}
 
 Kategoria ya matukio ni kategoria ya EarthRanger ambamo aina za matukio zinazoundwa na uingizaji huu zinawekwa. Chaguo-msingi ni `smart-<conservation area id>`, au `smart-<event type set name>` kwa uingizaji wenye moduli inayosanidika. Tovuti ikiwa tayari ina aina za matukio za uingizaji huu, zinabaki katika kategoria zilimo na mpya zinajiunga nazo humo, bila kujali kilichoandikwa hapa. Ukurasa wa uingizaji unataja kategoria hiyo baada ya mpango kutengenezwa.
 
-## Maeneo kadhaa ya hifadhi kwenye tovuti moja
+## Maeneo kadhaa ya hifadhi kwenye tovuti moja {#load-sets}
 
 Maeneo ya hifadhi yanayotumia moduli data moja yanashiriki aina zake za matukio kwenye tovuti, kwa hiyo ulizo moja linayahusu yote.
 
@@ -42,7 +51,7 @@ Ikiwa moduli ya eneo hili la hifadhi inatofautiana na kile ambacho tovuti tayari
 
 Eneo la hifadhi lililoingizwa kabla aina za matukio hazijaanza kushirikiwa linabaki na aina zake za matukio kwenye tovuti hiyo. Ukurasa wa uingizaji unasema hivyo, na jina la kundi halitumiki.
 
-## Mabadiliko yaliyofanywa kwenye tovuti
+## Mabadiliko yaliyofanywa kwenye tovuti {#load-existing}
 
 Baada ya uingizaji, msimamizi anaweza kubadilisha kwenye tovuti aina za matukio zilizohamishwa: kuongeza sehemu ya kujaza, kubadilisha jina la aina ya tukio, kuandika upya au kupanga upya machaguo ya orodha, kuzima moja. Fomu ya uingizaji inauliza uingizaji wa baadaye ufanye nini na **aina za matukio ambazo tayari ziko kwenye tovuti**.
 
@@ -57,7 +66,7 @@ Tovuti ambayo bado ina aina za matukio za SMART katika muundo wa zamani wa Earth
 
 Chaguo hili linahusu aina za matukio na orodha zake za machaguo. Aina za doria na sehemu za jumla za kujaza za doria zinawekwa kama awali.
 
-## Kuingiza sehemu ya seti ya data
+## Kuingiza sehemu ya seti ya data {#load-part}
 
 **Cha kuingiza**, kwenye kisanduku cha mazungumzo cha uingizaji, ina machaguo mawili.
 

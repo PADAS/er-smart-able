@@ -31,3 +31,17 @@ test('only support staff are shown the all-users switch', () => {
   assert.match(P.renderHome([d], { support: true, all: false }), /<input type="checkbox" id="allUsers">All users/);
   assert.match(P.renderHome([d], { support: true, all: true }), /id="allUsers" checked>/);
 });
+
+// ---- the upload form: one upload at a time
+test('Upload is on only with a file chosen and no upload on its way', () => {
+  assert.equal(P.canUpload(null, false), false);
+  assert.equal(P.canUpload({ name: 'a.zip' }, false), true);
+  assert.equal(P.canUpload({ name: 'b.zip' }, true), false, 'choosing another file mid-upload does not turn Upload back on');
+  assert.equal(P.canUpload(null, true), false);
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'web', 'static', 'app.js'), 'utf8');
+  const form = src.slice(src.indexOf('function uploadDialog'), src.indexOf('// mirrors findings.ca_identifier'));
+  assert.match(form, /\$\('#uploadSubmit', form\)\.disabled = !canUpload\(\$\('#dsFile', form\)\.files\[0\], uploading\);/, 'the button asks that question');
+  assert.equal((form.match(/#uploadSubmit'[^;\n]*\.disabled = /g) || []).length, 1, 'and nothing else in the form sets it');
+  assert.match(form, /\$\('#dsPick', form\)\.disabled = uploading;/, 'the file cannot be changed meanwhile');
+  assert.match(form, /if \(!canUpload\(file, uploading\)\) return;/, 'and a submit that arrives anyway is dropped');
+});

@@ -25,11 +25,20 @@ Os **avisos** nunca param uma execução. Eles registram algo que vale a pena sa
 
 As patrulhas que falham durante a importação não param as outras. No fim elas viram uma única constatação bloqueante que lista cada erro; **Continuar** tenta de novo só essas patrulhas.
 
-## Categoria de eventos
+## Grupo de guarda-parques {#load-roster}
+
+O grupo de guarda-parques é o grupo de sujeitos do EarthRanger do qual os guarda-parques de uma patrulha são escolhidos. A carga cria um sujeito para cada funcionário do SMART que patrulhou e os adiciona a este grupo.
+
+- **Deixe vazio** para usar o primeiro grupo listado em **Patrol configuration › member subject groups** no site.
+- **Informe um grupo** para usar esse. Ele já deve existir no site: a carga não o cria.
+
+Se nenhum for informado e a configuração de patrulhas do site não listar nenhum grupo, os guarda-parques são criados mesmo assim, e a página da carga mostra o passo para [colocá-los em um grupo](#finding-roster_group).
+
+## Categoria de eventos {#load-category}
 
 A categoria de eventos é a categoria do EarthRanger para onde vão os tipos de evento que esta carga cria. O padrão é `smart-<conservation area id>`, ou `smart-<event type set name>` em uma carga com um modelo configurável. Quando o site já tem os tipos de evento desta carga, eles ficam na categoria em que estão e os novos se juntam a eles ali, seja qual for o valor digitado aqui. A página da carga informa essa categoria depois que o plano é feito.
 
-## Várias áreas de conservação em um mesmo site
+## Várias áreas de conservação em um mesmo site {#load-sets}
 
 As áreas de conservação que usam o mesmo modelo de dados compartilham os seus tipos de evento em um site, de modo que uma só consulta cobre todas.
 
@@ -42,7 +51,7 @@ Se o modelo desta área de conservação difere do que o site já tem sob o mesm
 
 Uma área de conservação carregada antes de os tipos de evento serem compartilhados mantém os seus próprios tipos de evento nesse site. A página da carga informa isso, e o nome do grupo não se aplica.
 
-## Alterações feitas no site
+## Alterações feitas no site {#load-existing}
 
 Depois de uma carga, um administrador pode alterar no site os tipos de evento migrados: adicionar um campo, renomear um tipo de evento, reescrever ou reordenar opções de lista, desativar uma. O formulário de carga pergunta o que uma carga posterior faz com os **tipos de evento que já estão no site**.
 
@@ -57,7 +66,7 @@ Um site que ainda tem tipos de evento do SMART na forma antiga do EarthRanger (v
 
 A escolha abrange os tipos de evento e as suas listas de opções. Os tipos de patrulha e os campos universais de patrulha são configurados como antes.
 
-## Carregar parte de um conjunto de dados
+## Carregar parte de um conjunto de dados {#load-part}
 
 **O que carregar**, na caixa de diálogo da carga, tem duas opções.
 

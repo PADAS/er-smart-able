@@ -133,6 +133,9 @@ function renderCardList(datasets) {
 function allUsersSwitch(opts) {
   return opts && opts.support ? '<label class="switch" title="' + T('home.allUsersTitle') + '"><input type="checkbox" id="allUsers"' + (opts.all ? ' checked' : '') + '>' + T('home.allUsers') + '</label>' : '';
 }
+// the upload form's Upload button: on with a file chosen, and off while an upload is on its way
+function canUpload(file, uploading) { return !!file && !uploading; }
+
 function renderHome(datasets, opts) {
   return '<div class="page-head"><h1>' + T('home.title') + '</h1>' + allUsersSwitch(opts) +
     '<button id="uploadBtn" class="btn primary"><span class="mi" aria-hidden="true">upload</span>' + T('home.upload') + '</button></div>' +

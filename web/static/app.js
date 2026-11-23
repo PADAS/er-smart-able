@@ -176,7 +176,13 @@ async function boot() {
   $('#help').onkeydown = helpKeydown;
   $('#helpBackdrop').onclick = closeHelp;
   // an open dialog takes the keys first (it sits above the help drawer); Escape closes one layer at a time
-  document.addEventListener('keydown', e => { if (!$('#modal').hidden) modalKeydown(e); else if (e.key === 'Escape' && !$('#help').hidden) closeHelp(); });
+  // the help drawer can be open over a dialog (the load form's info buttons): Escape closes the drawer first,
+  // and the dialog keeps Tab only while the focus is not in the drawer
+  document.addEventListener('keydown', e => {
+    const help = !$('#help').hidden;
+    if (help && e.key === 'Escape') { closeHelp(); return; }
+    if (!$('#modal').hidden && !(help && $('#help').contains(document.activeElement))) modalKeydown(e);
+  });
   // a menu in the sidebar closes on a click outside it, like any menu
   document.addEventListener('click', e => { document.querySelectorAll('#rail details[open]').forEach(m => { if (!m.contains(e.target)) m.open = false; }); });
   $('#modalClose').onclick = closeDialog;
@@ -432,20 +438,74 @@ function bindDataset(d, tab, route, extra) {
 // ---- upload: create the dataset, PUT the file where the server says (a signed
 // GCS URL in production, the service itself locally), then start extraction. The XHR keeps
 // running if the dialog is closed; the elements it updates are then just detached.
+// ---- a dialog's fields and their hints
+// a field: its label, the control, and (with a hint) an info button: the hint in a bubble while the pointer
+// or the focus is on it, and on a click the help drawer at the section (help) that says the rest.
+// The label is beside the button, not around it: a label names the first control inside it.
+// about: the message key the button is named for, when the field's own label would not say it.
+function hintField(key, id, control, hint, help, wide, about) {
+  return '<div class="field' + (wide ? ' wide' : '') + '"><span class="field-head"><label for="' + id + '">' + T(key) + '</label>' +
+    (hint ? '<button type="button" class="help" data-hint="' + hint + '" data-help="' + help + '" aria-describedby="' + hint + '" aria-label="' + T('loadDialog.about', { field: t(about || key) }) + '"><span class="mi" aria-hidden="true">info</span></button>' : '') +
+    '</span>' + control + '</div>';
+}
+// the hint's own paragraph stays hidden in the form: it is what the control and the button are described by
+function hintText(id, html) { return '<p id="' + id + '" hidden>' + html + '</p>'; }
+// binds a form's info buttons and returns what hides the bubble. The bubble is fixed to the window, so the
+// dialog's scrolling cannot cut it; it goes when the drawer opens over it.
+function wireHints(form) {
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble'; bubble.setAttribute('role', 'tooltip'); bubble.hidden = true; form.appendChild(bubble);
+  const hideHint = () => { bubble.hidden = true; };
+  const showHint = b => {
+    bubble.innerHTML = $('#' + b.dataset.hint).innerHTML; bubble.hidden = false;
+    const r = b.getBoundingClientRect(), w = bubble.offsetWidth, h = bubble.offsetHeight, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    const left = Math.max(12, Math.min(r.right + 6 - w, vw - w - 12)), below = r.bottom + 8 + h <= vh - 12;
+    bubble.style.left = left + 'px'; bubble.style.top = (below ? r.bottom + 8 : r.top - 8 - h) + 'px';
+    bubble.classList.toggle('above', !below); bubble.style.setProperty('--ax', (r.left + r.width / 2 - left) + 'px');
+  };
+  form.querySelectorAll('[data-hint]').forEach(b => {
+    b.onmouseenter = b.onfocus = () => { if ($('#help').hidden) showHint(b); };
+    b.onmouseleave = b.onblur = hideHint;
+    b.onclick = () => { hideHint(); b.focus(); openHelp(b.dataset.help); };   // focused first: closing the drawer returns there
+  });
+  $('#modal .dialog').onscroll = hideHint;
+  return hideHint;
+}
+
 function uploadDialog() {
   dialog(t('home.upload'),
     '<form id="uploadForm" class="stack">' +
-    '<label>' + T('upload.name') + ' <input id="dsName" required placeholder="' + T('upload.namePlaceholder') + '"></label>' +
-    '<label>' + T('upload.file') + ' <input id="dsFile" type="file" accept=".zip,.bak" required></label>' +
+    hintField('upload.name', 'dsName', '<input type="text" id="dsName" required placeholder="' + T('upload.namePlaceholder') + '">') +
+    // the browser's own file control opens its chooser from anywhere on its line, and words it in the browser's
+    // language: it stays out of sight, behind a button of ours and the chosen file's name
+    hintField('upload.file', 'dsPick', '<div class="row"><button type="button" id="dsPick" aria-describedby="dsFileHint">' + T('upload.choose') + '</button>' +
+      '<span id="dsFileName" class="muted file-name">' + T('upload.noFile') + '</span><input id="dsFile" type="file" accept=".zip,.bak" hidden></div>', 'dsFileHint', 'upload-file') +
+    hintText('dsFileHint', T('upload.fileHint')) +
     '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
-    '<div class="row right"><button type="submit" id="uploadSubmit" class="btn primary">' + T('upload.submit') + '</button></div></form>');
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" id="uploadSubmit" class="btn primary" disabled>' + T('upload.submit') + '</button></div></form>');
   const form = $('#uploadForm');
+  wireHints(form);
+  $('#dsPick', form).onclick = () => $('#dsFile', form).click();
+  $('label[for="dsPick"]', form).onclick = ev => ev.preventDefault();   // the label names the button; a click on it does not press it
+  // Upload waits for a file; a chooser that is cancelled can leave none. While one upload is on its way the
+  // file cannot be changed and Upload stays off: a second submit would make a second dataset on the same form.
+  let uploading = false;
+  const syncUpload = () => {
+    $('#uploadSubmit', form).disabled = !canUpload($('#dsFile', form).files[0], uploading);
+    $('#dsPick', form).disabled = uploading;
+  };
+  $('#dsFile', form).onchange = () => {
+    const f = $('#dsFile', form).files[0];
+    if (f) $('#dsFileName', form).textContent = f.name;
+    else $('#dsFileName', form).textContent = t('upload.noFile');
+    syncUpload();
+  };
   form.onsubmit = async ev => {
     ev.preventDefault();
-    const file = $('#dsFile', form).files[0]; if (!file) return;
-    const btn = $('#uploadSubmit', form), prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
+    const file = $('#dsFile', form).files[0]; if (!canUpload(file, uploading)) return;
+    const prog = $('#progress', form), fill = $('#progressFill', form), text = $('#progressText', form);
     const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
-    btn.disabled = true; prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
+    uploading = true; syncUpload(); prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
     try {
       const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
       if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
@@ -466,7 +526,8 @@ function uploadDialog() {
       if (at.page === 'home') showHome();                              // the new dataset appears, extracting
       else if (at.page === 'dataset' && at.id === created.id) showDataset(at);   // opened while it uploaded: now it extracts, and polls
     } catch (e) {
-      if (onScreen()) { text.textContent = e.message; btn.disabled = false; }
+      uploading = false; syncUpload();                                 // the reader may try again, or choose another file
+      if (onScreen()) text.textContent = e.message;
       else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
     }
   };
@@ -559,30 +620,37 @@ async function loadDialog(d, caId, keep) {
     $('#ldSet').value = m ? String(m.label || '').trim() : '';   // whole, even past the field's limit: a name cut short would be another set
     setChanged();
   };
+  const field = hintField, hint = hintText;
   dialog(t('loadDialog.title', { name: d.name }),
     '<p class="muted tiny">' + T('loadDialog.intro') + '</p>' +
-    '<form id="ldForm" class="col">' +
-    '<label>' + T('loadDialog.area') + ' <select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + T('loadDialog.areaOption', { name: e.name || e.ca_id }, { patrols: tn('units.patrols', e.patrols || 0) }) + '</option>').join('') + '</select></label>' +
-    '<label>' + T('loadDialog.site') + ' <select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">' + T('loadDialog.addSite') + '</option></select></label>' +
-    '<label>' + T('loadDialog.labelLanguage') + ' <select id="ldLang"></select></label>' +
-    '<label>' + T('loadDialog.configurableModel') + ' <select id="ldCm"></select></label>' +
-    '<p class="muted tiny">' + T('loadDialog.modelHint') + '</p>' +
-    '<div id="ldSetRow" class="col" hidden><label>' + T('loadDialog.eventTypeSet') + ' <input type="text" id="ldSet" maxlength="60"></label>' +
-    '<p class="muted tiny">' + T('loadDialog.eventTypeSetHint') + '</p></div>' +
-    '<label>' + T('loadDialog.roster') + ' <input type="text" id="ldRoster" placeholder="' + T('loadDialog.rosterPlaceholder') + '"></label>' +
-    '<label>' + T('loadDialog.category') + ' <input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required></label>' +
-    '<p class="muted tiny">' + T('loadDialog.categoryHint') + '</p>' +
-    '<label>' + T('loadDialog.existing') + ' <select id="ldExisting"><option value="keep">' + T('loadDialog.existingKeep') + '</option><option value="update">' + T('loadDialog.existingUpdate') + '</option></select></label>' +
-    '<p class="muted tiny">' + T('loadDialog.existingHint') + '</p>' +
-    '<label>' + T('loadDialog.what') + ' <select id="ldScope"><option value="all">' + T('loadDialog.modelAndPatrols') + '</option><option value="datamodel">' + T('loadDialog.modelOnly') + '</option></select></label>' +
-    '<div class="row" id="ldWindow"><label>' + T('loadDialog.patrolsFrom') + ' <input type="date" id="ldSince"></label><label>' + T('loadDialog.to') + ' <input type="date" id="ldUntil"></label></div>' +
-    '<p class="muted tiny" id="ldScopeHint"></p>' +
-    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary">' + T('loadDialog.makePlan') + '</button></div></form>');
+    '<form id="ldForm" class="ld-grid">' +
+    field('loadDialog.area', 'ldCa', '<select id="ldCa">' + d.export.map(e => '<option value="' + esc(e.dir) + '">' + T('loadDialog.areaOption', { name: e.name || e.ca_id }, { patrols: tn('units.patrols', e.patrols || 0) }) + '</option>').join('') + '</select>', '', '', true) +
+    field('loadDialog.site', 'ldSite', '<select id="ldSite">' + sites.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.url) + '</option>').join('') + '<option value="__add__">' + T('loadDialog.addSite') + '</option></select>', '', '', true) +
+    field('loadDialog.labelLanguage', 'ldLang', '<select id="ldLang"></select>') +
+    field('loadDialog.configurableModel', 'ldCm', '<select id="ldCm" aria-describedby="ldCmHint"></select>', 'ldCmHint', 'load-sets') +
+    hint('ldCmHint', T('loadDialog.modelHint')) +
+    '<div id="ldSetRow" class="ld-grid wide" hidden>' + field('loadDialog.eventTypeSet', 'ldSet', '<input type="text" id="ldSet" maxlength="60" aria-describedby="ldSetHint">', 'ldSetHint', 'load-sets', true) +
+    hint('ldSetHint', T('loadDialog.eventTypeSetHint')) + '</div>' +
+    field('loadDialog.roster', 'ldRoster', '<input type="text" id="ldRoster" placeholder="' + T('loadDialog.rosterPlaceholder') + '" aria-describedby="ldRosterHint">', 'ldRosterHint', 'load-roster', true) +
+    hint('ldRosterHint', T('loadDialog.rosterHint')) +
+    field('loadDialog.category', 'ldCategory', '<input type="text" id="ldCategory" maxlength="30" pattern="[A-Za-z0-9_\\-]{2,30}" required aria-describedby="ldCategoryHint">', 'ldCategoryHint', 'load-category') +
+    field('loadDialog.existing', 'ldExisting', '<select id="ldExisting" aria-describedby="ldExistingHint"><option value="keep">' + T('loadDialog.existingKeep') + '</option><option value="update">' + T('loadDialog.existingUpdate') + '</option></select>', 'ldExistingHint', 'load-existing') +
+    hint('ldCategoryHint', T('loadDialog.categoryHint')) +
+    hint('ldExistingHint', T('loadDialog.existingHint')) +
+    field('loadDialog.what', 'ldScope', '<select id="ldScope"><option value="all">' + T('loadDialog.modelAndPatrols') + '</option><option value="datamodel">' + T('loadDialog.modelOnly') + '</option></select>', 'ldScopeHint', 'load-part', true) +
+    hint('ldScopeHint', T('loadDialog.hintDatamodel')) +
+    '<div class="ld-grid wide" id="ldWindow">' + field('loadDialog.patrolsFrom', 'ldSince', '<input type="date" id="ldSince" aria-describedby="ldWindowHint">') +
+      field('loadDialog.to', 'ldUntil', '<input type="date" id="ldUntil" aria-describedby="ldWindowHint">', 'ldWindowHint', 'load-part', false, 'loadDialog.patrolsFrom') + '</div>' +
+    hint('ldWindowHint', T('loadDialog.hintAll')) +
+    '<div class="row right dialog-foot"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" class="primary">' + T('loadDialog.makePlan') + '</button></div></form>');
+  const hideHint = wireHints($('#ldForm'));
   const scopeChanged = () => {
     const dm = $('#ldScope').value === 'datamodel';
     $('#ldWindow').hidden = dm;
-    if (dm) $('#ldScopeHint').textContent = t('loadDialog.hintDatamodel');
-    else $('#ldScopeHint').textContent = t('loadDialog.hintAll');
+    // the data-model-only hint belongs to that choice; the dates' hint sits on the dates, which go when they do not apply
+    $('[data-hint="ldScopeHint"]').hidden = !dm;
+    if (dm) $('#ldScope').setAttribute('aria-describedby', 'ldScopeHint'); else $('#ldScope').removeAttribute('aria-describedby');
+    hideHint();
   };
   if (caId) $('#ldCa').value = caId;
   const ids = ['ldRoster', 'ldCategory', 'ldExisting', 'ldScope', 'ldSince', 'ldUntil'];

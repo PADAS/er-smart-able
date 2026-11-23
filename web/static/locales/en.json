@@ -528,6 +528,9 @@
     "name": "Name",
     "namePlaceholder": "e.g. North Zone 2025",
     "file": "File",
+    "fileHint": "One .zip file from SMART: a Conservation Area export, a system backup, or a zipped SMART Desktop folder. Upload it as it is; do not unzip it.",
+    "choose": "Choose file",
+    "noFile": "No file chosen",
     "submit": "Upload",
     "preparing": "Preparing…",
     "progress": "Uploading {{done}} of {{total}}",
@@ -566,6 +569,7 @@
     "eventTypeSetHint": "Conservation areas loaded with the same name share one set of event types and dropdown lists on the site. Change it to keep this model's apart.",
     "roster": "Roster group",
     "rosterPlaceholder": "optional; default: the patrol configuration's first member group",
+    "rosterHint": "The subject group rangers are picked from for a patrol. The load adds the rangers it creates to it. The group must already exist on the site. Leave it empty to use the first member group in the site's patrol configuration.",
     "category": "Event category",
     "categoryHint": "Where the event types this load creates go. If the site already has this load's event types, they stay in their category and new ones join them there.",
     "existing": "Event types already on the site",
@@ -580,7 +584,8 @@
     "hintDatamodel": "Event types, patrol types and fields, rangers and the roster: what a team needs to patrol and record in EarthRanger. No patrols, observations or tracks.",
     "hintAll": "Leave the dates empty to load every patrol. A patrol is in the window when it starts on or between the dates.",
     "makePlan": "Make the plan",
-    "windowBackwards": "The window starts after it ends."
+    "windowBackwards": "The window starts after it ends.",
+    "about": "More about {{field}}"
   },
   "share": {
     "title": "Share \"{{name}}\"",
