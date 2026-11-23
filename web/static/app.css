@@ -155,10 +155,15 @@ body:has(#modal:not([hidden])) #help { z-index: 55; }
 .help-body code { background: var(--er-ui-background-elevated-component-0); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
 .help-body table { font-size: 13px; margin: 8px 0; }
 .help-body .target { background: var(--er-ui-background-selected-background); border-radius: 6px; }
-/* the heading the drawer has just gone to is marked for a moment, so the eye finds where it landed */
-.help-body .arrived { animation: arrived 1.8s ease-out; border-radius: 6px; }
-@keyframes arrived { 0%, 35% { background: var(--er-ui-background-selected-background); box-shadow: -8px 0 0 var(--er-ui-background-selected-background), 8px 0 0 var(--er-ui-background-selected-background), inset 3px 0 0 var(--er-ui-cta-primary); } 100% { background: transparent; box-shadow: none; } }
-@media (prefers-reduced-motion: reduce) { .help-body .arrived { animation-duration: 3s; animation-timing-function: step-end; } }
+/* the heading the drawer has just gone to is marked for a moment, so the eye finds where it landed. The mark is
+   drawn behind the heading's words and outside them: a bar in the body's gutter, clear of the first letter, and
+   below an h2's rule and the space under it (--mark-top) */
+.help-body h2 { --mark-top: 14px; }
+.help-body section:first-child h2 { --mark-top: 0px; }
+.help-body .arrived { position: relative; isolation: isolate; }
+.help-body .arrived::before { content: ""; position: absolute; z-index: -1; left: -14px; right: -8px; top: calc(var(--mark-top, 0px) - 3px); bottom: -3px; border-left: 3px solid var(--er-ui-cta-primary); border-radius: 4px; background: var(--er-ui-background-selected-background); opacity: 0; animation: arrived 1.8s ease-out; }
+@keyframes arrived { 0%, 35% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .help-body .arrived::before { animation-duration: 3s; animation-timing-function: step-end; } }
 
 /* ---- the load page: stages, findings, plan, rangers, progress */
 .stagetable td:nth-child(2) { white-space: nowrap; }
