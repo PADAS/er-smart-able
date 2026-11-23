@@ -46,7 +46,7 @@ test('another language says the data pages are in English', () => {
 test('the browser view ids are the browser\'s', () => { assert.deepEqual(Array.from(P.NAV_DATA, e => e[0]), ['overview', 'patrols', 'rangers', 'map', 'observations', 'datamodel', 'profiles', 'schema']); });
 test('the chosen theme and language are marked, and the account is named', () => {
   const h = rail({ theme: 'dark', lang: 'fr' });
-  assert.match(h, /value="dark" checked/); assert.match(h, /<option value="fr"[^>]*selected/); assert.match(h, /ana@example\.org/); assert.match(h, /0\.0\.0/);
+  assert.match(h, /value="dark"[^>]* checked>/); assert.match(h, /<option value="fr"[^>]*selected/); assert.match(h, /ana@example\.org/); assert.match(h, /0\.0\.0/);
 });
 
 // ---- from the whole-branch review
@@ -69,4 +69,11 @@ test('the sidebar the app draws has its Help button bound, every time it is draw
 test('choosing a language keeps the keyboard on the language menu', () => {
   assert.match(fn(APP, 'function drawRail() {'), /await useLang\(\$\('#lang'\)\.value, true\);[\s\S]*\$\('#lang'\)\.focus\(\);/);
   assert.match(fn(BROWSER, 'async function hostedRail(lang, refocus) {'), /drawRail\(\);\s*if \(refocus\) \$\('#lang'\)\.focus\(\);/);
+});
+test('the theme is three radios in one control, each named, the chosen one checked', () => {
+  const h = rail({ theme: 'dark' });
+  const group = h.slice(h.indexOf('<div class="rail-theme"'), h.indexOf('<label class="rail-lang"'));
+  assert.match(group, /role="radiogroup" aria-label="Theme"/);
+  assert.deepEqual([...group.matchAll(/value="(\w+)" aria-label="(\w+)"( checked)?/g)].map(m => m.slice(1, 4)), [['system', 'System', undefined], ['light', 'Light', undefined], ['dark', 'Dark', ' checked']]);
+  assert.doesNotMatch(h, /themeMenu|menu-theme/);
 });

@@ -47,7 +47,7 @@ function drawRail() {
     $('#lang').focus();   // the menu was drawn again in the new language: the keyboard stays on it
   };
   // folded, a menu has no room to open: its icon opens the sidebar first
-  $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang').forEach(el => el.addEventListener('click', () => { if (document.documentElement.dataset.nav === 'closed') setNav('open'); }));
+  $('#rail').querySelectorAll('.rail-menu > summary, .rail-lang, .rail-theme').forEach(el => el.addEventListener('click', () => { if (document.documentElement.dataset.nav === 'closed') setNav('open'); }));
   // on a narrow screen the open sidebar lies over the page: choosing an entry folds it
   $('#rail').querySelectorAll('a[data-nav]').forEach(a => a.addEventListener('click', () => { if (narrow()) setNav('closed'); }));
   if (!$('#helpBtn')) return;   // signed out: no help, no account

@@ -27,9 +27,14 @@
 #rail summary { list-style: none; }
 #rail summary::-webkit-details-marker { display: none; }
 #rail .rail-menu[open] > summary { background: var(--er-ui-background-hover-background); }
-#rail .menu-theme { border: 0; margin: 0; padding: 4px 10px 8px 40px; display: flex; flex-direction: column; gap: 4px; font-weight: 400; }
-#rail .menu-theme label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-#rail .menu-theme input { accent-color: var(--er-ui-cta-primary); margin: 0; }
+/* the theme: one track, three icons, the chosen one raised. The radios stay, out of sight, for the keyboard */
+#rail .rail-theme { display: flex; gap: 2px; margin: 2px 10px 6px; padding: 3px; border-radius: 10px; background: var(--er-ui-background-hover-background); }
+#rail .rail-theme label { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 30px; border-radius: 8px; cursor: pointer; }
+#rail .rail-theme input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+#rail .rail-theme label:hover .mi { color: var(--er-ui-text-primary-text); }
+#rail .rail-theme label:has(input:checked) { background: var(--er-ui-background-elevated-component); box-shadow: 0 1px 3px color-mix(in srgb, var(--er-ui-text-primary-text) 22%, transparent); }
+#rail .rail-theme label:has(input:checked) .mi { color: var(--er-ui-text-primary-text); }
+#rail .rail-theme label:has(input:focus-visible) { outline: 2px solid var(--er-ui-cta-primary); outline-offset: 1px; }
 #rail .rail-lang { cursor: default; }
 #rail .rail-lang select { flex: 1; min-width: 0; max-width: none; padding: 4px 6px; font: inherit; color: inherit; background: var(--er-ui-background-primary-background); border: 1px solid var(--er-ui-divider-lines); border-radius: 6px; }
 #rail .menu-item { padding-left: 40px; font-weight: 400; }
@@ -48,7 +53,8 @@ html[data-theme="dark"] #rail .rail-brand .logo-dark { display: block; }
 html[data-nav="closed"] #rail { width: 52px; padding: 10px 6px; }
 html[data-nav="closed"] #rail .label, html[data-nav="closed"] #rail .rail-brand, html[data-nav="closed"] #rail .rail-app, html[data-nav="closed"] #rail .rail-dataset,
 html[data-nav="closed"] #rail .rail-group span, html[data-nav="closed"] #rail #railFilter, html[data-nav="closed"] #rail .rail-lang select,
-html[data-nav="closed"] #rail .rail-menu > :not(summary) { display: none; }
+html[data-nav="closed"] #rail .rail-menu > :not(summary), html[data-nav="closed"] #rail .rail-theme label:not(:has(input:checked)) { display: none; }
+html[data-nav="closed"] #rail .rail-theme { margin: 2px 0 6px; }   /* folded: the chosen theme's icon alone, which opens the sidebar */
 html[data-nav="closed"] #rail .rail-group { padding: 0; margin: 6px 8px; border-top: 1px solid var(--er-ui-divider-lines); }
 html[data-nav="closed"] #rail .rail-top { padding: 0 0 6px; justify-content: center; }
 html[data-nav="closed"] #rail a, html[data-nav="closed"] #rail .off, html[data-nav="closed"] #rail button, html[data-nav="closed"] #rail summary, html[data-nav="closed"] #rail .rail-lang { justify-content: center; padding: 6px; }

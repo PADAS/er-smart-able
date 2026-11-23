@@ -64,11 +64,12 @@ function renderRail(state, label) {
   h += '</div>';
   if (!hosted) return h;
 
-  var themes = [['system', 'shell.themeSystem', 'System'], ['light', 'shell.themeLight', 'Light'], ['dark', 'shell.themeDark', 'Dark']];
+  // the theme: three radios drawn as one control of icons, the chosen one raised
+  var themes = [['system', 'shell.themeSystem', 'System', 'desktop_windows'], ['light', 'shell.themeLight', 'Light', 'light_mode'], ['dark', 'shell.themeDark', 'Dark', 'dark_mode']];
   h += '<div class="rail-foot">' +
-    '<details class="rail-menu" id="themeMenu"><summary title="' + label('shell.theme', 'Theme') + '">' + _navIcon('dark_mode') + '<span class="label">' + label('shell.theme', 'Theme') + '</span></summary><fieldset class="menu-theme">' +
-    themes.map(function (t) { return '<label><input type="radio" name="theme" value="' + t[0] + '"' + (s.theme === t[0] ? ' checked' : '') + '><span>' + label(t[1], t[2]) + '</span></label>'; }).join('') +
-    '</fieldset></details>' +
+    '<div class="rail-theme" role="radiogroup" aria-label="' + label('shell.theme', 'Theme') + '">' +
+    themes.map(function (t) { return '<label title="' + label(t[1], t[2]) + '"><input type="radio" name="theme" value="' + t[0] + '" aria-label="' + label(t[1], t[2]) + '"' + (s.theme === t[0] ? ' checked' : '') + '>' + _navIcon(t[3]) + '</label>'; }).join('') +
+    '</div>' +
     '<label class="rail-lang" title="' + label('shell.language', 'Language') + '">' + _navIcon('translate') + '<select id="lang" class="lang-select" aria-label="' + label('shell.language', 'Language') + '">' +
     (s.languages || []).map(function (l) { return '<option value="' + _navEsc(l.code) + '" lang="' + _navEsc(l.code) + '"' + (l.code === s.lang ? ' selected' : '') + '>' + _navEsc(l.name) + '</option>'; }).join('') +
     '</select></label>';
