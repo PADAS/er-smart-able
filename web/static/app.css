@@ -101,10 +101,6 @@ pre.log { background: var(--er-ui-background-elevated-component-0); border: 1px 
 .pill.st-interrupted { --st: var(--er-ui-status-error-destructive); }
 @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 
-/* ---- tabs */
-  color: var(--er-ui-text-tabs); font: 500 14px/20px var(--sans); text-decoration: none; cursor: pointer; }
-
-
 /* ---- dialog and drawer */
 .modal { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .dialog { background: var(--er-ui-background-elevated-component); color: var(--er-ui-text-primary-text); border: 1px solid var(--er-ui-divider-lines); border-radius: 12px; padding: 18px 20px; width: min(520px, 92vw); max-height: 85vh; overflow: auto; box-shadow: 0 12px 32px var(--shadow); }

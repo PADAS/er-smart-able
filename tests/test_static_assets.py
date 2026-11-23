@@ -65,3 +65,16 @@ def test_the_page_is_a_sidebar_beside_the_content_with_no_band_or_breadcrumb():
 def test_the_page_builders_and_the_sidebar_touch_no_storage():
     for name in ("nav.js", "pages.js"):
         assert "localStorage" not in (STATIC / name).read_text(), name
+
+
+@pytest.mark.parametrize("name", ["app.css", "nav.css"])
+def test_a_stylesheets_braces_never_close_more_than_they_open(name):
+    """A declaration left behind without its selector swallows the rule after it: the browser reads
+    everything up to the next { as one bad selector and drops that rule (it took .modal once)."""
+    css = re.sub(r"/\*.*?\*/", "", (STATIC / name).read_text(), flags=re.S)
+    depth = 0
+    for n, line in enumerate(css.splitlines(), 1):
+        for ch in line:
+            depth += (ch == "{") - (ch == "}")
+            assert depth >= 0, f"{name}:{n} closes a block that was never opened"
+    assert depth == 0, f"{name} ends with {depth} block(s) still open"
