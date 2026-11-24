@@ -629,7 +629,8 @@ class ErSmartSyncMigration:
         return {"observations": obs, "track_points": points}
 
     def ledger_done(self) -> set:
-        done = {"patrol", "events", "reporters", "tracks"}   # as er-smart-sync 0.10.1+ counts a patrol done
+        from er_smart_sync.import_ledger import STAGES   # the library's own list, so a stage it adds (0.15.0: locations) counts here too
+        done = set(STAGES)
         return {p["uuid"] for p in self._selected() if done <= self.ledger.stages(p["uuid"])}
 
     def import_patrols(self, progress, stop) -> dict:

@@ -207,8 +207,9 @@ the reliable roster.
 name, agency, rank and employment dates. `connect_account` holds SMART
 Connect logins. `./smart-able extract` drops `employee.smartpassword` and
 `connect_account.connect_pass` from the Parquet unless `--keep-credentials`
-is given, and the migration bundle never includes the login name, birth
-date or gender. An employee's `active` flag in the bundle is derived from
+is given, and the migration bundle never includes the login name or the
+birth date. It carries `gender` as `sex` (see `docs/decisions.md`,
+2026-11-23). An employee's `active` flag in the bundle is derived from
 `endemploymentdate` being empty or in the future.
 
 ## Attachments
