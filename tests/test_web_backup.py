@@ -168,3 +168,102 @@ def test_a_new_upload_is_stored_under_a_name_the_rule_matches(tmp_path, monkeypa
     assert c.put(r.json()["upload"]["url"], content=b"zip").status_code in (200, 204)
     assert app.get_store().upload_exists(id, "North Zone.BAK.zip")
     assert c.get(f"/api/datasets/{id}").json()["upload"]["expires_at"]
+
+
+# ---- uploading a backup again, for a dataset that has one already
+def reupload(c, id, name="newer.zip", body=b"newer", size=5):
+    r = c.post(f"/api/datasets/{id}/upload", json={"filename": name, "size": size})
+    assert r.status_code == 200, r.text
+    target = r.json()["upload"]
+    assert target["method"] == "PUT" and target["url"] == f"/api/datasets/{id}/upload"
+    assert c.put(target["url"], content=body).status_code == 200
+    return r
+
+
+def started(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app.get_store(), "start_extract", lambda id: calls.append(id) or "exec-1")
+    return calls
+
+
+def test_a_backup_uploaded_again_replaces_the_stored_one_when_it_is_extracted(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id, "NEWER.ZIP")
+    # sent, and not yet asked to be extracted: the dataset is as it was, its data still there
+    doc = store.get(id)
+    assert doc["status"] == "ready" and doc["source_name"] == "backup.zip" and store.upload_exists(id, "backup.zip")
+    assert c.get(f"/api/datasets/{id}").json()["upload"]["expires_at"] == "2026-11-20T09:30:00+00:00"
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
+    doc = store.get(id)
+    assert doc["source_name"] == "NEWER.zip", "stored under a name the rule matches"
+    assert doc["source_size"] == 5 and doc["status"] == "queued" and not doc.get("pending_source_name")
+    assert store.upload_path(id, "NEWER.zip").read_bytes() == b"newer"
+    assert not store.upload_exists(id, "backup.zip"), "the file it replaces goes"
+    assert (store._p(id) / "site" / "index.html").read_text() == "extracted", "until the extraction replaces it"
+    # the rule deletes the new file by its own age, so the date shown counts from the new upload
+    from datetime import datetime, timedelta
+    up = c.get(f"/api/datasets/{id}").json()["upload"]
+    assert up["present"] is True and up["deleted_at"] is None
+    assert c.get(f"/api/datasets/{id}").json()["uploaded_at"] == doc["uploaded_at"], "the page says when this backup was uploaded"
+    assert datetime.fromisoformat(up["expires_at"]) - datetime.fromisoformat(doc["uploaded_at"]) == timedelta(days=30)
+
+
+def test_a_backup_that_was_deleted_can_be_uploaded_again_and_extracted(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200
+    assert c.post(f"/api/datasets/{id}/extract").json()["code"] == "upload_incomplete"
+    reupload(c, id, "backup.zip", b"again", 5)   # the same name as the one that went
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
+    up = c.get(f"/api/datasets/{id}").json()["upload"]
+    assert up["present"] is True and up["deleted_at"] is None
+    assert store.upload_path(id, "backup.zip").read_bytes() == b"again"
+
+
+def test_an_upload_that_is_abandoned_changes_nothing(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    r = c.post(f"/api/datasets/{id}/upload", json={"filename": "newer.zip", "size": 9})   # and the file never arrives
+    assert r.status_code == 200
+    up = c.get(f"/api/datasets/{id}").json()
+    assert up["upload"]["present"] is True and up["source_name"] == "backup.zip" and up["status"] == "ready"
+    # extracting again reads the backup that is stored, as before
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
+    assert store.get(id)["source_name"] == "backup.zip" and store.upload_path(id, "backup.zip").read_bytes() == b"zip"
+
+
+def test_only_the_owner_uploads_a_backup_again_and_only_a_zip(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); theirs = dataset(store, who=OTHER); mine = dataset(store)
+    r = c.post(f"/api/datasets/{theirs}/upload", json={"filename": "newer.zip"})
+    assert r.status_code == 403 and r.json()["code"] == "owner_only" and not store.get(theirs).get("pending_source_name")
+    r = c.post(f"/api/datasets/{mine}/upload", json={"filename": "notes.txt"})
+    assert r.status_code == 400 and r.json()["code"] == "upload_not_zip" and not store.get(mine).get("pending_source_name")
+
+
+def test_no_backup_is_uploaded_again_while_the_dataset_is_extracted_or_loaded(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store()
+    from store import now
+    busy = dataset(store, status="running", started_at=now())
+    r = c.post(f"/api/datasets/{busy}/upload", json={"filename": "newer.zip"})
+    assert r.status_code == 409 and r.json()["code"] == "dataset_extracting"
+    id = dataset(store)
+    store.create_load({"dataset_id": id, "ca_id": "A", "site_id": "s", "status": "running", "started_at": now(),
+                       "created_at": now(), "updated_at": now(), **OWNER})
+    r = c.post(f"/api/datasets/{id}/upload", json={"filename": "newer.zip"})
+    assert r.status_code == 409 and r.json()["code"] == "load_running" and not store.get(id).get("pending_source_name")
+
+
+def test_an_extraction_under_way_is_not_handed_a_backup_uploaded_meanwhile(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id)
+    from store import now
+    store.update(id, status="running", started_at=now())   # an extraction of the stored backup began meanwhile
+    r = c.post(f"/api/datasets/{id}/extract")
+    assert r.status_code == 409 and r.json()["code"] == "extract_active" and calls == []
+    assert store.get(id)["source_name"] == "backup.zip" and store.upload_exists(id, "backup.zip"), "the file being read stays"
+    store.update(id, status="ready")
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and store.get(id)["source_name"] == "newer.zip"

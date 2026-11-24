@@ -94,6 +94,12 @@ class DatasetCreate(BaseModel):
     content_type: str = "application/zip"
 
 
+class DatasetReupload(BaseModel):
+    filename: str
+    size: int = 0
+    content_type: str = "application/zip"
+
+
 class ShareRequest(BaseModel):
     email: str
 
@@ -103,7 +109,7 @@ class SessionRequest(BaseModel):
 
 
 def _public(doc: dict, user: dict) -> dict:
-    return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "updated_at", "started_at", "finished_at",
+    return {k: doc.get(k) for k in ("id", "name", "owner_email", "shared_with", "status", "created_at", "uploaded_at", "updated_at", "started_at", "finished_at",
                                     "source_name", "source_size", "cas", "db_version", "counts", "error", "export")} | {
         "mine": is_owner(doc, user), "access": access(doc, user), "extract_held": extract_in_progress(doc)}
 
@@ -208,6 +214,39 @@ async def create_dataset(req: DatasetCreate, user=Depends(current_user)):
     return {"id": id, "upload": store.upload_target(id, stored_name(req.filename), req.content_type)}
 
 
+@app.post("/api/datasets/{id}/upload")
+async def reupload(id: str, req: DatasetReupload, user=Depends(current_user)):
+    """The owner uploads a backup again for a dataset that has one already: the same file after it was
+    deleted, or a newer one. This only says where to send it. The file is pending until an extraction is
+    asked for and finds it stored (_take_pending_upload), so an upload that is abandoned changes nothing."""
+    doc = _load(id, user, owner=True)
+    if not re.search(r"\.(zip|bak)$", req.filename, re.I):
+        raise ApiError(400, "upload_not_zip", "Upload a SMART backup or Conservation Area export as a .zip")
+    store = get_store()
+    # what the extraction that follows would be refused for: said now, not after the file has been sent
+    if extract_in_progress(doc):
+        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
+    if any(load_working(l) for l in store.list_loads(id)):
+        raise ApiError(409, "load_running", "Wait for the running load to stop first")
+    name = stored_name(req.filename)
+    store.update(id, pending_source_name=name, pending_source_size=req.size)
+    return {"id": id, "upload": store.upload_target(id, name, req.content_type)}
+
+
+def _take_pending_upload(store, id: str, doc: dict) -> dict:
+    """A backup uploaded again becomes the dataset's backup once it is stored: the dataset names it, its
+    expiry counts from now, and the file it replaces goes. Returns the dataset as it then is."""
+    name = doc.get("pending_source_name")
+    if not name or not store.upload_exists(id, name):
+        return doc
+    old = doc.get("source_name")
+    store.update(id, source_name=name, source_size=doc.get("pending_source_size") or 0, uploaded_at=now(),
+                 upload_deleted_at=None, pending_source_name=None, pending_source_size=None)
+    if old and old != name:
+        store.delete_upload(id, old)
+    return store.get(id)
+
+
 @app.put("/api/datasets/{id}/upload")
 async def upload(id: str, request: Request, user=Depends(current_user)):
     """Local backend only: in production the browser PUTs straight to GCS."""
@@ -215,14 +254,20 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
     store = get_store()
     if not isinstance(store, LocalStore):
         raise ApiError(400, "upload_direct", "Uploads go straight to storage on this deployment")
-    dest = store.upload_path(id, doc["source_name"])
+    pending = doc.get("pending_source_name")   # a backup uploaded again: the dataset stays as it is until it is extracted
+    dest = store.upload_path(id, pending or doc["source_name"])
     dest.parent.mkdir(parents=True, exist_ok=True)
+    part = dest.with_name(dest.name + ".part")   # under its own name only once it is whole, as in storage
     size = 0
-    with open(dest, "wb") as f:
+    with open(part, "wb") as f:
         async for chunk in request.stream():
             f.write(chunk)
             size += len(chunk)
-    store.update(id, status="uploaded", source_size=size)
+    part.replace(dest)
+    if pending:
+        store.update(id, pending_source_size=size)
+    else:
+        store.update(id, status="uploaded", source_size=size)
     return {"ok": True, "size": size}
 
 
@@ -232,7 +277,10 @@ async def extract(id: str, user=Depends(current_user)):
     store = get_store()
     if any(load_working(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
         raise ApiError(409, "load_running", "Wait for the running load to stop first")
-    missing = ApiError(400, "upload_incomplete", "The upload is missing or incomplete; delete this dataset and upload again")
+    if extract_in_progress(doc):   # before a backup uploaded again replaces the file that extraction is reading
+        raise ApiError(409, "extract_active", "An extraction is already queued or running")
+    doc = _take_pending_upload(store, id, doc)
+    missing = ApiError(400, "upload_incomplete", "The upload is missing or incomplete; upload the backup again")
     if doc.get("upload_deleted_at") or not store.upload_exists(id, doc["source_name"]):
         raise missing
     if not store.claim_extract(id):   # held by an extraction, or the backup's deletion was reserved meanwhile

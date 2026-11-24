@@ -269,7 +269,9 @@ function backupPanel(d) {
     '<p><span class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + '</span></p>' +
     '<p>' + state + (u.present ? '' : ' ' + T('backup.reupload')) + '</p>' +
     '<p class="tiny">' + T('backup.extractedStays') + '</p>' +
-    (u.present && d.mine ? '<button id="deleteBackupBtn" class="danger"' + (d.extract_held ? ' disabled' : '') + '><span class="mi" aria-hidden="true">delete</span>' + T('backup.deleteNow') + '</button>' : '') +
+    // the owner uploads it again: the same backup once it has gone, or a newer one in place of the one stored
+    (d.mine ? '<div class="row"><button id="reuploadBtn"' + (d.extract_held ? ' disabled' : '') + '><span class="mi" aria-hidden="true">upload</span>' + T(u.present ? 'backup.replace' : 'backup.uploadAgain') + '</button>' +
+      (u.present ? '<button id="deleteBackupBtn" class="danger"' + (d.extract_held ? ' disabled' : '') + '><span class="mi" aria-hidden="true">delete</span>' + T('backup.deleteNow') + '</button>' : '') + '</div>' : '') +
     '</div>';
 }
 // The Overview's one line about the backup, which has its own tab: only when it goes within a week,
@@ -323,7 +325,7 @@ function renderDatasetPage(d, tab, extra) {
   var body = tab === 'loads' ? renderLoadsTab(d, extra.loads) : tab === 'rangers' ? renderRangersTab(extra.load)
     : tab === 'backup' ? (backupPanel(d) || '<div class="panel"><p class="tiny">' + T(d.status === 'uploading' ? 'backup.uploading' : 'backup.unknown') + '</p></div>') : renderOverview(d);
   return '<div class="page-head"><div><h1>' + esc(d.name) + '</h1>' +
-    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div>' + (d.access === 'support' ? supportLine(d.owner_email) : '') + '</div>' + actions + '</div>' +
+    '<div class="tiny">' + esc(d.source_name) + (d.source_size ? ' · ' + esc(fmtBytes(d.source_size)) : '') + ' · ' + T('dataset.uploaded', { date: fmtDate(d.uploaded_at || d.created_at) }) + ' · ' + (d.mine ? T('dataset.ownedByYou') : esc(d.owner_email)) + shared + '</div>' + (d.access === 'support' ? supportLine(d.owner_email) : '') + '</div>' + actions + '</div>' +
     '<div id="tabBody">' + body + '</div>';
 }
 

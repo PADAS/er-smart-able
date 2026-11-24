@@ -142,6 +142,7 @@ WRITES = {
     ("POST", "/api/datasets"): OWN,
     ("POST", "/api/sites"): OWN,
     ("PUT", "/api/datasets/{id}/upload"): lambda c, i: c.put(f"/api/datasets/{i['ds']}/upload", content=b"x", headers=SUP),
+    ("POST", "/api/datasets/{id}/upload"): lambda c, i: c.post(f"/api/datasets/{i['ds']}/upload", json={"filename": "newer.zip"}, headers=SUP),
     ("POST", "/api/datasets/{id}/extract"): lambda c, i: c.post(f"/api/datasets/{i['ds']}/extract", headers=SUP),
     ("DELETE", "/api/datasets/{id}/upload"): lambda c, i: c.delete(f"/api/datasets/{i['ds']}/upload", headers=SUP),
     ("DELETE", "/api/datasets/{id}"): lambda c, i: c.delete(f"/api/datasets/{i['ds']}", headers=SUP),

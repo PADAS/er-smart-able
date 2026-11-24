@@ -75,7 +75,8 @@ def upload_expires_at(doc: dict):
     if UPLOAD_RETENTION_DAYS is None or not str(doc.get("source_name") or "").endswith(EXPIRING_SUFFIXES):
         return None
     try:
-        return (datetime.fromisoformat(doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
+        # a backup uploaded again is a new object, and the rule counts from that
+        return (datetime.fromisoformat(doc.get("uploaded_at") or doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
     except (KeyError, TypeError, ValueError):
         return None
 

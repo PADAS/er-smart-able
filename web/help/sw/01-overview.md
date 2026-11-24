@@ -10,7 +10,7 @@ smart-able inachukua chelezo au faili iliyohamishwa (export) ya eneo la hifadhi 
 
 Kila unachopakia, kutoa na kuingiza kinashirikishwa tu na watu unaowashirikisha. Timu ya usaidizi ya EarthRanger pia inaweza kuona seti za data na tovuti, ili kusaidia katika uhamishaji; haiwezi kuzibadilisha wala kuingiza data. Kufuta seti ya data kunafuta data zake zilizotolewa, vifurushi vyake na kumbukumbu zake za uingizaji; hakuondoi kamwe chochote kwenye EarthRanger.
 
-Chelezo iliyopakiwa yenyewe inahifadhiwa kwa muda maalum (siku 30 kwenye programu ya mtandaoni), kisha inafutwa kiotomatiki. Ukurasa wa seti ya data unaonyesha tarehe, na mmiliki wa seti ya data anaweza kuifuta chelezo mapema. Data zilizotolewa haziathiriki: zinabaki hadi seti ya data itakapofutwa. Ili kutoa data tena baada ya chelezo kuondoka, ipakie tena.
+Chelezo iliyopakiwa yenyewe inahifadhiwa kwa muda maalum (siku 30 kwenye programu ya mtandaoni), kisha inafutwa kiotomatiki. Ukurasa wa seti ya data unaonyesha tarehe, na mmiliki wa seti ya data anaweza kuifuta chelezo mapema. Data zilizotolewa haziathiriki: zinabaki hadi seti ya data itakapofutwa. Ili kutoa data tena baada ya chelezo kuondoka, ipakie tena kupitia kichupo cha **Chelezo** cha seti ya data. Hapo pia unaweza kupakia chelezo mpya zaidi ya hifadhidata ileile ya SMART: inachukua nafasi ya iliyohifadhiwa, na data za seti hiyo zinatolewa tena kutoka kwayo. Uingizaji ulioorodheshwa kwa seti ya data unabaki.
 
 ## Kutoka SMART: chelezo au faili iliyohamishwa {#upload-file}
 

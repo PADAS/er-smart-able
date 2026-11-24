@@ -243,3 +243,27 @@ read `additional`.
 
 Reopen the birth date if a site records real ones and has a report that
 needs age.
+
+## 2026-11-24: A dataset's backup can be uploaded again
+
+The owner uploads a backup again from the dataset's Backup tab: the same
+file once the stored one has been deleted or has expired, or a newer
+backup of the same SMART database. Before this the only way to extract
+again without the stored file was a new dataset, which loses the loads
+listed for the old one.
+
+The new file is pending until it is stored and an extraction is asked
+for. Only then does the dataset name it, its expiry start again, and the
+file it replaces go. An upload that is abandoned therefore changes
+nothing: the dataset keeps its backup, its data and its status. The
+extracted data is replaced when the extraction finishes, as with
+Re-extract.
+
+It is refused while the dataset is being extracted or a load is working,
+for the reason Re-extract is: a load reads the bundle the extraction
+replaces.
+
+Not checked: that the new file is the same SMART database. The dialog
+says to use a new dataset for a different one. A different database
+would leave loads listed for conservation areas the dataset no longer
+has.

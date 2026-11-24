@@ -106,7 +106,7 @@
     "kept": "Inahifadhiwa hadi utakapoifuta.",
     "deletedOn": "Ilifutwa tarehe {{date}}.",
     "gone": "Haijahifadhiwa tena.",
-    "reupload": "Ili kutoa data tena, pakia chelezo tena kama seti mpya ya data.",
+    "reupload": "Ili kutoa data tena, pakia chelezo tena.",
     "extractedStays": "Data zilizotolewa haziathiriki. Zinabaki hadi utakapofuta seti ya data.",
     "deleteNow": "Futa chelezo sasa",
     "uploading": "Chelezo bado inapakiwa.",
@@ -114,7 +114,13 @@
     "reminderSoon_one": "Chelezo iliyopakiwa itafutwa baada ya siku {{count}}.",
     "reminderSoon_other": "Chelezo iliyopakiwa itafutwa baada ya siku {{count}}.",
     "reminderDue": "Chelezo iliyopakiwa inasubiri kufutwa kiotomatiki.",
-    "reminderGone": "Chelezo iliyopakiwa haijahifadhiwa tena."
+    "reminderGone": "Chelezo iliyopakiwa haijahifadhiwa tena.",
+    "uploadAgain": "Pakia chelezo tena",
+    "replace": "Pakia chelezo mpya zaidi",
+    "againTitle": "Pakia chelezo kwa ajili ya {{name}}",
+    "againWhat": "Faili unayochagua inachukua nafasi ya chelezo iliyohifadhiwa, na data za seti hii zinatolewa tena kutoka kwayo. Unachovinjari hapa kinabadilishwa utoaji huo unapokamilika.",
+    "againLoads": "Uingizaji ulioorodheshwa kwa seti hii ya data unabaki.",
+    "againSame": "Chagua chelezo ya hifadhidata ileile ya SMART. Hifadhidata tofauti inastahili seti mpya ya data."
   },
   "sites": {
     "add": "Ongeza tovuti",
@@ -630,7 +636,7 @@
     "upload_not_zip": "Pakia chelezo ya SMART au faili iliyohamishwa ya eneo la hifadhi (export) kama .zip",
     "upload_direct": "Kwenye usakinishaji huu, upakiaji unaenda moja kwa moja kwenye hifadhi ya faili",
     "load_running": "Subiri kwanza uingizaji unaoendelea usimame",
-    "upload_incomplete": "Upakiaji haupo au haujakamilika; futa seti hii ya data kisha pakia tena",
+    "upload_incomplete": "Upakiaji haupo au haujakamilika; pakia chelezo tena",
     "extract_active": "Utoaji wa data tayari uko kwenye foleni au unaendelea",
     "extract_start_failed": "Imeshindwa kuanzisha kazi ya utoaji wa data",
     "load_running_delete": "Subiri kwanza uingizaji unaoendelea usimame (au uufute)",

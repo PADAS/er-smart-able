@@ -423,6 +423,7 @@ function bindDataset(d, tab, route, extra) {
       try { await api('/api/datasets/' + d.id, { method: 'DELETE' }); navigate({ page: 'home' }, 'replace'); } catch (e) { oops(e); }
     };
   };
+  const again = $('#reuploadBtn'); if (again) again.onclick = () => reuploadDialog(d);
   const delBackup = $('#deleteBackupBtn'); if (delBackup) delBackup.onclick = () => {
     dialog(t('confirm.deleteBackupTitle'), deleteBackupBody(d));
     $('#confirmGo').onclick = async () => {
@@ -472,23 +473,36 @@ function wireHints(form) {
   return hideHint;
 }
 
-function uploadDialog() {
-  dialog(t('home.upload'),
-    '<form id="uploadForm" class="stack">' +
-    hintField('upload.name', 'dsName', '<input type="text" id="dsName" required placeholder="' + T('upload.namePlaceholder') + '">') +
-    // the browser's own file control opens its chooser from anywhere on its line, and words it in the browser's
-    // language: it stays out of sight, behind a button of ours and the chosen file's name
-    hintField('upload.file', 'dsPick', '<div class="row"><button type="button" id="dsPick" aria-describedby="dsFileHint">' + T('upload.choose') + '</button>' +
+// the file chooser of an upload form: the browser's own file control opens its chooser from anywhere on its
+// line, and words it in the browser's language: it stays out of sight, behind a button of ours and the
+// chosen file's name
+function filePicker() {
+  return hintField('upload.file', 'dsPick', '<div class="row"><button type="button" id="dsPick" aria-describedby="dsFileHint">' + T('upload.choose') + '</button>' +
       '<span id="dsFileName" class="muted file-name">' + T('upload.noFile') + '</span><input id="dsFile" type="file" accept=".zip,.bak" hidden></div>', 'dsFileHint', 'upload-file') +
     hintText('dsFileHint', T('upload.fileHint')) +
-    '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>' +
-    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" id="uploadSubmit" class="btn primary" disabled>' + T('upload.submit') + '</button></div></form>');
-  const form = $('#uploadForm');
+    '<div id="progress" class="progress" hidden><div class="bar"><div id="progressFill"></div></div><div id="progressText" class="tiny"></div></div>';
+}
+// sends the file where the server said (target: method, url, headers), telling progress as it goes
+function sendFile(target, file, form) {
+  const fill = $('#progressFill', form), text = $('#progressText', form);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(target.method, target.url);
+    for (const [k, v] of Object.entries(target.headers || {})) xhr.setRequestHeader(k, v);
+    xhr.withCredentials = target.url.startsWith('/');
+    xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = t('upload.progress', { done: fmtBytes(e.loaded), total: fmtBytes(e.total) }); } };
+    xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(t('upload.failed', { status: xhr.status })));
+    xhr.onerror = () => reject(new Error(t('upload.failedNetwork')));
+    xhr.send(file);
+  });
+}
+// An upload form's file and its Upload button. Upload waits for a file; a chooser that is cancelled can
+// leave none. While one upload is on its way the file cannot be changed and Upload stays off: a second
+// submit would send it twice. send(file) does the work; what it throws is shown, and the reader may try again.
+function wireUpload(form, send) {
   wireHints(form);
   $('#dsPick', form).onclick = () => $('#dsFile', form).click();
   $('label[for="dsPick"]', form).onclick = ev => ev.preventDefault();   // the label names the button; a click on it does not press it
-  // Upload waits for a file; a chooser that is cancelled can leave none. While one upload is on its way the
-  // file cannot be changed and Upload stays off: a second submit would make a second dataset on the same form.
   let uploading = false;
   const syncUpload = () => {
     $('#uploadSubmit', form).disabled = !canUpload($('#dsFile', form).files[0], uploading);
@@ -507,30 +521,54 @@ function uploadDialog() {
     const onScreen = () => !$('#modal').hidden && $('#modalBody').contains(form);   // closed or replaced: the reader cannot see it
     uploading = true; syncUpload(); prog.hidden = false; fill.style.width = '0%'; text.textContent = t('upload.preparing');
     try {
-      const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
-      if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
-      await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open(created.upload.method, created.upload.url);
-        for (const [k, v] of Object.entries(created.upload.headers || {})) xhr.setRequestHeader(k, v);
-        xhr.withCredentials = created.upload.url.startsWith('/');
-        xhr.upload.onprogress = e => { if (e.lengthComputable) { fill.style.width = (100 * e.loaded / e.total).toFixed(1) + '%'; text.textContent = t('upload.progress', { done: fmtBytes(e.loaded), total: fmtBytes(e.total) }); } };
-        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(t('upload.failed', { status: xhr.status })));
-        xhr.onerror = () => reject(new Error(t('upload.failedNetwork')));
-        xhr.send(file);
-      });
-      text.textContent = t('upload.starting');
-      await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
-      if (onScreen()) closeDialog();                                   // still on screen: close it
-      const at = parseRoute(location.hash);
-      if (at.page === 'home') showHome();                              // the new dataset appears, extracting
-      else if (at.page === 'dataset' && at.id === created.id) showDataset(at);   // opened while it uploaded: now it extracts, and polls
+      await send(file, onScreen);
     } catch (e) {
       uploading = false; syncUpload();                                 // the reader may try again, or choose another file
       if (onScreen()) text.textContent = e.message;
       else if (e.status !== 401) alert(e.message);                     // the form is gone: a note there would never be seen
     }
   };
+}
+
+// ---- a backup uploaded again, for a dataset that has one: the same backup once it has gone, or a newer
+// one. The server keeps the dataset as it is until the file is stored and its extraction is asked for.
+function reuploadDialog(d) {
+  dialog(t('backup.againTitle', { name: d.name }),
+    '<form id="uploadForm" class="stack">' +
+    '<p>' + T('backup.againWhat') + '</p><p class="tiny">' + T('backup.againLoads') + ' ' + T('backup.againSame') + '</p>' +
+    filePicker() +
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" id="uploadSubmit" class="btn primary" disabled>' + T('upload.submit') + '</button></div></form>');
+  const form = $('#uploadForm');
+  wireUpload(form, async (file, onScreen) => {
+    const got = await api('/api/datasets/' + d.id + '/upload', { method: 'POST', body: JSON.stringify({ filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
+    await sendFile(got.upload, file, form);
+    $('#progressText', form).textContent = t('upload.starting');
+    await api('/api/datasets/' + d.id + '/extract', { method: 'POST' });
+    if (onScreen()) closeDialog();
+    const at = parseRoute(location.hash);
+    if (at.page === 'dataset' && at.id === d.id) showDataset(at);      // still on its page: now it extracts, and polls
+    else if (at.page === 'home') showHome();
+  });
+}
+
+function uploadDialog() {
+  dialog(t('home.upload'),
+    '<form id="uploadForm" class="stack">' +
+    hintField('upload.name', 'dsName', '<input type="text" id="dsName" required placeholder="' + T('upload.namePlaceholder') + '">') +
+    filePicker() +
+    '<div class="row right"><button type="button" class="ghost" data-close>' + T('shell.close') + '</button><button type="submit" id="uploadSubmit" class="btn primary" disabled>' + T('upload.submit') + '</button></div></form>');
+  const form = $('#uploadForm');
+  wireUpload(form, async (file, onScreen) => {
+    const created = await api('/api/datasets', { method: 'POST', body: JSON.stringify({ name: $('#dsName', form).value, filename: file.name, size: file.size, content_type: file.type || 'application/zip' }) });
+    if (parseRoute(location.hash).page === 'home') showHome();       // the new dataset appears, uploading, even if the dialog is closed
+    await sendFile(created.upload, file, form);
+    $('#progressText', form).textContent = t('upload.starting');
+    await api('/api/datasets/' + created.id + '/extract', { method: 'POST' });
+    if (onScreen()) closeDialog();                                   // still on screen: close it
+    const at = parseRoute(location.hash);
+    if (at.page === 'home') showHome();                              // the new dataset appears, extracting
+    else if (at.page === 'dataset' && at.id === created.id) showDataset(at);   // opened while it uploaded: now it extracts, and polls
+  });
 }
 
 // ---- the sites page
