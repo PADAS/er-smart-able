@@ -224,3 +224,21 @@ EcoScope effort report reads is not established (GUNDI-5962).
 
 Reopen if a report or the web app can only credit a member from that
 member's own track and neither can be changed.
+
+## 2026-11-23: A ranger's sex is migrated; the birth date is not
+
+SMART's `employee` table holds each person's sex (`gender`, `M` or `F`)
+and birth date. The bundle now carries the sex as `sex` on each employee,
+and the import writes it to the ranger subject's `additional.sex`, so a
+report can break patrol effort down by it. It is SMART's value as
+recorded; nothing is inferred when SMART has none. Until this date the
+bundle carried neither field.
+
+The birth date stays out. In the one backup seen (LAWIN), 121 of 285
+birth dates are `1950-01-01` and more sit on other 1 January dates, so an
+age computed from it is wrong for about half the staff. It is also more
+identifying than the sex, and anyone who can read subjects on the site can
+read `additional`.
+
+Reopen the birth date if a site records real ones and has a report that
+needs age.

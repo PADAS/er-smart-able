@@ -81,6 +81,7 @@ def build_reference(db: SmartDb, ca_uuid: str) -> dict:
     today = date.today()
     ref["employees"] = []
     for r in db.rows(f"SELECT uuid, id, givenname, familyname, startemploymentdate, endemploymentdate, agency_uuid, rank_uuid, "
+                     f"nullif(trim(gender), '') AS sex, "
                      f"coalesce(trim(smartuserid), '') <> '' AS has_smart_login "
                      f"FROM {db.t('employee')} WHERE ca_uuid = ? ORDER BY familyname, givenname, id", [ca_uuid]):
         end = r["endemploymentdate"]
@@ -89,6 +90,8 @@ def build_reference(db: SmartDb, ca_uuid: str) -> dict:
                                  "agency_uuid": H(r["agency_uuid"]), "rank_uuid": H(r["rank_uuid"]),
                                  "employment_start": iso_date(r["startemploymentdate"]), "employment_end": iso_date(end),
                                  "active": end_d is None or end_d >= today,
+                                 # SMART's own value (M or F), for the ranger subject; the birth date stays out
+                                 "sex": r["sex"],
                                  # whether the row is also a SMART Desktop login; never the login name itself
                                  "has_smart_login": bool(r["has_smart_login"])})
     return ref
