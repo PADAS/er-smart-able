@@ -195,10 +195,18 @@ Transports can share a label: Lawin's Albay CA has "Others" twice, once
 `GROUND` and once `MARINE`, distinguished only by key (`others`,
 `others1`). Mandates and stations are optional and often NULL. Custom patrol
 attributes (`patrol_attribute`, `patrol_attribute_value`) exist in the
-schema but are empty in every dataset seen so far. Teams
-(`employee_team`) can be empty while every leg still lists its members
-(`patrol_leg_members`, with `is_leader` and `is_pilot`), so the members are
-the reliable roster.
+schema but are empty in every dataset seen so far.
+
+SMART has two team tables. `patrol.team_uuid` points at `team` (SMART 7),
+whose name is the `i18n_label` on the team's own uuid; the label on
+`team.desc_uuid` is its description, often the default "New Team
+Description". `employee_team` and `employee_team_member` are the older
+tables and are empty in the LAWIN backup, where `team` has 215 rows for
+each conservation area. The bundle lists the teams of both tables. A team
+there can be a whole office (LAWIN: one per CENRO or PENRO), not a patrol
+group, and its member list can be empty while every leg still lists its
+members (`patrol_leg_members`, with `is_leader` and `is_pilot`), so the
+leg members are the reliable roster.
 
 ## Staff and credentials
 

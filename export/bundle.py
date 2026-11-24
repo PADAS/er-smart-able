@@ -71,13 +71,18 @@ def build_reference(db: SmartDb, ca_uuid: str) -> dict:
     ref["ranks"] = [{"uuid": H(r["uuid"]), "agency_uuid": H(r["agency_uuid"]), **_lab(L, r["uuid"])}
                     for r in db.rows(f"SELECT r.uuid, r.agency_uuid FROM {db.t('rank')} r JOIN {db.t('agency')} g ON g.uuid = r.agency_uuid "
                                      f"WHERE g.ca_uuid = ? ORDER BY r.uuid", [ca_uuid])]
+    # SMART 7 keeps the teams a patrol names (patrol.team_uuid) in `team`; `employee_team` is the older table, and is
+    # empty in the SMART 7 backups seen. A team's name is the label on its own uuid, in either table.
+    team_tables = [n for n in ("team", "employee_team") if db.has(n)]
+    team_uuids = sorted({r["uuid"] for n in team_tables
+                         for r in db.rows(f"SELECT uuid FROM {db.t(n)} WHERE ca_uuid = ?", [ca_uuid])})
     members: Dict[str, list] = defaultdict(list)
-    if db.has("employee_team_member") and db.has("employee_team"):
-        for r in db.rows(f"SELECT m.team_uuid, m.employee_uuid FROM {db.t('employee_team_member')} m JOIN {db.t('employee_team')} t ON t.uuid = m.team_uuid "
-                         f"WHERE t.ca_uuid = ? ORDER BY m.employee_uuid", [ca_uuid]):
-            members[r["team_uuid"]].append(H(r["employee_uuid"]))
-    ref["teams"] = [{"uuid": H(r["uuid"]), **_lab(L, r["uuid"]), "member_uuids": members.get(r["uuid"], [])}
-                    for r in db.rows(f"SELECT uuid FROM {db.t('employee_team')} WHERE ca_uuid = ? ORDER BY uuid", [ca_uuid])] if db.has("employee_team") else []
+    if db.has("employee_team_member"):
+        in_ca = set(team_uuids)
+        for r in db.rows(f"SELECT team_uuid, employee_uuid FROM {db.t('employee_team_member')} ORDER BY employee_uuid"):
+            if r["team_uuid"] in in_ca:
+                members[r["team_uuid"]].append(H(r["employee_uuid"]))
+    ref["teams"] = [{"uuid": H(u), **_lab(L, u), "member_uuids": members.get(u, [])} for u in team_uuids]
     today = date.today()
     ref["employees"] = []
     for r in db.rows(f"SELECT uuid, id, givenname, familyname, startemploymentdate, endemploymentdate, agency_uuid, rank_uuid, "
