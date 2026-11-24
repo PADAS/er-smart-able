@@ -77,3 +77,9 @@ test('the theme is three radios in one control, each named, the chosen one check
   assert.deepEqual([...group.matchAll(/value="(\w+)" aria-label="(\w+)"( checked)?/g)].map(m => m.slice(1, 4)), [['system', 'System', undefined], ['light', 'Light', undefined], ['dark', 'Dark', ' checked']]);
   assert.doesNotMatch(h, /themeMenu|menu-theme/);
 });
+test('the fold control\'s line is named, and the version closes the foot outside the account menu', () => {
+  const h = rail({});
+  assert.match(h, /<span class="rail-heading">Resources<\/span><button id="railToggle"/);
+  assert.match(h, /<\/details><p class="tiny menu-version">0\.0\.0<\/p><\/div>$/);
+  assert.match(rail({ signedIn: false, dataset: null, current: null }), /<p class="tiny menu-version">0\.0\.0<\/p><\/div>$/, 'signed out too');
+});

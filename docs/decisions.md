@@ -184,13 +184,16 @@ entry: three levels deep, and "Rangers" twice. Not the browser moved into
 the app: a much larger change that ends its use from a folder.
 
 The app has a slim band again above the sidebar, with the EarthRanger
-lockup, the app's name and its version. With the band gone the version was
-only in the account menu, where nobody looked for it. The band holds
+lockup and the app's name, so every page says whose it is. The band holds
 nothing to do: navigation, theme, language, help and the account stay in
 the sidebar, whose own lockup and name are hidden. The browser carries the
-same band, so the two read as one application: served by the app its
-lockup leads back to the datasets and it names the app's version; from a
-folder it shows the lockup and the name only.
+same band, so the two read as one application; served by the app its
+lockup leads back to the datasets.
+
+The version is at the sidebar's foot, under the account, always in sight:
+in the account menu nobody looked for it, and in the band it was clutter.
+The fold control keeps its line at the sidebar's head, which is named
+"Resources" so the line does not read as an empty one.
 
 Reopen if the copy in the browser drifts despite the test, or if the page
 load between a Data view and a Migration page is felt in use; then the

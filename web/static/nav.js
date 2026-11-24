@@ -31,6 +31,7 @@ function renderRail(state, label) {
   var h = '<div class="rail-top">' +
     (hosted ? '<span class="rail-brand"><img class="logo-light" src="/static/img/er-lockup-h.svg" alt="EarthRanger"><img class="logo-dark" src="/static/img/er-lockup-white-h.svg" alt="EarthRanger"></span>' : '') +
     '<span class="rail-app">' + label('shell.appName', 'SMART migration') + '</span>' +
+    '<span class="rail-heading">' + label('nav.resources', 'Resources') + '</span>' +   // names the line the fold control sits on
     '<button id="railToggle" type="button" aria-controls="rail" aria-expanded="' + (s.open === false ? 'false' : 'true') + '" title="' + label('nav.fold', 'Open or collapse the list') + '" aria-label="' + label('nav.fold', 'Open or collapse the list') + '">' + _navIcon('left_panel_close') + '</button></div>';
 
   h += '<div class="rail-main">';
@@ -77,7 +78,8 @@ function renderRail(state, label) {
     h += '<button id="helpBtn" type="button" title="' + label('shell.help', 'Help') + '">' + _navIcon('help') + '<span class="label">' + label('shell.help', 'Help') + '</span></button>' +
       '<details class="rail-menu" id="account"><summary id="whoEmail" title="' + _navEsc(s.email) + '">' + _navIcon('account_circle') + '<span class="label">' + _navEsc(s.email) + '</span></summary>' +
       '<button id="signOut" type="button" class="menu-item">' + _navIcon('logout') + '<span>' + label('shell.signOut', 'Sign out') + '</span></button>' +
-      (s.version ? '<p class="tiny menu-version">' + _navEsc(s.version) + '</p>' : '') + '</details>';
+      '</details>';
   }
-  return h + '</div>';
+  // the version closes the foot, under the account, in sight without opening anything
+  return h + (s.version ? '<p class="tiny menu-version">' + _navEsc(s.version) + '</p>' : '') + '</div>';
 }
