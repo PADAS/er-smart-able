@@ -230,8 +230,9 @@ member's own track and neither can be changed.
 SMART's `employee` table holds each person's sex (`gender`, `M` or `F`)
 and birth date. The bundle now carries the sex as `sex` on each employee,
 and the import writes it to the ranger subject's `additional.sex`, so a
-report can break patrol effort down by it. It is SMART's value as
-recorded; nothing is inferred when SMART has none. Until this date the
+report can break patrol effort down by it. The bundle keeps SMART's value
+as recorded; the subject gets EarthRanger's own, `male` or `female`.
+Nothing is inferred when SMART has none. Until this date the
 bundle carried neither field.
 
 The birth date stays out. In the one backup seen (LAWIN), 121 of 285
