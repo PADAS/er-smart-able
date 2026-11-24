@@ -136,7 +136,7 @@ class SmartDb:
              f"SELECT uuid FROM {self.t('patrol_mandate')} WHERE ca_uuid = ?",
              f"SELECT desc_uuid AS uuid FROM {self.t('station')} WHERE ca_uuid = ?",
              f"SELECT r.uuid FROM {self.t('rank')} r JOIN {self.t('agency')} g ON g.uuid = r.agency_uuid WHERE g.ca_uuid = ?"]
-        for opt in ("configurable_model", "employee_team"):
+        for opt in ("configurable_model", "employee_team", "team"):
             if self.has(opt):
                 q.append(f"SELECT uuid FROM {self.t(opt)} WHERE ca_uuid = ?")
         if self.has("cm_node") and self.has("configurable_model"):

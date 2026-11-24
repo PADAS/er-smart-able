@@ -9,8 +9,8 @@ from tests.conftest import CA_A, CM
 
 def test_language_coverage(smart_parquet):
     assert language_coverage(SmartDb(smart_parquet), CA_A) == [
-        {"code": "en", "default": True, "labels": 25, "missing": 1},
-        {"code": "fr", "default": False, "labels": 3, "missing": 23},
+        {"code": "en", "default": True, "labels": 26, "missing": 1},
+        {"code": "fr", "default": False, "labels": 3, "missing": 24},
     ]
 
 

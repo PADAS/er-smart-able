@@ -24,6 +24,7 @@ TREE_SNARE, TREE_WIRE, TREE_FIRE = U(0x410), U(0x411), U(0x412)
 ICON_SPECIES, ICONSET_LINE, ICONSET_COLOR, ICONFILE_1, ICONFILE_2 = U(0x500), U(0x501), U(0x502), U(0x503), U(0x504)
 CM, NODE_GROUP, NODE_LIVE, CMATT_SPECIES, CMCONF_SPECIES, CMLIST_ELE, CT_PROFILE = (U(0x600 + i) for i in range(7))
 EMP_LEAD, EMP_TWO, AGENCY, RANK, TEAM, STATION, STATION_DESC = (U(0x700 + i) for i in range(7))
+TEAM_SEVEN = U(0x707)   # in `team`, where SMART 7 keeps the teams a patrol names; TEAM is in the older employee_team
 TRANSPORT_FOOT, MANDATE_LAW = U(0x800), U(0x801)
 PATROL_1, PATROL_2, LEG_1, LEG_2, DAY_1, DAY_2, WP_1, GROUP_1, OBS_1, OBS_2, TRACK_1, ATTACH_1 = (U(0x900 + i) for i in range(12))
 
@@ -106,7 +107,7 @@ def _tables():
          (LANG_EN, CM, "Alpha mobile model"), (LANG_EN, NODE_GROUP, "Sightings"), (LANG_EN, CMCONF_SPECIES, "Species (curated)"),
          (LANG_EN, CT_PROFILE, "Default"),
          (LANG_EN, TRANSPORT_FOOT, "Foot"), (LANG_EN, MANDATE_LAW, "Law enforcement"), (LANG_EN, STATION_DESC, "HQ"),
-         (LANG_EN, TEAM, "Team One"), (LANG_EN, RANK, "Ranger")],
+         (LANG_EN, TEAM, "Team One"), (LANG_EN, TEAM_SEVEN, "Team Seven"), (LANG_EN, RANK, "Ranger")],
     )
     t["configurable_model"] = (["uuid", "ca_uuid", "display_mode", "instant_gps", "photo_first", "iconset_uuid"],
                                [(CM, CA_A, "TEXT_IMAGE", True, False, ICONSET_COLOR)])
@@ -139,6 +140,8 @@ def _tables():
          (EMP_TWO, CA_A, "E2", "Ben", "Reyes", "2017-01-01", "2018-06-30", "2017-01-01", None, None, " ", AGENCY, None, 0)],
     )
     t["employee_team"] = (["uuid", "ca_uuid"], [(TEAM, CA_A)])
+    t["team"] = (["uuid", "ca_uuid", "is_active", "desc_uuid", "patrol_mandate_uuid", "keyid"],
+                 [(TEAM_SEVEN, CA_A, True, None, None, "teamseven")])
     t["employee_team_member"] = (["employee_uuid", "team_uuid"], [(EMP_LEAD, TEAM), (EMP_TWO, TEAM)])
     t["station"] = (["uuid", "ca_uuid", "desc_uuid", "is_active"], [(STATION, CA_A, STATION_DESC, True)])
     t["patrol_type"] = (["ca_uuid", "patrol_type", "is_active", "max_speed"], [(CA_A, "GROUND", True, 120), (CA_A, "AIR", False, 500)])
@@ -203,6 +206,7 @@ CASTS = {
     "connect_ct_properties": "ping_frequency::INTEGER AS ping_frequency, data_frequency::INTEGER AS data_frequency",
     "employee": "startemploymentdate::DATE AS startemploymentdate, endemploymentdate::DATE AS endemploymentdate, datecreated::DATE AS datecreated, birthdate::DATE AS birthdate, smartuserlevel::INTEGER AS smartuserlevel",
     "station": "is_active::BOOLEAN AS is_active",
+    "team": "is_active::BOOLEAN AS is_active",
     "patrol_type": "is_active::BOOLEAN AS is_active, max_speed::INTEGER AS max_speed",
     "patrol_transport": "is_active::BOOLEAN AS is_active",
     "patrol_mandate": "is_active::BOOLEAN AS is_active",

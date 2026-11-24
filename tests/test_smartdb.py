@@ -36,7 +36,7 @@ def test_labels_fallback(smart_parquet):
     assert L.get("0" * 32) is None
     assert TRANSPORT_FOOT in db.labelled_elements(CA_A)
     assert LIST_ELE in db.labelled_elements(CA_A)
-    assert len(db.labelled_elements(CA_A)) == 26   # 3 cats, 7 atts, 4 list, 3 tree, transport, mandate, station, rank, team, cm, 2 nodes, config
+    assert len(db.labelled_elements(CA_A)) == 27   # 3 cats, 7 atts, 4 list, 3 tree, transport, mandate, station, rank, 2 teams, cm, 2 nodes, config
     assert len(db.labelled_elements(CA_B)) == 0
 
 

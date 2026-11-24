@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from export.bundle import build_patrols, build_reference, leg_day_span
 from export.smartdb import SmartDb, hyphenate
-from tests.conftest import (CA_A, EMP_LEAD, EMP_TWO, TEAM, STATION, TRANSPORT_FOOT, MANDATE_LAW, PATROL_1,
+from tests.conftest import (CA_A, EMP_LEAD, EMP_TWO, TEAM, TEAM_SEVEN, STATION, TRANSPORT_FOOT, MANDATE_LAW, PATROL_1,
                             LEG_1, DAY_1, WP_1, OBS_1, OBS_2, ATTACH_1)
 
 MANILA = ZoneInfo("Asia/Manila")
@@ -17,7 +17,9 @@ def test_reference(smart_parquet):
     assert ref["patrol_types"] == [{"key": "AIR", "active": False, "max_speed": 500}, {"key": "GROUND", "active": True, "max_speed": 120}]
     assert ref["transports"] == [{"uuid": hyphenate(TRANSPORT_FOOT), "key": "foot", "labels": {"en": "Foot"}, "label": "Foot", "patrol_type": "GROUND", "active": True}]
     assert ref["mandates"][0]["key"] == "law" and ref["stations"][0]["label"] == "HQ"
-    assert ref["teams"] == [{"uuid": hyphenate(TEAM), "labels": {"en": "Team One"}, "label": "Team One", "member_uuids": [hyphenate(EMP_LEAD), hyphenate(EMP_TWO)]}]
+    # both of SMART's team tables
+    assert ref["teams"] == [{"uuid": hyphenate(TEAM), "labels": {"en": "Team One"}, "label": "Team One", "member_uuids": [hyphenate(EMP_LEAD), hyphenate(EMP_TWO)]},
+                            {"uuid": hyphenate(TEAM_SEVEN), "labels": {"en": "Team Seven"}, "label": "Team Seven", "member_uuids": []}]
     emps = {e["id"]: e for e in ref["employees"]}
     assert emps["E1"] == {"uuid": hyphenate(EMP_LEAD), "id": "E1", "given_name": "Ana", "family_name": "Cruz",
                           "agency_uuid": ref["agencies"][0]["uuid"], "rank_uuid": ref["ranks"][0]["uuid"],
@@ -165,7 +167,7 @@ def test_write_bundle(smart_parquet, tmp_path):
     assert m["bundle_schema_version"] == 2 and m["conservation_area"]["uuid"] == hyphenate(CA_A) and m["conservation_area"]["id"] == "ALPHA"
     assert m["source"] == {"kind": "backup", "file": "x.zip", "smart_version": "7.5.4"}
     assert m["timezone"] == {"name": "Asia/Manila", "source": "inferred"}
-    assert m["default_language"] == "en" and m["languages"][1] == {"code": "fr", "default": False, "labels": 3, "missing": 23}
+    assert m["default_language"] == "en" and m["languages"][1] == {"code": "fr", "default": False, "labels": 3, "missing": 24}
     assert m["counts"] == {"patrols": 2, "legs": 2, "leg_days": 2, "waypoints": 1, "observations": 2, "tracks": 1, "track_points": 2, "employees": 2, "attachments": 1}
     # best available time source per leg day: DAY_1 has a timed track, DAY_2 only its start/end times
     assert m["time_coverage"] == {"leg_days": 2, "track": 1, "leg_day_times": 1, "waypoints": 0, "date_only": 0}
