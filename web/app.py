@@ -243,17 +243,17 @@ def _sweep_uploads(store, id: str) -> bool:
         gone = (store.get(id) or {}).get("dropped_objects") or []
         if not gone:
             return True
-        failed = []
+        removed = []
         for name in gone:
             try:
                 store.delete_upload(id, name)
+                removed.append(name)
             except Exception:  # noqa: BLE001
                 logging.exception("could not remove %s of dataset %s", name, id)
-                failed.append(name)
-        # one listed meanwhile stays listed, and so does one that did not go
-        left = [n for n in (store.get(id) or {}).get("dropped_objects") or [] if n not in gone or n in failed]
-        store.update(id, dropped_objects=left)
-        return not failed
+        # by name and in the store's lock or transaction: one a claim lists meanwhile stays listed, and
+        # so does one that did not go
+        store.forget_dropped(id, removed)
+        return len(removed) == len(gone)
     except Exception:  # noqa: BLE001
         logging.exception("could not clear the dropped files of dataset %s", id)
         return False

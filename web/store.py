@@ -322,6 +322,16 @@ class LocalStore:
             self._write(data)
             return True
 
+    def forget_dropped(self, id: str, names: list):
+        """Take files that have been removed off the dataset's list of dropped ones. Under the lock the
+        claims add to it with, and by name: one a claim listed meanwhile stays listed."""
+        with self.lock:
+            data = self._read()
+            doc = data.get(id)
+            if doc is not None and doc.get("dropped_objects"):
+                doc["dropped_objects"] = [n for n in doc["dropped_objects"] if n not in names]
+                self._write(data)
+
     def claim_upload_delete(self, id: str) -> bool:
         """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. Under the
         lock claim_extract takes, and it refuses a dataset marked here: the two cannot both go ahead."""
@@ -647,6 +657,13 @@ class GcpStore:
             return True
 
         return claim(self.db.transaction())
+
+    def forget_dropped(self, id: str, names: list):
+        """Take files that have been removed off the dataset's list of dropped ones. An array removal,
+        which the database applies to the list as it then is: one a claim listed meanwhile stays listed."""
+        from google.cloud import firestore
+        if names:
+            self._col().document(id).update({"dropped_objects": firestore.ArrayRemove(list(names))})
 
     def claim_upload_delete(self, id: str) -> bool:
         """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. A

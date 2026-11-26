@@ -398,7 +398,7 @@ def test_a_file_that_cannot_be_removed_does_not_leave_the_extraction_claimed_and
 def test_a_sweep_that_cannot_reach_the_dataset_does_not_raise(tmp_path, monkeypatch):
     app, c = make(tmp_path, monkeypatch, days=30)
     store = app.get_store(); id = dataset(store, dropped_objects=["gone.zip"])
-    monkeypatch.setattr(store, "update", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(store, "forget_dropped", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
     assert app._sweep_uploads(store, id) is False
 
 
@@ -431,3 +431,35 @@ def test_a_backup_that_could_not_be_deleted_is_said_so_and_goes_on_the_next_try(
     assert r.status_code == 502 and r.json()["code"] == "upload_delete_failed" and files(store, id) == ["backup.zip"]
     monkeypatch.setattr(type(store), "delete_upload", real)
     assert c.delete(f"/api/datasets/{id}/upload").status_code == 200 and files(store, id) == []
+
+
+# ---- third review of PR 57
+def test_a_file_listed_while_another_request_is_sweeping_is_still_removed(tmp_path, monkeypatch):
+    """The interleaving from review: one request has removed the files it found listed, and before it
+    takes them off the list a deletion of the backup is reserved, which lists the backup. The list is
+    not written back as that request read it: the backup stays listed, and the deletion removes it."""
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store, dropped_objects=["old-attempt.zip"])
+    store.upload_path(id, "old-attempt.zip").write_bytes(b"x")
+    real = type(store).forget_dropped
+    during = {}
+
+    def then_a_deletion(self, i, names):
+        if not during:
+            during["names"] = list(names)
+            assert self.claim_upload_delete(i) is True   # the other request, between this one's delete and its write
+        real(self, i, names)
+    monkeypatch.setattr(type(store), "forget_dropped", then_a_deletion)
+    assert app._sweep_uploads(store, id) is True and during["names"] == ["old-attempt.zip"]
+    assert store.get(id)["dropped_objects"] == ["backup.zip"] and files(store, id) == ["backup.zip"], "the reservation is kept"
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200 and files(store, id) == []
+    assert store.get(id)["dropped_objects"] == []
+
+
+def test_the_cloud_store_takes_removed_files_off_the_list_without_writing_the_list_back():
+    src = (ROOT / "web" / "store.py").read_text()
+    gcp = src[src.index("class GcpStore"):]
+    body = gcp[gcp.index("def forget_dropped"):]; body = body[:body.index("\n    def ", 10)]
+    assert "ArrayRemove" in body
+    sweep = (ROOT / "web" / "app.py").read_text(); sweep = sweep[sweep.index("def _sweep_uploads"):]; sweep = sweep[:sweep.index("\n\n\n")]
+    assert "forget_dropped" in sweep and "dropped_objects=" not in sweep
