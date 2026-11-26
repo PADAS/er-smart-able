@@ -259,6 +259,16 @@ nothing: the dataset keeps its backup, its data and its status. The
 extracted data is replaced when the extraction finishes, as with
 Re-extract.
 
+Each attempt is stored under a name of its own (`pending_object`: a
+random prefix on the file's name), apart from the name shown
+(`source_name`). So a file sent under the stored backup's name does not
+write over it, and an attempt that was never sent is not mistaken for a
+stored one. The pending file takes the stored one's place in the same
+transaction that claims the extraction, so a request that loses the
+claim has replaced nothing. Files the dataset no longer names are listed
+on it (`dropped_objects`) inside those transactions and removed
+afterwards. A first upload is still stored under its own name.
+
 It is refused while the dataset is being extracted or a load is working,
 for the reason Re-extract is: a load reads the bundle the extraction
 replaces.

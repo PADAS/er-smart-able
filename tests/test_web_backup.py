@@ -180,6 +180,15 @@ def reupload(c, id, name="newer.zip", body=b"newer", size=5):
     return r
 
 
+def files(store, id):
+    return sorted(p.name for p in (store._p(id) / "upload").iterdir())
+
+
+def stored(store, id):
+    from store import upload_object
+    return store.upload_path(id, upload_object(store.get(id))).read_bytes()
+
+
 def started(app, monkeypatch):
     calls = []
     monkeypatch.setattr(app.get_store(), "start_extract", lambda id: calls.append(id) or "exec-1")
@@ -198,7 +207,8 @@ def test_a_backup_uploaded_again_replaces_the_stored_one_when_it_is_extracted(tm
     doc = store.get(id)
     assert doc["source_name"] == "NEWER.zip", "stored under a name the rule matches"
     assert doc["source_size"] == 5 and doc["status"] == "queued" and not doc.get("pending_source_name")
-    assert store.upload_path(id, "NEWER.zip").read_bytes() == b"newer"
+    assert doc["source_object"].endswith("-NEWER.zip") and store.upload_path(id, doc["source_object"]).read_bytes() == b"newer"
+    assert files(store, id) == [doc["source_object"]] and not doc["dropped_objects"]
     assert not store.upload_exists(id, "backup.zip"), "the file it replaces goes"
     assert (store._p(id) / "site" / "index.html").read_text() == "extracted", "until the extraction replaces it"
     # the rule deletes the new file by its own age, so the date shown counts from the new upload
@@ -218,7 +228,7 @@ def test_a_backup_that_was_deleted_can_be_uploaded_again_and_extracted(tmp_path,
     assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
     up = c.get(f"/api/datasets/{id}").json()["upload"]
     assert up["present"] is True and up["deleted_at"] is None
-    assert store.upload_path(id, "backup.zip").read_bytes() == b"again"
+    assert stored(store, id) == b"again"
 
 
 def test_an_upload_that_is_abandoned_changes_nothing(tmp_path, monkeypatch):
@@ -267,3 +277,100 @@ def test_an_extraction_under_way_is_not_handed_a_backup_uploaded_meanwhile(tmp_p
     assert store.get(id)["source_name"] == "backup.zip" and store.upload_exists(id, "backup.zip"), "the file being read stays"
     store.update(id, status="ready")
     assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and store.get(id)["source_name"] == "newer.zip"
+
+
+# ---- review of PR 57
+def test_a_backup_uploaded_again_under_the_same_name_does_not_write_over_the_stored_one(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id, "backup.zip", b"newer")
+    assert store.upload_path(id, "backup.zip").read_bytes() == b"zip", "the stored backup is as it was until the new one is extracted"
+    assert len(files(store, id)) == 2 and stored(store, id) == b"zip"
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
+    doc = store.get(id)
+    assert doc["source_name"] == "backup.zip" and stored(store, id) == b"newer" and files(store, id) == [doc["source_object"]]
+
+
+def test_an_abandoned_upload_under_the_same_name_is_not_taken_for_the_new_backup(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store, source_size=3); calls = started(app, monkeypatch)
+    assert c.post(f"/api/datasets/{id}/upload", json={"filename": "backup.zip", "size": 9}).status_code == 200   # never sent
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id]
+    doc = store.get(id)
+    assert doc["source_size"] == 3 and not doc.get("uploaded_at") and not doc.get("source_object"), "its size and date are the stored file's"
+    assert c.get(f"/api/datasets/{id}").json()["upload"]["expires_at"] == "2026-11-20T09:30:00+00:00"
+    assert stored(store, id) == b"zip"
+
+
+def test_each_attempt_is_stored_apart_and_the_one_before_it_goes(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id, "newer.zip", b"first")
+    first = store.get(id)["pending_object"]
+    reupload(c, id, "newer.zip", b"second")
+    second = store.get(id)["pending_object"]
+    assert first != second and files(store, id) == sorted(["backup.zip", second]), "the first attempt's file is removed"
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and stored(store, id) == b"second"
+
+
+def test_an_extraction_that_loses_the_claim_has_not_replaced_the_backup(tmp_path, monkeypatch):
+    """The interleaving from review: this request has seen the dataset free and the new file stored, and
+    another request then claims an extraction of the stored backup. This one is refused, and has changed nothing."""
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id)
+    pending = store.get(id)["pending_object"]
+    real = type(store).upload_exists
+
+    def then_another_claims(self, i, name):
+        found = real(self, i, name)
+        if name == pending and store.get(i)["status"] == "ready":
+            assert store.claim_extract(i) is True   # the other request, extracting backup.zip
+        return found
+    monkeypatch.setattr(type(store), "upload_exists", then_another_claims)
+    r = c.post(f"/api/datasets/{id}/extract")
+    assert r.status_code == 409 and r.json()["code"] == "extract_active" and calls == []
+    doc = store.get(id)
+    assert doc["source_name"] == "backup.zip" and not doc.get("source_object") and doc["pending_object"] == pending
+    assert store.upload_path(id, "backup.zip").read_bytes() == b"zip", "the file the other extraction reads is still there"
+    assert files(store, id) == sorted(["backup.zip", pending])
+
+
+def test_a_new_attempt_is_not_noted_once_an_extraction_has_claimed_the_dataset(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store)
+    assert store.claim_extract(id) is True
+    assert store.claim_reupload(id, "x-newer.zip", "newer.zip", 5) is False and not store.get(id).get("pending_object")
+    assert store.claim_extract(dataset(store), take="never-noted.zip") is False, "nor is an upload taken that the dataset does not name"
+
+
+def test_deleting_the_backup_drops_an_upload_that_was_on_its_way(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id)
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200
+    assert files(store, id) == [] and not store.get(id).get("pending_object")
+    assert c.post(f"/api/datasets/{id}/extract").json()["code"] == "upload_incomplete" and calls == []
+
+
+def test_a_replaced_backup_is_deleted_under_the_name_it_is_stored_by(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); started(app, monkeypatch)
+    reupload(c, id)
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200
+    store.update(id, status="ready")
+    assert c.get(f"/api/datasets/{id}").json()["upload"]["present"] is True
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200 and files(store, id) == []
+
+
+def test_the_extraction_job_reads_the_backup_under_the_name_it_is_stored_by():
+    assert 'fetch_upload(dataset_id, upload_object(doc)' in (ROOT / "web" / "job.py").read_text()
+
+
+def test_the_cloud_store_takes_a_pending_upload_in_the_transaction_that_claims_the_extraction():
+    src = (ROOT / "web" / "store.py").read_text()
+    gcp = src[src.index("class GcpStore"):]
+    claim = gcp[gcp.index("def claim_extract"):]; claim = claim[:claim.index("\n    def ", 10)]
+    assert "@firestore.transactional" in claim and "_promote(doc)" in claim and claim.index("extract_in_progress") < claim.index("_promote(doc)")
+    again = gcp[gcp.index("def claim_reupload"):]; again = again[:again.index("\n    def ", 10)]
+    assert "@firestore.transactional" in again and "extract_in_progress" in again

@@ -51,7 +51,7 @@ from er_site import HostError, SiteUnreachable, TokenRejected, check_token, norm
 from errors import ApiError
 from findings import EVENT_CATEGORY, SET_NAME_MAX, ca_identifier, set_category
 from store import (LOAD_ACTIVE, load_working, LOAD_FIELDS, ROOT, LocalStore, access, can_read, can_view, extract_in_progress, get_store, is_owner,
-                   load_in_progress, now, safe_relpath, stored_name, upload_expires_at)
+                   load_in_progress, now, pending_object, safe_relpath, stored_name, upload_expires_at, upload_object)
 
 logging.basicConfig(level=logging.INFO)
 HERE = Path(__file__).resolve().parent
@@ -217,34 +217,33 @@ async def create_dataset(req: DatasetCreate, user=Depends(current_user)):
 @app.post("/api/datasets/{id}/upload")
 async def reupload(id: str, req: DatasetReupload, user=Depends(current_user)):
     """The owner uploads a backup again for a dataset that has one already: the same file after it was
-    deleted, or a newer one. This only says where to send it. The file is pending until an extraction is
-    asked for and finds it stored (_take_pending_upload), so an upload that is abandoned changes nothing."""
-    doc = _load(id, user, owner=True)
+    deleted, or a newer one. This only says where to send it, and each attempt is sent to a name of its
+    own (pending_object), never over a stored file. It is pending until an extraction is asked for and
+    finds it stored (extract), so an upload that is abandoned changes nothing."""
+    _load(id, user, owner=True)
     if not re.search(r"\.(zip|bak)$", req.filename, re.I):
         raise ApiError(400, "upload_not_zip", "Upload a SMART backup or Conservation Area export as a .zip")
     store = get_store()
     # what the extraction that follows would be refused for: said now, not after the file has been sent
-    if extract_in_progress(doc):
-        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
     if any(load_working(l) for l in store.list_loads(id)):
         raise ApiError(409, "load_running", "Wait for the running load to stop first")
-    name = stored_name(req.filename)
-    store.update(id, pending_source_name=name, pending_source_size=req.size)
-    return {"id": id, "upload": store.upload_target(id, name, req.content_type)}
+    obj = pending_object(req.filename)
+    if not store.claim_reupload(id, obj, stored_name(req.filename), req.size):
+        raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
+    _sweep_uploads(store, id)   # the attempt before this one, if it left a file
+    return {"id": id, "upload": store.upload_target(id, obj, req.content_type)}
 
 
-def _take_pending_upload(store, id: str, doc: dict) -> dict:
-    """A backup uploaded again becomes the dataset's backup once it is stored: the dataset names it, its
-    expiry counts from now, and the file it replaces goes. Returns the dataset as it then is."""
-    name = doc.get("pending_source_name")
-    if not name or not store.upload_exists(id, name):
-        return doc
-    old = doc.get("source_name")
-    store.update(id, source_name=name, source_size=doc.get("pending_source_size") or 0, uploaded_at=now(),
-                 upload_deleted_at=None, pending_source_name=None, pending_source_size=None)
-    if old and old != name:
-        store.delete_upload(id, old)
-    return store.get(id)
+def _sweep_uploads(store, id: str):
+    """Remove the stored files the dataset no longer names: a backup that was replaced, an upload that was
+    superseded. The claims in the store list them (dropped_objects) as they let go of them."""
+    gone = (store.get(id) or {}).get("dropped_objects") or []
+    if not gone:
+        return
+    for name in gone:
+        store.delete_upload(id, name)
+    left = [n for n in (store.get(id) or {}).get("dropped_objects") or [] if n not in gone]   # one listed meanwhile stays listed
+    store.update(id, dropped_objects=left)
 
 
 @app.put("/api/datasets/{id}/upload")
@@ -254,8 +253,8 @@ async def upload(id: str, request: Request, user=Depends(current_user)):
     store = get_store()
     if not isinstance(store, LocalStore):
         raise ApiError(400, "upload_direct", "Uploads go straight to storage on this deployment")
-    pending = doc.get("pending_source_name")   # a backup uploaded again: the dataset stays as it is until it is extracted
-    dest = store.upload_path(id, pending or doc["source_name"])
+    pending = doc.get("pending_object")   # a backup uploaded again: the dataset stays as it is until it is extracted
+    dest = store.upload_path(id, pending or upload_object(doc))
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")   # under its own name only once it is whole, as in storage
     size = 0
@@ -277,14 +276,18 @@ async def extract(id: str, user=Depends(current_user)):
     store = get_store()
     if any(load_working(l) for l in store.list_loads(id)):   # a load reads the bundle this would replace
         raise ApiError(409, "load_running", "Wait for the running load to stop first")
-    if extract_in_progress(doc):   # before a backup uploaded again replaces the file that extraction is reading
+    if extract_in_progress(doc):
         raise ApiError(409, "extract_active", "An extraction is already queued or running")
-    doc = _take_pending_upload(store, id, doc)
+    # a backup uploaded again, once it is stored, is what gets extracted. It takes the stored one's place
+    # inside the claim, with the extraction's reservation: not before, when the claim may yet be refused
+    pending = doc.get("pending_object")
+    take = pending if pending and store.upload_exists(id, pending) else None
     missing = ApiError(400, "upload_incomplete", "The upload is missing or incomplete; upload the backup again")
-    if doc.get("upload_deleted_at") or not store.upload_exists(id, doc["source_name"]):
+    if not take and (doc.get("upload_deleted_at") or not store.upload_exists(id, upload_object(doc))):
         raise missing
-    if not store.claim_extract(id):   # held by an extraction, or the backup's deletion was reserved meanwhile
+    if not store.claim_extract(id, take=take):   # held by an extraction, or the backup's deletion was reserved meanwhile
         raise missing if (store.get(id) or {}).get("upload_deleted_at") else ApiError(409, "extract_active", "An extraction is already queued or running")
+    _sweep_uploads(store, id)   # the backup this one replaced
     try:
         execution = store.start_extract(id)
     except Exception as e:  # noqa: BLE001  the job did not start: say so, and leave the dataset retryable
@@ -303,7 +306,7 @@ async def get_dataset(id: str, user=Depends(current_user)):
     out = _public(doc, user)
     # the uploaded backup is stored apart from what was extracted, and for a limited time: say so (one
     # storage lookup, so on this page only, not for every dataset in the list)
-    out["upload"] = {"present": bool(doc.get("source_name")) and get_store().upload_exists(id, doc["source_name"]),
+    out["upload"] = {"present": bool(upload_object(doc)) and get_store().upload_exists(id, upload_object(doc)),
                      "expires_at": upload_expires_at(doc), "deleted_at": doc.get("upload_deleted_at")}
     if out["access"] in ("owner", "support"):
         out["log_tail"] = doc.get("log_tail")
@@ -319,8 +322,10 @@ def delete_upload(id: str, user=Depends(current_user)):   # a plain def: the sto
     # check and the file going, and this cannot go ahead while one is reading the file
     if not store.claim_upload_delete(id):
         raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
-    if doc.get("source_name"):
-        store.delete_upload(id, doc["source_name"])
+    doc = store.get(id) or doc   # as the claim left it: the backup it names cannot change from here
+    if upload_object(doc):
+        store.delete_upload(id, upload_object(doc))
+    _sweep_uploads(store, id)   # an upload that was on its way
     return {"ok": True}
 
 
