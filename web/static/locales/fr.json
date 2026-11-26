@@ -637,6 +637,7 @@
     "upload_direct": "Sur ce déploiement, les téléversements vont directement dans le stockage",
     "load_running": "Attendez d'abord que le chargement en cours s'arrête",
     "upload_incomplete": "Le téléversement est absent ou incomplet ; téléversez de nouveau la sauvegarde",
+    "upload_delete_failed": "Impossible de supprimer la sauvegarde ; réessayez",
     "extract_active": "Une extraction est déjà en file d'attente ou en cours",
     "extract_start_failed": "Impossible de démarrer la tâche d'extraction",
     "load_running_delete": "Attendez d'abord que le chargement en cours s'arrête (ou supprimez-le)",

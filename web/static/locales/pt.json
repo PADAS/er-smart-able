@@ -637,6 +637,7 @@
     "upload_direct": "Nesta implantação, os envios vão direto para o armazenamento",
     "load_running": "Espere primeiro a carga em andamento parar",
     "upload_incomplete": "O envio está ausente ou incompleto; envie o backup novamente",
+    "upload_delete_failed": "Não foi possível excluir o backup; tente novamente",
     "extract_active": "Já há uma extração na fila ou em execução",
     "extract_start_failed": "Não foi possível iniciar o trabalho de extração",
     "load_running_delete": "Espere primeiro a carga em andamento parar (ou exclua-a)",

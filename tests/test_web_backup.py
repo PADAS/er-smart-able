@@ -141,7 +141,9 @@ def test_the_cloud_store_reserves_the_deletion_in_a_transaction():
     src = (ROOT / "web" / "store.py").read_text()
     gcp = src[src.index("class GcpStore"):]
     body = gcp[gcp.index("def claim_upload_delete"):]; body = body[:body.index("\n    def ", 10)]
-    assert "@firestore.transactional" in body and "extract_in_progress" in body and "upload_deleted_at" in body
+    assert "@firestore.transactional" in body and "extract_in_progress" in body and "_delete_backup(" in body
+    reserve = src[src.index("def _delete_backup"):]; reserve = reserve[:reserve.index("\n\n\n")]
+    assert "upload_deleted_at" in reserve and "dropped_objects" in reserve, "the reservation, and the file it is for, are written together"
     claim = gcp[gcp.index("def claim_extract"):]; claim = claim[:claim.index("\n    def ", 10)]
     assert "upload_deleted_at" in claim, "an extraction is not claimed once the backup's deletion is reserved"
 
@@ -374,3 +376,58 @@ def test_the_cloud_store_takes_a_pending_upload_in_the_transaction_that_claims_t
     assert "@firestore.transactional" in claim and "_promote(doc)" in claim and claim.index("extract_in_progress") < claim.index("_promote(doc)")
     again = gcp[gcp.index("def claim_reupload"):]; again = again[:again.index("\n    def ", 10)]
     assert "@firestore.transactional" in again and "extract_in_progress" in again
+
+
+# ---- second review of PR 57
+def test_a_file_that_cannot_be_removed_does_not_leave_the_extraction_claimed_and_unstarted(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store); calls = started(app, monkeypatch)
+    reupload(c, id)
+    real = type(store).delete_upload
+
+    def broken(self, i, name):
+        raise OSError("storage is not answering")
+    monkeypatch.setattr(type(store), "delete_upload", broken)
+    assert c.post(f"/api/datasets/{id}/extract").status_code == 200 and calls == [id], "the extraction starts all the same"
+    assert store.get(id)["dropped_objects"] == ["backup.zip"], "and the file is kept listed"
+    monkeypatch.setattr(type(store), "delete_upload", real)
+    assert app._sweep_uploads(store, id) is True and store.get(id)["dropped_objects"] == []
+    assert files(store, id) == [store.get(id)["source_object"]]
+
+
+def test_a_sweep_that_cannot_reach_the_dataset_does_not_raise(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store, dropped_objects=["gone.zip"])
+    monkeypatch.setattr(store, "update", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    assert app._sweep_uploads(store, id) is False
+
+
+def test_deleting_the_backup_removes_the_file_it_reserved_not_one_uploaded_meanwhile(tmp_path, monkeypatch):
+    """The interleaving from review: the deletion is reserved, and before the file goes another request
+    uploads the backup again and claims its extraction. The new backup is that extraction's input."""
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store)
+    real = type(store).claim_upload_delete
+
+    def then_uploaded_again(self, i):
+        ok = real(self, i)
+        assert self.claim_reupload(i, "abc-newer.zip", "newer.zip", 5) is True
+        self.upload_path(i, "abc-newer.zip").write_bytes(b"newer")
+        assert self.claim_extract(i, take="abc-newer.zip") is True
+        return ok
+    monkeypatch.setattr(type(store), "claim_upload_delete", then_uploaded_again)
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200
+    doc = store.get(id)
+    assert files(store, id) == ["abc-newer.zip"] and stored(store, id) == b"newer", "the reserved file went; the new one is being extracted"
+    assert doc["status"] == "queued" and doc["upload_deleted_at"] is None and doc["dropped_objects"] == []
+
+
+def test_a_backup_that_could_not_be_deleted_is_said_so_and_goes_on_the_next_try(tmp_path, monkeypatch):
+    app, c = make(tmp_path, monkeypatch, days=30)
+    store = app.get_store(); id = dataset(store)
+    real = type(store).delete_upload
+    monkeypatch.setattr(type(store), "delete_upload", lambda self, i, name: (_ for _ in ()).throw(OSError("no")))
+    r = c.delete(f"/api/datasets/{id}/upload")
+    assert r.status_code == 502 and r.json()["code"] == "upload_delete_failed" and files(store, id) == ["backup.zip"]
+    monkeypatch.setattr(type(store), "delete_upload", real)
+    assert c.delete(f"/api/datasets/{id}/upload").status_code == 200 and files(store, id) == []

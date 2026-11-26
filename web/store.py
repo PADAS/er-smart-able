@@ -83,7 +83,8 @@ def pending_object(filename: str) -> str:
 
 # What the claims below change, as fields, for both stores to write inside their lock or transaction.
 # A file nothing names any more is listed in dropped_objects, and removed afterwards (app._sweep_uploads):
-# it is never the stored backup nor the pending one, so removing it is safe whenever it happens.
+# it is not the pending upload, and it is the stored backup only once that one's deletion is reserved
+# (upload_deleted_at, which only a backup uploaded again clears), so removing it is safe whenever it happens.
 def _dropped(doc: dict, name) -> list:
     return [*(doc.get("dropped_objects") or []), *([name] if name else [])]
 
@@ -94,11 +95,19 @@ def _pend(doc: dict, obj: str, name: str, size: int) -> dict:
             "dropped_objects": _dropped(doc, doc.get("pending_object"))}
 
 
-def _unpend(doc: dict) -> dict:
-    if not doc.get("pending_object"):
-        return {}
-    return {"pending_object": None, "pending_source_name": None, "pending_source_size": None,
-            "dropped_objects": _dropped(doc, doc.get("pending_object"))}
+def _delete_backup(doc: dict) -> dict:
+    """The backup's deletion is reserved: the stored file is dropped, and with it an upload on its way.
+    The file is named here, inside the claim, so that what is removed is what was reserved: by the time
+    the request gets to removing it, a backup uploaded again may have taken its place."""
+    changes = {}
+    drop = [n for n in (upload_object(doc), doc.get("pending_object")) if n and n not in (doc.get("dropped_objects") or [])]
+    if drop:
+        changes["dropped_objects"] = [*(doc.get("dropped_objects") or []), *drop]
+    if doc.get("pending_object"):
+        changes.update(pending_object=None, pending_source_name=None, pending_source_size=None)
+    if not doc.get("upload_deleted_at"):
+        changes["upload_deleted_at"] = now()
+    return changes
 
 
 def _promote(doc: dict) -> dict:
@@ -321,9 +330,7 @@ class LocalStore:
             doc = data.get(id)
             if doc is None or extract_in_progress(doc):
                 return False
-            changes = _unpend(doc)   # an upload on its way is dropped with the backup
-            if not doc.get("upload_deleted_at"):
-                changes["upload_deleted_at"] = now()
+            changes = _delete_backup(doc)
             if changes:
                 doc.update(changes, updated_at=now())
                 self._write(data)
@@ -653,9 +660,7 @@ class GcpStore:
             snap = ref.get(transaction=tx)
             if not snap.exists or extract_in_progress(snap.to_dict()):
                 return False
-            changes = _unpend(snap.to_dict())   # an upload on its way is dropped with the backup
-            if not snap.to_dict().get("upload_deleted_at"):
-                changes["upload_deleted_at"] = now()
+            changes = _delete_backup(snap.to_dict())
             if changes:
                 tx.update(ref, {**changes, "updated_at": now()})
             return True

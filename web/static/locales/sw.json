@@ -637,6 +637,7 @@
     "upload_direct": "Kwenye usakinishaji huu, upakiaji unaenda moja kwa moja kwenye hifadhi ya faili",
     "load_running": "Subiri kwanza uingizaji unaoendelea usimame",
     "upload_incomplete": "Upakiaji haupo au haujakamilika; pakia chelezo tena",
+    "upload_delete_failed": "Imeshindwa kufuta chelezo; jaribu tena",
     "extract_active": "Utoaji wa data tayari uko kwenye foleni au unaendelea",
     "extract_start_failed": "Imeshindwa kuanzisha kazi ya utoaji wa data",
     "load_running_delete": "Subiri kwanza uingizaji unaoendelea usimame (au uufute)",

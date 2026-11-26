@@ -637,6 +637,7 @@
     "upload_direct": "En esta instalación, los archivos se suben directamente al almacenamiento",
     "load_running": "Espere primero a que se detenga la carga en curso",
     "upload_incomplete": "La subida falta o está incompleta; suba otra vez la copia de seguridad",
+    "upload_delete_failed": "No se pudo eliminar la copia de seguridad; inténtelo de nuevo",
     "extract_active": "Ya hay una extracción en cola o en ejecución",
     "extract_start_failed": "No se pudo iniciar el trabajo de extracción",
     "load_running_delete": "Espere primero a que se detenga la carga en curso (o elimínela)",

@@ -234,16 +234,29 @@ async def reupload(id: str, req: DatasetReupload, user=Depends(current_user)):
     return {"id": id, "upload": store.upload_target(id, obj, req.content_type)}
 
 
-def _sweep_uploads(store, id: str):
-    """Remove the stored files the dataset no longer names: a backup that was replaced, an upload that was
-    superseded. The claims in the store list them (dropped_objects) as they let go of them."""
-    gone = (store.get(id) or {}).get("dropped_objects") or []
-    if not gone:
-        return
-    for name in gone:
-        store.delete_upload(id, name)
-    left = [n for n in (store.get(id) or {}).get("dropped_objects") or [] if n not in gone]   # one listed meanwhile stays listed
-    store.update(id, dropped_objects=left)
+def _sweep_uploads(store, id: str) -> bool:
+    """Remove the stored files the dataset no longer names: a backup that was replaced or deleted, an
+    upload that was superseded. The claims in the store list them (dropped_objects) as they let go of
+    them. Never raises: it runs after a claim, and a failure here must not leave the claim held. A file
+    that could not be removed stays listed, for the next sweep. Says whether all of them went."""
+    try:
+        gone = (store.get(id) or {}).get("dropped_objects") or []
+        if not gone:
+            return True
+        failed = []
+        for name in gone:
+            try:
+                store.delete_upload(id, name)
+            except Exception:  # noqa: BLE001
+                logging.exception("could not remove %s of dataset %s", name, id)
+                failed.append(name)
+        # one listed meanwhile stays listed, and so does one that did not go
+        left = [n for n in (store.get(id) or {}).get("dropped_objects") or [] if n not in gone or n in failed]
+        store.update(id, dropped_objects=left)
+        return not failed
+    except Exception:  # noqa: BLE001
+        logging.exception("could not clear the dropped files of dataset %s", id)
+        return False
 
 
 @app.put("/api/datasets/{id}/upload")
@@ -316,16 +329,16 @@ async def get_dataset(id: str, user=Depends(current_user)):
 @app.delete("/api/datasets/{id}/upload")
 def delete_upload(id: str, user=Depends(current_user)):   # a plain def: the storage call is off the event loop
     """The owner removes the uploaded backup ahead of its expiry. The extracted data, bundles and loads stay."""
-    doc = _load(id, user, owner=True)
+    _load(id, user, owner=True)
     store = get_store()
     # reserved first, atomically with claiming an extraction: an extraction cannot start between this
     # check and the file going, and this cannot go ahead while one is reading the file
     if not store.claim_upload_delete(id):
         raise ApiError(409, "dataset_extracting", "The dataset is being extracted; wait for it to finish")
-    doc = store.get(id) or doc   # as the claim left it: the backup it names cannot change from here
-    if upload_object(doc):
-        store.delete_upload(id, upload_object(doc))
-    _sweep_uploads(store, id)   # an upload that was on its way
+    # the claim named the files to go: the backup as it was then, and an upload on its way. Not the
+    # backup the dataset names now, which may be one uploaded again and being extracted
+    if not _sweep_uploads(store, id):
+        raise ApiError(502, "upload_delete_failed", "Could not delete the backup; try again")
     return {"ok": True}
 
 
