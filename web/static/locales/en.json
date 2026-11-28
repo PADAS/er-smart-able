@@ -106,7 +106,7 @@
     "kept": "Stored until you delete it.",
     "deletedOn": "Deleted on {{date}}.",
     "gone": "No longer stored.",
-    "reupload": "To extract again, upload the backup again as a new dataset.",
+    "reupload": "To extract again, upload the backup again.",
     "extractedStays": "The extracted data is not affected. It stays until you delete the dataset.",
     "deleteNow": "Delete the backup now",
     "uploading": "The backup is still uploading.",
@@ -114,7 +114,13 @@
     "reminderSoon_one": "The uploaded backup is deleted in {{count}} day.",
     "reminderSoon_other": "The uploaded backup is deleted in {{count}} days.",
     "reminderDue": "The uploaded backup is due for automatic deletion.",
-    "reminderGone": "The uploaded backup is no longer stored."
+    "reminderGone": "The uploaded backup is no longer stored.",
+    "uploadAgain": "Upload the backup again",
+    "replace": "Upload a newer backup",
+    "againTitle": "Upload a backup for {{name}}",
+    "againWhat": "The file you choose replaces the stored backup, and the dataset is extracted again from it. What you browse here is replaced when that extraction finishes.",
+    "againLoads": "The loads listed for this dataset stay.",
+    "againSame": "Choose a backup of the same SMART database. A different database belongs in a new dataset."
   },
   "sites": {
     "add": "Add a site",
@@ -630,7 +636,8 @@
     "upload_not_zip": "Upload a SMART backup or Conservation Area export as a .zip",
     "upload_direct": "Uploads go straight to storage on this deployment",
     "load_running": "Wait for the running load to stop first",
-    "upload_incomplete": "The upload is missing or incomplete; delete this dataset and upload again",
+    "upload_incomplete": "The upload is missing or incomplete; upload the backup again",
+    "upload_delete_failed": "Could not delete the backup; try again",
     "extract_active": "An extraction is already queued or running",
     "extract_start_failed": "Could not start the extraction job",
     "load_running_delete": "Wait for the running load to stop (or delete it) first",

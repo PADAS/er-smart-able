@@ -122,12 +122,23 @@ test('a backup that has gone says so, offers no delete, and the page offers no r
   const P = at(load());
   const gone = { ...own, upload: { present: false, expires_at: '2026-12-01T00:00:00+00:00', deleted_at: '2026-11-10T08:00:00+00:00' } };
   const h = P.backupPanel(gone);
-  assert.match(h, /Deleted on 2026-11-10\. To extract again, upload the backup again as a new dataset\./);
+  assert.match(h, /Deleted on 2026-11-10\. To extract again, upload the backup again\./);
   assert.match(h, /The extracted data is not affected/); assert.doesNotMatch(h, /deleteBackupBtn/);
   assert.match(P.backupPanel({ ...gone, upload: { present: false } }), /No longer stored\./);
   assert.doesNotMatch(P.renderDatasetPage(gone, 'overview'), /id="extractBtn"/);
   assert.match(P.renderDatasetPage({ ...own, upload: { present: true } }, 'overview'), /id="extractBtn"/);
   assert.match(P.renderDatasetPage(own, 'overview'), /id="extractBtn"/, 'no word about the backup: the button stays');
+});
+test('the owner is offered to upload the backup again: a newer one while it is stored, the same one once it has gone', () => {
+  const P = at(load()), up = { present: true, expires_at: '2026-12-01T00:00:00+00:00' }, gone = { present: false, deleted_at: '2026-11-10T08:00:00+00:00' };
+  assert.match(P.backupPanel({ ...own, upload: up }), /<button id="reuploadBtn"><span class="mi" aria-hidden="true">upload<\/span>Upload a newer backup<\/button><button id="deleteBackupBtn"/);
+  assert.match(P.backupPanel({ ...own, upload: gone }), /<button id="reuploadBtn"><span class="mi" aria-hidden="true">upload<\/span>Upload the backup again<\/button><\/div>/);
+  assert.match(P.backupPanel({ ...own, extract_held: true, upload: up }), /id="reuploadBtn" disabled>/, 'not while it is being extracted');
+  assert.doesNotMatch(P.backupPanel({ ...own, mine: false, upload: up }), /reuploadBtn/);
+  assert.doesNotMatch(P.backupPanel({ ...own, mine: false, access: 'support', upload: gone }), /reuploadBtn/);
+  // the page's heading says when the backup it has now was uploaded
+  assert.match(P.renderDatasetPage({ ...own, created_at: '2026-10-21T09:30:00+00:00', uploaded_at: '2026-11-24T10:00:00+00:00', upload: up }, 'backup'), /uploaded 2026-11-24/);
+  assert.match(P.renderDatasetPage({ ...own, created_at: '2026-10-21T09:30:00+00:00', upload: up }, 'backup'), /uploaded 2026-10-21/);
 });
 test('only the owner is offered the delete, not while it is being extracted, and nothing shows while it is uploading', () => {
   const P = at(load()), up = { present: true, expires_at: '2026-12-01T00:00:00+00:00' };

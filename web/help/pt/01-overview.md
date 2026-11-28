@@ -10,7 +10,7 @@ O smart-able recebe um backup ou uma exportação de uma área de conservação 
 
 Tudo o que você envia, extrai e carrega é compartilhado apenas com as pessoas com quem você compartilha. A equipe de suporte do EarthRanger também pode ver os conjuntos de dados e os sites, para ajudar em uma migração; ela não pode alterá-los nem carregar dados. Excluir um conjunto de dados exclui os dados extraídos, os pacotes e os registros de carga dele; nunca remove nada do EarthRanger.
 
-O backup enviado fica guardado por um tempo limitado (30 dias no aplicativo hospedado) e depois é excluído automaticamente. A página do conjunto de dados mostra a data, e o dono do conjunto de dados pode excluir o backup antes. Os dados extraídos não são afetados: eles ficam até o conjunto de dados ser excluído. Para extrair de novo depois que o backup não existir mais, envie-o novamente.
+O backup enviado fica guardado por um tempo limitado (30 dias no aplicativo hospedado) e depois é excluído automaticamente. A página do conjunto de dados mostra a data, e o dono do conjunto de dados pode excluir o backup antes. Os dados extraídos não são afetados: eles ficam até o conjunto de dados ser excluído. Para extrair de novo depois que o backup não existir mais, envie-o novamente pela aba **Backup** do conjunto de dados. Ali você também pode enviar um backup mais recente do mesmo banco de dados do SMART: ele substitui o que está guardado, e o conjunto de dados é extraído de novo a partir dele. As cargas listadas no conjunto de dados ficam.
 
 ## Do SMART: um backup ou uma exportação {#upload-file}
 

@@ -106,7 +106,7 @@
     "kept": "Guardado até você excluí-lo.",
     "deletedOn": "Excluído em {{date}}.",
     "gone": "Não está mais guardado.",
-    "reupload": "Para extrair de novo, envie o backup novamente como um novo conjunto de dados.",
+    "reupload": "Para extrair de novo, envie o backup novamente.",
     "extractedStays": "Os dados extraídos não são afetados. Eles ficam até você excluir o conjunto de dados.",
     "deleteNow": "Excluir o backup agora",
     "uploading": "O backup ainda está sendo enviado.",
@@ -114,7 +114,13 @@
     "reminderSoon_one": "O backup enviado será excluído em {{count}} dia.",
     "reminderSoon_other": "O backup enviado será excluído em {{count}} dias.",
     "reminderDue": "O backup enviado aguarda exclusão automática.",
-    "reminderGone": "O backup enviado não está mais guardado."
+    "reminderGone": "O backup enviado não está mais guardado.",
+    "uploadAgain": "Enviar o backup novamente",
+    "replace": "Enviar um backup mais recente",
+    "againTitle": "Enviar um backup para {{name}}",
+    "againWhat": "O arquivo escolhido substitui o backup guardado, e o conjunto de dados é extraído de novo a partir dele. O que você explora aqui é substituído quando essa extração termina.",
+    "againLoads": "As cargas listadas neste conjunto de dados ficam.",
+    "againSame": "Escolha um backup do mesmo banco de dados do SMART. Um banco de dados diferente deve ir em um novo conjunto de dados."
   },
   "sites": {
     "add": "Adicionar um site",
@@ -630,7 +636,8 @@
     "upload_not_zip": "Envie um backup do SMART ou uma exportação de área de conservação como .zip",
     "upload_direct": "Nesta implantação, os envios vão direto para o armazenamento",
     "load_running": "Espere primeiro a carga em andamento parar",
-    "upload_incomplete": "O envio está ausente ou incompleto; exclua este conjunto de dados e envie de novo",
+    "upload_incomplete": "O envio está ausente ou incompleto; envie o backup novamente",
+    "upload_delete_failed": "Não foi possível excluir o backup; tente novamente",
     "extract_active": "Já há uma extração na fila ou em execução",
     "extract_start_failed": "Não foi possível iniciar o trabalho de extração",
     "load_running_delete": "Espere primeiro a carga em andamento parar (ou exclua-a)",

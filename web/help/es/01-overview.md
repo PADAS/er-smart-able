@@ -10,7 +10,7 @@ smart-able toma una copia de seguridad o una exportación de un área de conserv
 
 Todo lo que usted sube, extrae y carga se comparte solo con las personas con quienes usted lo comparte. El equipo de soporte de EarthRanger también puede ver los conjuntos de datos y los sitios, para ayudar con una migración; no puede modificarlos ni cargar datos. Eliminar un conjunto de datos elimina sus datos extraídos, sus paquetes y sus registros de carga; nunca quita nada de EarthRanger.
 
-La copia de seguridad subida se conserva durante un tiempo limitado (30 días en la aplicación alojada) y después se elimina automáticamente. La página del conjunto de datos muestra la fecha, y el propietario del conjunto de datos puede eliminar la copia de seguridad antes. Los datos extraídos no se ven afectados: se conservan hasta que se elimina el conjunto de datos. Para extraer de nuevo cuando la copia de seguridad ya no esté, súbala otra vez.
+La copia de seguridad subida se conserva durante un tiempo limitado (30 días en la aplicación alojada) y después se elimina automáticamente. La página del conjunto de datos muestra la fecha, y el propietario del conjunto de datos puede eliminar la copia de seguridad antes. Los datos extraídos no se ven afectados: se conservan hasta que se elimina el conjunto de datos. Para extraer de nuevo cuando la copia de seguridad ya no esté, súbala otra vez desde la pestaña **Copia de seguridad** del conjunto de datos. Allí también puede subir una copia de seguridad más reciente de la misma base de datos de SMART: sustituye a la guardada, y el conjunto de datos se extrae de nuevo a partir de ella. Las cargas que figuran en el conjunto de datos se conservan.
 
 ## De SMART: una copia de seguridad o una exportación {#upload-file}
 

@@ -106,7 +106,7 @@
     "kept": "Se conserva hasta que usted la elimine.",
     "deletedOn": "Eliminada el {{date}}.",
     "gone": "Ya no está almacenada.",
-    "reupload": "Para extraer de nuevo, suba otra vez la copia de seguridad como un conjunto de datos nuevo.",
+    "reupload": "Para extraer de nuevo, suba otra vez la copia de seguridad.",
     "extractedStays": "Los datos extraídos no se ven afectados. Se conservan hasta que usted elimine el conjunto de datos.",
     "deleteNow": "Eliminar la copia de seguridad ahora",
     "uploading": "La copia de seguridad todavía se está subiendo.",
@@ -114,7 +114,13 @@
     "reminderSoon_one": "La copia de seguridad subida se elimina en {{count}} día.",
     "reminderSoon_other": "La copia de seguridad subida se elimina en {{count}} días.",
     "reminderDue": "La copia de seguridad subida está pendiente de eliminación automática.",
-    "reminderGone": "La copia de seguridad subida ya no está almacenada."
+    "reminderGone": "La copia de seguridad subida ya no está almacenada.",
+    "uploadAgain": "Subir otra vez la copia de seguridad",
+    "replace": "Subir una copia de seguridad más reciente",
+    "againTitle": "Subir una copia de seguridad para {{name}}",
+    "againWhat": "El archivo que elija sustituye a la copia de seguridad guardada, y el conjunto de datos se extrae de nuevo a partir de él. Lo que explora aquí se sustituye cuando termina esa extracción.",
+    "againLoads": "Las cargas que figuran en este conjunto de datos se conservan.",
+    "againSame": "Elija una copia de seguridad de la misma base de datos de SMART. Una base de datos distinta va en un conjunto de datos nuevo."
   },
   "sites": {
     "add": "Agregar un sitio",
@@ -630,7 +636,8 @@
     "upload_not_zip": "Suba una copia de seguridad de SMART o una exportación de área de conservación como .zip",
     "upload_direct": "En esta instalación, los archivos se suben directamente al almacenamiento",
     "load_running": "Espere primero a que se detenga la carga en curso",
-    "upload_incomplete": "La subida falta o está incompleta; elimine este conjunto de datos y vuelva a subirlo",
+    "upload_incomplete": "La subida falta o está incompleta; suba otra vez la copia de seguridad",
+    "upload_delete_failed": "No se pudo eliminar la copia de seguridad; inténtelo de nuevo",
     "extract_active": "Ya hay una extracción en cola o en ejecución",
     "extract_start_failed": "No se pudo iniciar el trabajo de extracción",
     "load_running_delete": "Espere primero a que se detenga la carga en curso (o elimínela)",

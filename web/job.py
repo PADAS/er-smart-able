@@ -21,7 +21,7 @@ import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from store import ROOT, get_store, now  # noqa: E402
+from store import ROOT, get_store, now, upload_object  # noqa: E402
 
 
 def describe_export(export_dir: Path) -> list:
@@ -89,7 +89,7 @@ def main(dataset_id: str) -> int:
     log_lines = []
     proc = None
     try:
-        src = store.fetch_upload(dataset_id, doc["source_name"], work / "in")
+        src = store.fetch_upload(dataset_id, upload_object(doc), work / "in")
         env = {**os.environ, "SMART_ABLE_WORK": str(work / "out")}
         print(f"extracting {src} -> {work / 'out'}", flush=True)
         proc = subprocess.Popen([str(ROOT / "smart-able"), "all", str(src)], cwd=str(ROOT), env=env,

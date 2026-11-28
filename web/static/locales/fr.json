@@ -106,7 +106,7 @@
     "kept": "Conservée jusqu'à ce que vous la supprimiez.",
     "deletedOn": "Supprimée le {{date}}.",
     "gone": "N'est plus conservée.",
-    "reupload": "Pour extraire de nouveau, téléversez de nouveau la sauvegarde comme nouveau jeu de données.",
+    "reupload": "Pour extraire de nouveau, téléversez de nouveau la sauvegarde.",
     "extractedStays": "Les données extraites ne sont pas concernées. Elles restent jusqu'à ce que vous supprimiez le jeu de données.",
     "deleteNow": "Supprimer la sauvegarde maintenant",
     "uploading": "La sauvegarde est encore en cours de téléversement.",
@@ -114,7 +114,13 @@
     "reminderSoon_one": "La sauvegarde téléversée sera supprimée dans {{count}} jour.",
     "reminderSoon_other": "La sauvegarde téléversée sera supprimée dans {{count}} jours.",
     "reminderDue": "La sauvegarde téléversée est en attente de suppression automatique.",
-    "reminderGone": "La sauvegarde téléversée n'est plus conservée."
+    "reminderGone": "La sauvegarde téléversée n'est plus conservée.",
+    "uploadAgain": "Téléverser de nouveau la sauvegarde",
+    "replace": "Téléverser une sauvegarde plus récente",
+    "againTitle": "Téléverser une sauvegarde pour {{name}}",
+    "againWhat": "Le fichier choisi remplace la sauvegarde conservée, et le jeu de données est extrait de nouveau à partir de lui. Ce que vous parcourez ici est remplacé à la fin de cette extraction.",
+    "againLoads": "Les chargements listés pour ce jeu de données restent.",
+    "againSame": "Choisissez une sauvegarde de la même base de données SMART. Une autre base de données a sa place dans un nouveau jeu de données."
   },
   "sites": {
     "add": "Ajouter un site",
@@ -630,7 +636,8 @@
     "upload_not_zip": "Téléversez une sauvegarde SMART ou un export de zone de conservation au format .zip",
     "upload_direct": "Sur ce déploiement, les téléversements vont directement dans le stockage",
     "load_running": "Attendez d'abord que le chargement en cours s'arrête",
-    "upload_incomplete": "Le téléversement est absent ou incomplet ; supprimez ce jeu de données et téléversez-le de nouveau",
+    "upload_incomplete": "Le téléversement est absent ou incomplet ; téléversez de nouveau la sauvegarde",
+    "upload_delete_failed": "Impossible de supprimer la sauvegarde ; réessayez",
     "extract_active": "Une extraction est déjà en file d'attente ou en cours",
     "extract_start_failed": "Impossible de démarrer la tâche d'extraction",
     "load_running_delete": "Attendez d'abord que le chargement en cours s'arrête (ou supprimez-le)",

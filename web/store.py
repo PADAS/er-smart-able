@@ -69,13 +69,63 @@ def stored_name(filename: str) -> str:
     return p.stem + p.suffix.lower()
 
 
+def upload_object(doc: dict):
+    """The name the dataset's backup is stored under. A backup uploaded again has its own (pending_object);
+    a first upload is stored under the name shown, source_name."""
+    return doc.get("source_object") or doc.get("source_name")
+
+
+def pending_object(filename: str) -> str:
+    """Where one attempt at uploading a backup again is stored: a name no other attempt and no stored
+    backup has, so sending it never writes over a file in use. It keeps the ending the rule matches."""
+    return f"{uuid.uuid4().hex[:8]}-{stored_name(filename)}"
+
+
+# What the claims below change, as fields, for both stores to write inside their lock or transaction.
+# A file nothing names any more is listed in dropped_objects, and removed afterwards (app._sweep_uploads):
+# it is not the pending upload, and it is the stored backup only once that one's deletion is reserved
+# (upload_deleted_at, which only a backup uploaded again clears), so removing it is safe whenever it happens.
+def _dropped(doc: dict, name) -> list:
+    return [*(doc.get("dropped_objects") or []), *([name] if name else [])]
+
+
+def _pend(doc: dict, obj: str, name: str, size: int) -> dict:
+    """A new attempt at uploading the backup again; the attempt before it, if any, is dropped."""
+    return {"pending_object": obj, "pending_source_name": name, "pending_source_size": size,
+            "dropped_objects": _dropped(doc, doc.get("pending_object"))}
+
+
+def _delete_backup(doc: dict) -> dict:
+    """The backup's deletion is reserved: the stored file is dropped, and with it an upload on its way.
+    The file is named here, inside the claim, so that what is removed is what was reserved: by the time
+    the request gets to removing it, a backup uploaded again may have taken its place."""
+    changes = {}
+    drop = [n for n in (upload_object(doc), doc.get("pending_object")) if n and n not in (doc.get("dropped_objects") or [])]
+    if drop:
+        changes["dropped_objects"] = [*(doc.get("dropped_objects") or []), *drop]
+    if doc.get("pending_object"):
+        changes.update(pending_object=None, pending_source_name=None, pending_source_size=None)
+    if not doc.get("upload_deleted_at"):
+        changes["upload_deleted_at"] = now()
+    return changes
+
+
+def _promote(doc: dict) -> dict:
+    """The pending upload becomes the dataset's backup, and the one it replaces is dropped."""
+    return {"source_object": doc["pending_object"], "source_name": doc.get("pending_source_name"),
+            "source_size": doc.get("pending_source_size") or 0, "uploaded_at": now(), "upload_deleted_at": None,
+            "pending_object": None, "pending_source_name": None, "pending_source_size": None,
+            "dropped_objects": _dropped(doc, upload_object(doc))}
+
+
 def upload_expires_at(doc: dict):
     """When the storage rule deletes this dataset's uploaded backup: an ISO time, or None when nothing
     does (no rule here, or a name the rule does not match)."""
     if UPLOAD_RETENTION_DAYS is None or not str(doc.get("source_name") or "").endswith(EXPIRING_SUFFIXES):
         return None
     try:
-        return (datetime.fromisoformat(doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
+        # a backup uploaded again is a new object, and the rule counts from that
+        return (datetime.fromisoformat(doc.get("uploaded_at") or doc["created_at"]) + timedelta(days=UPLOAD_RETENTION_DAYS)).isoformat()
     except (KeyError, TypeError, ValueError):
         return None
 
@@ -245,16 +295,42 @@ class LocalStore:
         with self.lock:
             data = self._read(); data.pop(id, None); self._write(data)
 
-    def claim_extract(self, id: str) -> bool:
-        """Mark the dataset queued unless an extraction already holds it."""
+    def claim_extract(self, id: str, take: str | None = None) -> bool:
+        """Mark the dataset queued unless an extraction already holds it. `take` names a pending upload
+        the caller found stored: it becomes the dataset's backup here, under the same lock, so a backup is
+        never replaced for an extraction that is then refused."""
         with self.lock:
             data = self._read()
             doc = data.get(id)
-            if doc is None or extract_in_progress(doc) or doc.get("upload_deleted_at"):   # nothing to extract from
+            if doc is None or extract_in_progress(doc) or (take and doc.get("pending_object") != take):
                 return False
-            doc.update(status="queued", error=None, extract_claimed_at=now(), updated_at=now(), **NEW_RUN)
+            took = _promote(doc) if take else {}
+            if not took and doc.get("upload_deleted_at"):   # nothing to extract from
+                return False
+            doc.update(took, status="queued", error=None, extract_claimed_at=now(), updated_at=now(), **NEW_RUN)
             self._write(data)
             return True
+
+    def claim_reupload(self, id: str, obj: str, name: str, size: int) -> bool:
+        """Note a new attempt at uploading the backup again, unless an extraction holds the dataset."""
+        with self.lock:
+            data = self._read()
+            doc = data.get(id)
+            if doc is None or extract_in_progress(doc):
+                return False
+            doc.update(_pend(doc, obj, name, size), updated_at=now())
+            self._write(data)
+            return True
+
+    def forget_dropped(self, id: str, names: list):
+        """Take files that have been removed off the dataset's list of dropped ones. Under the lock the
+        claims add to it with, and by name: one a claim listed meanwhile stays listed."""
+        with self.lock:
+            data = self._read()
+            doc = data.get(id)
+            if doc is not None and doc.get("dropped_objects"):
+                doc["dropped_objects"] = [n for n in doc["dropped_objects"] if n not in names]
+                self._write(data)
 
     def claim_upload_delete(self, id: str) -> bool:
         """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. Under the
@@ -264,8 +340,9 @@ class LocalStore:
             doc = data.get(id)
             if doc is None or extract_in_progress(doc):
                 return False
-            if not doc.get("upload_deleted_at"):
-                doc.update(upload_deleted_at=now(), updated_at=now())
+            changes = _delete_backup(doc)
+            if changes:
+                doc.update(changes, updated_at=now())
                 self._write(data)
             return True
 
@@ -543,21 +620,50 @@ class GcpStore:
         self.delete_dataset_loads(id)
         self._col().document(id).delete()
 
-    def claim_extract(self, id: str) -> bool:
+    def claim_extract(self, id: str, take: str | None = None) -> bool:
         """Mark the dataset queued unless an extraction already holds it. A
-        transaction, so two requests cannot both see it free."""
+        transaction, so two requests cannot both see it free. `take` names a pending upload the caller
+        found stored: it becomes the dataset's backup in the same transaction, so a backup is never
+        replaced for an extraction that is then refused."""
         from google.cloud import firestore
         ref = self._col().document(id)
 
         @firestore.transactional
         def claim(tx) -> bool:
             snap = ref.get(transaction=tx)
-            if not snap.exists or extract_in_progress(snap.to_dict()) or snap.to_dict().get("upload_deleted_at"):
-                return False   # held, or nothing to extract from
-            tx.update(ref, {"status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now(), **NEW_RUN})
+            doc = snap.to_dict() if snap.exists else None
+            if doc is None or extract_in_progress(doc) or (take and doc.get("pending_object") != take):
+                return False   # held, or the upload it was to take has been superseded
+            took = _promote(doc) if take else {}
+            if not took and doc.get("upload_deleted_at"):
+                return False   # nothing to extract from
+            tx.update(ref, {**took, "status": "queued", "error": None, "extract_claimed_at": now(), "updated_at": now(), **NEW_RUN})
             return True
 
         return claim(self.db.transaction())
+
+    def claim_reupload(self, id: str, obj: str, name: str, size: int) -> bool:
+        """Note a new attempt at uploading the backup again, unless an extraction holds the dataset. A
+        transaction on the document claim_extract reads."""
+        from google.cloud import firestore
+        ref = self._col().document(id)
+
+        @firestore.transactional
+        def claim(tx) -> bool:
+            snap = ref.get(transaction=tx)
+            if not snap.exists or extract_in_progress(snap.to_dict()):
+                return False
+            tx.update(ref, {**_pend(snap.to_dict(), obj, name, size), "updated_at": now()})
+            return True
+
+        return claim(self.db.transaction())
+
+    def forget_dropped(self, id: str, names: list):
+        """Take files that have been removed off the dataset's list of dropped ones. An array removal,
+        which the database applies to the list as it then is: one a claim listed meanwhile stays listed."""
+        from google.cloud import firestore
+        if names:
+            self._col().document(id).update({"dropped_objects": firestore.ArrayRemove(list(names))})
 
     def claim_upload_delete(self, id: str) -> bool:
         """Reserve the deletion of the uploaded backup unless an extraction holds the dataset. A
@@ -571,8 +677,9 @@ class GcpStore:
             snap = ref.get(transaction=tx)
             if not snap.exists or extract_in_progress(snap.to_dict()):
                 return False
-            if not snap.to_dict().get("upload_deleted_at"):
-                tx.update(ref, {"upload_deleted_at": now(), "updated_at": now()})
+            changes = _delete_backup(snap.to_dict())
+            if changes:
+                tx.update(ref, {**changes, "updated_at": now()})
             return True
 
         return claim(self.db.transaction())
